@@ -9,6 +9,18 @@
 
 ---
 
+## Clarifications
+
+### Session 2026-01-06
+- Q: Should the local HTTP API be required or optional? → A: Required (first-class interface).
+- Q: What sandbox mechanism is acceptable on macOS for Python test runners? → A: Python venv + OS resource limits + filesystem allowlist (best-effort).
+- Q: Preferred proxy perplexity task when logprobs are absent? → A: Cloze multiple-choice accuracy.
+- Q: Are token timing hooks available for non-streaming decode timing? → A: No; approximate prefill, decode = not_measurable.
+- Q: What retention policy should be used for stored runs? → A: Keep runs for X days.
+- Q: What authentication is required for the local HTTP API? → A: Localhost only + API token.
+- Q: What uniqueness rules apply to Targets and TestDefinitions? → A: Target unique by name+base_url; TestDefinition unique by id+version.
+- Q: What observability level is required? → A: Structured logs + basic metrics.
+
 ## User Scenarios & Testing (mandatory)
 
 ### User Story 1 — Run a single test against a target (Priority: P1)
@@ -77,6 +89,7 @@ As a user, I want to add new tests without editing the core application, by drop
 - FR-003: System MUST allow per-target configuration of: base URL, auth header (Bearer token), default model, default temperature/top_p, request timeout(s), and concurrency limits.
 - FR-004: System MUST support both `stream=false` and `stream=true` requests where the protocol allows it.
 - FR-005: System MUST capture and store request/response artefacts (headers + body), with secrets redacted at rest (Bearer tokens, API keys).
+- FR-069: Targets MUST be unique by name + base_url.
 
 #### Model Metadata & Introspection
 - FR-029: System MUST support retrieving model metadata from a target endpoint when the protocol allows it (e.g. Ollama /api/show, OpenAI-compatible models endpoints, or vendor-specific extensions).
@@ -201,12 +214,12 @@ Example (JSON test override)
 #### Perplexity & Quality Probes (quantised-model-focused)
 - FR-014: System MUST support running perplexity evaluation on a provided text dataset (local file) against a target that can expose token logprobs or a compatible scoring endpoint.
 - FR-015: If the target does not support logprobs/scoring, System MUST mark perplexity tests as SKIP with a clear reason.
-- FR-016: System SHOULD support “proxy perplexity” alternatives when logprobs are absent (e.g., multiple-choice cloze accuracy) **[NEEDS CLARIFICATION: preferred proxy tasks + datasets]**.
+- FR-016: System SHOULD support “proxy perplexity” alternatives when logprobs are absent, using cloze multiple-choice accuracy as the default proxy task.
 
 #### Prefill/Decode Measurement (practical definition)
 - FR-017: System MUST define prefill time operationally as:
   - For streaming: time from request sent → first streamed token/chunk
-  - For non-streaming: time from request sent → response received, with prefill approximated as total latency minus estimated decode time (if token timestamps are unavailable) **[NEEDS CLARIFICATION: whether server provides token timing hooks]**
+  - For non-streaming: time from request sent → response received, with prefill approximated as total latency when token timestamps are unavailable.
 - FR-018: System MUST compute decode speed as `completion_tokens / decode_duration` where decode_duration is:
   - For streaming: time from first token → final token (or `[DONE]`)
   - For non-streaming: if no token timestamps are available, decode speed MUST be reported as “not_measurable” (not guessed)
@@ -215,8 +228,9 @@ Example (JSON test override)
 - FR-019: System MUST auto-discover tests from a configured directory.
 - FR-020: System MUST support JSON-defined tests (declarative) containing: name, description, protocol target type(s), request template, assertions, and metric extraction rules.
 - FR-021: System MUST support Python-defined tests (imperative) with a stable runner interface (see “Test Plugin API” section).
-- FR-022: System MUST sandbox Python tests (virtualenv or container) and enforce resource limits (CPU time, memory ceiling, filesystem allowlist) **[NEEDS CLARIFICATION: acceptable sandbox mechanism on macOS]**.
+- FR-022: System MUST sandbox Python tests using Python venv + OS resource limits + filesystem allowlist (best-effort) and enforce resource limits (CPU time, memory ceiling, filesystem allowlist).
 - FR-023: System MUST version test specs and persist which version produced each result.
+- FR-070: TestDefinitions MUST be unique by id + version.
 
 #### Dashboard & Persistence
 - FR-024: System MUST provide a dashboard that displays:
@@ -225,7 +239,7 @@ Example (JSON test override)
   - Trend charts over time for key metrics
   - Run-to-run comparison view
 - FR-025: System MUST persist all results locally (SQLite preferred) and support export to JSON/CSV.
-- FR-026: System MUST support result retention policies (e.g., keep last N runs, or keep runs for X days).
+- FR-026: System MUST support time-based result retention (keep runs for X days).
 - FR-034: System MUST provide a Model Details view in the dashboard showing:
   - full stored metadata for a model,
   - the list of runs/tests executed against that model,
@@ -293,7 +307,8 @@ Example (JSON test override)
   - run a test
   - run a suite
   - export results
-- FR-028: System SHOULD provide a local HTTP API for triggering runs and fetching results **[NEEDS CLARIFICATION: required vs optional]**.
+- FR-028: System MUST provide a local HTTP API for triggering runs and fetching results.
+- FR-029: The local HTTP API MUST bind to localhost and require an API token.
 
 #### Non-Goals (Explicitly Out of Scope)
 - NG-001: The system does NOT attempt to automatically infer optimal parameters.
@@ -411,6 +426,7 @@ A Python test module MUST expose:
 - NFR-002: The harness MUST redact secrets in logs and stored artefacts.
 - NFR-003: The dashboard MUST load and render 1,000 historical runs in under 3 seconds on a typical laptop.
 - NFR-004: The system MUST be deterministic given the same inputs (except inherently stochastic model outputs; randomness must be controlled via fixed seeds where supported).
+- NFR-005: The system MUST emit structured logs and basic metrics with run_id and test_id tags.
 
 ---
 
@@ -431,4 +447,3 @@ A Python test module MUST expose:
 - **compliance** = adherence to a specification/standard (counter: 0)
 - **throughput** = amount produced per unit time, e.g. tokens/sec (counter: 0)
 - **regression** = performance/behaviour gets worse after a change (counter: 0)
-
