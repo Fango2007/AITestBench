@@ -81,6 +81,18 @@ components:
         metrics: { type: object }
         artefacts: { type: object }
         raw_events: { type: array, items: { type: object } }
+    Model:
+      type: object
+      required: [id, name, provider]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        provider: { type: string }
+        version: { type: string }
+        architecture: { type: object }
+        quantisation: { type: object }
+        capabilities: { type: object }
+        raw_metadata: { type: object }
 paths:
   /health:
     get:
@@ -156,6 +168,26 @@ paths:
       summary: Reload tests from disk
       responses:
         '200': { description: OK }
+  /suites:
+    get:
+      summary: List suites
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Suite' }
+    post:
+      summary: Create suite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Suite' }
+      responses:
+        '201': { description: Created }
   /suites:
     get:
       summary: List suites
@@ -328,6 +360,37 @@ paths:
           schema: { type: string }
       responses:
         '200': { description: OK }
+  /profiles:
+    get:
+      summary: List profiles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Profile' }
+    post:
+      summary: Create profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Profile' }
+      responses:
+        '201': { description: Created }
+  /models:
+    get:
+      summary: List models
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Model' }
   /export:
     post:
       summary: Export results

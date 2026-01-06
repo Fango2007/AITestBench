@@ -1,0 +1,59 @@
+const DEFAULT_BASE_URL = 'http://localhost:8080';
+
+export interface ApiClientOptions {
+  baseUrl?: string;
+  token?: string;
+}
+
+export class ApiClient {
+  private baseUrl: string;
+  private token?: string;
+
+  constructor(options: ApiClientOptions = {}) {
+    this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+    this.token = options.token ?? process.env.LLM_HARNESS_API_TOKEN;
+  }
+
+  private headers(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'content-type': 'application/json'
+    };
+    if (this.token) {
+      headers['x-api-token'] = this.token;
+    }
+    return headers;
+  }
+
+  async get<T>(path: string): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'GET',
+      headers: this.headers()
+    });
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
+  async post<T>(path: string, payload: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
+  async delete(path: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'DELETE',
+      headers: this.headers()
+    });
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "proxy-perplexity",
+  "version": "1.0.0",
+  "name": "Proxy Perplexity",
+  "description": "Cloze-style proxy perplexity evaluation.",
+  "protocols": ["proxy_perplexity"],
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "body_template": {
+      "model": "gpt-4o-mini",
+      "messages": [
+        { "role": "user", "content": "{prompt}" }
+      ]
+    }
+  },
+  "assertions": [
+    { "type": "contains", "target": "body", "expected": "{correct}" }
+  ],
+  "metrics": {
+    "proxy_accuracy": "cloze"
+  }
+}

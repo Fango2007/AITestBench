@@ -29,21 +29,21 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create project directories per plan in `backend/`, `frontend/`, `cli/`
-- [ ] T002 Initialize root workspace config in `package.json`
-- [ ] T003 [P] Add shared TypeScript config in `tsconfig.base.json`
-- [ ] T004 [P] Add lint/format configs in `.eslintrc.cjs`, `.prettierrc`, `.editorconfig`
-- [ ] T005 [P] Initialize backend package in `backend/package.json`
-- [ ] T006 [P] Initialize frontend package in `frontend/package.json`
-- [ ] T007 [P] Initialize CLI package in `cli/package.json`
-- [ ] T008 [P] Add backend tsconfig in `backend/tsconfig.json`
-- [ ] T009 [P] Add frontend tsconfig in `frontend/tsconfig.json`
-- [ ] T010 [P] Add CLI tsconfig in `cli/tsconfig.json`
-- [ ] T011 [P] Add Tailwind config in `frontend/tailwind.config.ts`
-- [ ] T012 [P] Add Vite config in `frontend/vite.config.ts`
-- [ ] T013 [P] Add Fastify server entry in `backend/src/index.ts`
-- [ ] T014 [P] Add CLI entrypoint in `cli/src/index.ts`
-- [ ] T015 [P] Add env sample in `.env.example`
+- [X] T001 Create project directories per plan in `backend/`, `frontend/`, `cli/`
+- [X] T002 Initialize root workspace config in `package.json`
+- [X] T003 [P] Add shared TypeScript config in `tsconfig.base.json`
+- [X] T004 [P] Add lint/format configs in `.eslintrc.cjs`, `.prettierrc`, `.editorconfig`
+- [X] T005 [P] Initialize backend package in `backend/package.json`
+- [X] T006 [P] Initialize frontend package in `frontend/package.json`
+- [X] T007 [P] Initialize CLI package in `cli/package.json`
+- [X] T008 [P] Add backend tsconfig in `backend/tsconfig.json`
+- [X] T009 [P] Add frontend tsconfig in `frontend/tsconfig.json`
+- [X] T010 [P] Add CLI tsconfig in `cli/tsconfig.json`
+- [X] T011 [P] Add Tailwind config in `frontend/tailwind.config.ts`
+- [X] T012 [P] Add Vite config in `frontend/vite.config.ts`
+- [X] T013 [P] Add Fastify server entry in `backend/src/index.ts`
+- [X] T014 [P] Add CLI entrypoint in `cli/src/index.ts`
+- [X] T015 [P] Add env sample in `.env.example`
 
 ---
 
@@ -53,27 +53,27 @@ description: "Task list template for feature implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T016 Define SQLite schema in `backend/src/models/schema.sql` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T017 Implement DB access layer in `backend/src/models/db.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T018 Implement data repositories in `backend/src/models/repositories.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T019 Extend schema for Model and Profile tables in `backend/src/models/schema.sql` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T020 Implement Model repository mapping in `backend/src/models/model.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T021 Implement Profile repository mapping in `backend/src/models/profile.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T022 Implement Model metadata service in `backend/src/services/model-metadata.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T023 Implement Profile service in `backend/src/services/profile-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T024 Implement auth token middleware in `backend/src/api/middleware/auth.ts`
-- [ ] T025 Implement structured logger + metrics in `backend/src/services/observability.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T026 Implement OpenAI adapter in `backend/src/adapters/openai.ts`
-- [ ] T027 Implement Ollama adapter in `backend/src/adapters/ollama.ts`
-- [ ] T028 Implement test discovery loader in `backend/src/plugins/loader.ts`
-- [ ] T029 Implement JSON test validator in `backend/src/plugins/json-validator.ts`
-- [ ] T030 Implement Python runner sandbox in `backend/src/plugins/python-runner.ts`
-- [ ] T031 Implement metrics computation utilities in `backend/src/services/metrics.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T032 Implement run orchestration service in `backend/src/services/run-executor.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T033 Implement redaction utilities in `backend/src/services/redaction.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T034 Define traceability mapping in `specs/001-llm-server-test-harness/tasks.md`
-- [ ] T035 Implement retention config loader in `backend/src/services/retention.ts`
-- [ ] T036 Implement retention cleanup job in `backend/src/services/retention-job.ts`
+- [X] T016 Define SQLite schema in `backend/src/models/schema.sql` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T017 Implement DB access layer in `backend/src/models/db.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T018 Implement data repositories in `backend/src/models/repositories.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T019 Extend schema for Model and Profile tables in `backend/src/models/schema.sql` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T020 Implement Model repository mapping in `backend/src/models/model.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T021 Implement Profile repository mapping in `backend/src/models/profile.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T022 Implement Model metadata service in `backend/src/services/model-metadata.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T023 Implement Profile service in `backend/src/services/profile-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T024 Implement auth token middleware in `backend/src/api/middleware/auth.ts`
+- [X] T025 Implement structured logger + metrics in `backend/src/services/observability.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T026 Implement OpenAI adapter in `backend/src/adapters/openai.ts`
+- [X] T027 Implement Ollama adapter in `backend/src/adapters/ollama.ts`
+- [X] T028 Implement test discovery loader in `backend/src/plugins/loader.ts`
+- [X] T029 Implement JSON test validator in `backend/src/plugins/json-validator.ts`
+- [X] T030 Implement Python runner sandbox in `backend/src/plugins/python-runner.ts`
+- [X] T031 Implement metrics computation utilities in `backend/src/services/metrics.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T032 Implement run orchestration service in `backend/src/services/run-executor.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T033 Implement redaction utilities in `backend/src/services/redaction.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T034 Define traceability mapping in `specs/001-llm-server-test-harness/tasks.md`
+- [X] T035 Implement retention config loader in `backend/src/services/retention.ts`
+- [X] T036 Implement retention cleanup job in `backend/src/services/retention-job.ts`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -87,51 +87,51 @@ description: "Task list template for feature implementation"
 
 ### Tests for User Story 1 (REQUIRED unless exempted in spec.md) ⚠️
 
-- [ ] T037 [P] [US1] Unit test SSE parsing in `backend/tests/unit/sse-parser.test.ts`
-- [ ] T038 [P] [US1] Unit test metrics computation in `backend/tests/unit/metrics.test.ts`
-- [ ] T039 [P] [US1] Integration test target CRUD in `backend/tests/integration/targets.test.ts`
-- [ ] T040 [P] [US1] Integration test single run API in `backend/tests/integration/runs-single.test.ts`
-- [ ] T041 [P] [US1] CLI smoke test for single run in `cli/tests/integration/run-single.test.ts`
-- [ ] T042 [P] [US1] Unit test compliance test assertions in `backend/tests/unit/compliance.test.ts`
+- [X] T037 [P] [US1] Unit test SSE parsing in `backend/tests/unit/sse-parser.test.ts`
+- [X] T038 [P] [US1] Unit test metrics computation in `backend/tests/unit/metrics.test.ts`
+- [X] T039 [P] [US1] Integration test target CRUD in `backend/tests/integration/targets.test.ts`
+- [X] T040 [P] [US1] Integration test single run API in `backend/tests/integration/runs-single.test.ts`
+- [X] T041 [P] [US1] CLI smoke test for single run in `cli/tests/integration/run-single.test.ts`
+- [X] T042 [P] [US1] Unit test compliance test assertions in `backend/tests/unit/compliance.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T043 [P] [US1] Implement Target model mapping in `backend/src/models/target.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T044 [P] [US1] Implement TestDefinition model mapping in `backend/src/models/test-definition.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T045 [US1] Implement Target service in `backend/src/services/target-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T046 [US1] Implement Tests service in `backend/src/services/test-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T047 [US1] Implement Runs service (single run) in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T048 [US1] Implement test-level override resolution in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T049 [US1] Persist effective parameter set in `backend/src/models/repositories.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T050 [US1] Implement context sizing strategies in `backend/src/services/context-strategy.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T051 [US1] Record prompt token counts in `backend/src/services/metrics.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T052 [US1] Extend Runs service to capture model metadata per run in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T053 [US1] Implement parameter sweep execution in `backend/src/services/sweep-runner.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T054 [US1] Persist sweep groupings in `backend/src/models/repositories.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T055 [US1] Add built-in compliance tests in `backend/src/plugins/builtins/openai-compliance.json`
-- [ ] T056 [US1] Add built-in compliance tests in `backend/src/plugins/builtins/ollama-compliance.json`
-- [ ] T057 [US1] Implement compliance mismatch detection in `backend/src/services/compliance.ts`
-- [ ] T058 [US1] Implement edge-case failure handling in `backend/src/services/failure-handling.ts`
-- [ ] T059 [US1] Add recovery retry mode in `backend/src/services/run-executor.ts`
-- [ ] T060 [US1] Wire built-in compliance tests into loader in `backend/src/plugins/loader.ts`
-- [ ] T061 [US1] Implement Targets API in `backend/src/api/routes/targets.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets, /targets/{targetId})
-- [ ] T062 [US1] Implement Tests API in `backend/src/api/routes/tests.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests, /tests/reload)
-- [ ] T063 [US1] Implement Runs API (single) in `backend/src/api/routes/runs.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}, /runs/{runId}/results)
-- [ ] T064 [US1] Implement Results API in `backend/src/api/routes/results.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /results/{resultId})
-- [ ] T065 [US1] Implement CLI target commands in `cli/src/commands/target.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets)
-- [ ] T066 [US1] Implement CLI test run command in `cli/src/commands/test.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
-- [ ] T067 [US1] Implement CLI API client in `cli/src/lib/api-client.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets, /tests, /tests/reload, /suites, /profiles, /runs, /runs/{runId}, /runs/{runId}/results, /results/{resultId}, /export)
-- [ ] T068 [US1] Implement CLI list targets command in `cli/src/commands/targets-list.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets)
-- [ ] T069 [US1] Implement CLI list tests command in `cli/src/commands/tests-list.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests)
-- [ ] T070 [US1] Implement CLI list suites command in `cli/src/commands/suites-list.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /suites)
-- [ ] T071 [US1] Implement CLI export results command in `cli/src/commands/export.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /export)
-- [ ] T072 [US1] Implement dashboard target setup page in `frontend/src/pages/Targets.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets)
-- [ ] T073 [US1] Implement dashboard single run page in `frontend/src/pages/RunSingle.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
-- [ ] T074 [US1] Implement dashboard results view in `frontend/src/pages/Results.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results, /results/{resultId})
-- [ ] T075 [US1] Display edge-case failure reasons in `frontend/src/pages/Results.tsx`
-- [ ] T076 [US1] Implement frontend API client in `frontend/src/services/api.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets, /tests, /tests/reload, /suites, /profiles, /runs, /runs/{runId}, /runs/{runId}/results, /results/{resultId}, /export)
-- [ ] T077 [US1] Add profile selection support in CLI run commands in `cli/src/commands/test.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
-- [ ] T078 [US1] Add profile selection support in CLI suite commands in `cli/src/commands/suite.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
+- [X] T043 [P] [US1] Implement Target model mapping in `backend/src/models/target.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T044 [P] [US1] Implement TestDefinition model mapping in `backend/src/models/test-definition.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T045 [US1] Implement Target service in `backend/src/services/target-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T046 [US1] Implement Tests service in `backend/src/services/test-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T047 [US1] Implement Runs service (single run) in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T048 [US1] Implement test-level override resolution in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T049 [US1] Persist effective parameter set in `backend/src/models/repositories.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T050 [US1] Implement context sizing strategies in `backend/src/services/context-strategy.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T051 [US1] Record prompt token counts in `backend/src/services/metrics.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T052 [US1] Extend Runs service to capture model metadata per run in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T053 [US1] Implement parameter sweep execution in `backend/src/services/sweep-runner.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T054 [US1] Persist sweep groupings in `backend/src/models/repositories.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T055 [US1] Add built-in compliance tests in `backend/src/plugins/builtins/openai-compliance.json`
+- [X] T056 [US1] Add built-in compliance tests in `backend/src/plugins/builtins/ollama-compliance.json`
+- [X] T057 [US1] Implement compliance mismatch detection in `backend/src/services/compliance.ts`
+- [X] T058 [US1] Implement edge-case failure handling in `backend/src/services/failure-handling.ts`
+- [X] T059 [US1] Add recovery retry mode in `backend/src/services/run-executor.ts`
+- [X] T060 [US1] Wire built-in compliance tests into loader in `backend/src/plugins/loader.ts`
+- [X] T061 [US1] Implement Targets API in `backend/src/api/routes/targets.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets, /targets/{targetId})
+- [X] T062 [US1] Implement Tests API in `backend/src/api/routes/tests.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests, /tests/reload)
+- [X] T063 [US1] Implement Runs API (single) in `backend/src/api/routes/runs.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}, /runs/{runId}/results)
+- [X] T064 [US1] Implement Results API in `backend/src/api/routes/results.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /results/{resultId})
+- [X] T065 [US1] Implement CLI target commands in `cli/src/commands/target.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets)
+- [X] T066 [US1] Implement CLI test run command in `cli/src/commands/test.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
+- [X] T067 [US1] Implement CLI API client in `cli/src/lib/api-client.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets, /tests, /tests/reload, /suites, /profiles, /runs, /runs/{runId}, /runs/{runId}/results, /results/{resultId}, /export)
+- [X] T068 [US1] Implement CLI list targets command in `cli/src/commands/targets-list.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets)
+- [X] T069 [US1] Implement CLI list tests command in `cli/src/commands/tests-list.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests)
+- [X] T070 [US1] Implement CLI list suites command in `cli/src/commands/suites-list.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /suites)
+- [X] T071 [US1] Implement CLI export results command in `cli/src/commands/export.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /export)
+- [X] T072 [US1] Implement dashboard target setup page in `frontend/src/pages/Targets.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets)
+- [X] T073 [US1] Implement dashboard single run page in `frontend/src/pages/RunSingle.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
+- [X] T074 [US1] Implement dashboard results view in `frontend/src/pages/Results.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results, /results/{resultId})
+- [X] T075 [US1] Display edge-case failure reasons in `frontend/src/pages/Results.tsx`
+- [X] T076 [US1] Implement frontend API client in `frontend/src/services/api.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /targets, /tests, /tests/reload, /suites, /profiles, /runs, /runs/{runId}, /runs/{runId}/results, /results/{resultId}, /export)
+- [X] T077 [US1] Add profile selection support in CLI run commands in `cli/src/commands/test.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
+- [X] T078 [US1] Add profile selection support in CLI suite commands in `cli/src/commands/suite.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
 
 **Checkpoint**: User Story 1 should be fully functional and testable independently
 
@@ -145,35 +145,35 @@ description: "Task list template for feature implementation"
 
 ### Tests for User Story 2 (REQUIRED unless exempted in spec.md) ⚠️
 
-- [ ] T079 [P] [US2] Integration test suite run API in `backend/tests/integration/runs-suite.test.ts`
-- [ ] T080 [P] [US2] Integration test run history API in `backend/tests/integration/runs-history.test.ts`
-- [ ] T081 [P] [US2] UI e2e test comparison view in `frontend/tests/e2e/compare.spec.ts`
-- [ ] T082 [P] [US2] Integration test profiles API in `backend/tests/integration/profiles.test.ts`
-- [ ] T083 [P] [US2] Integration test model metadata API in `backend/tests/integration/models.test.ts`
-- [ ] T084 [P] [US2] UI e2e test model details view in `frontend/tests/e2e/models.spec.ts`
+- [X] T079 [P] [US2] Integration test suite run API in `backend/tests/integration/runs-suite.test.ts`
+- [X] T080 [P] [US2] Integration test run history API in `backend/tests/integration/runs-history.test.ts`
+- [X] T081 [P] [US2] UI e2e test comparison view in `frontend/tests/e2e/compare.spec.ts`
+- [X] T082 [P] [US2] Integration test profiles API in `backend/tests/integration/profiles.test.ts`
+- [X] T083 [P] [US2] Integration test model metadata API in `backend/tests/integration/models.test.ts`
+- [X] T084 [P] [US2] UI e2e test model details view in `frontend/tests/e2e/models.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T085 [US2] Implement Suite model mapping in `backend/src/models/suite.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T086 [US2] Implement Suite service in `backend/src/services/suite-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T087 [US2] Extend Runs service for suites in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
-- [ ] T088 [US2] Implement Suites API in `backend/src/api/routes/suites.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /suites, /suites/{suiteId})
-- [ ] T089 [US2] Implement run history API in `backend/src/api/routes/runs.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}, /runs/{runId}/results)
-- [ ] T090 [US2] Implement Profiles API in `backend/src/api/routes/profiles.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles, /profiles/{profileId})
-- [ ] T091 [US2] Implement Models API in `backend/src/api/routes/models.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /models, /models/{modelId})
-- [ ] T092 [US2] Extend OpenAPI with /models endpoints in `specs/001-llm-server-test-harness/contracts/openapi.yaml`
-- [ ] T093 [US2] Implement dashboard run history page in `frontend/src/pages/RunHistory.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
-- [ ] T094 [US2] Implement dashboard comparison page in `frontend/src/pages/CompareRuns.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}/results)
-- [ ] T095 [US2] Implement charts components in `frontend/src/components/RunCharts.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results)
-- [ ] T096 [US2] Display effective parameters in results view in `frontend/src/pages/Results.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results, /results/{resultId})
-- [ ] T097 [US2] Add context utilization chart in `frontend/src/components/ContextUtilChart.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results)
-- [ ] T098 [US2] Add parameter filter controls in comparison page in `frontend/src/pages/CompareRuns.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}/results)
-- [ ] T099 [US2] Add sweep comparison panel in `frontend/src/pages/CompareRuns.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
-- [ ] T100 [US2] Implement profiles management page in `frontend/src/pages/Profiles.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles)
-- [ ] T101 [US2] Implement models list page in `frontend/src/pages/Models.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /models)
-- [ ] T102 [US2] Implement model details page in `frontend/src/pages/ModelDetails.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /models, /models/{modelId})
-- [ ] T103 [US2] Add profile selector to single run page in `frontend/src/pages/RunSingle.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles)
-- [ ] T104 [US2] Implement CLI profile commands in `cli/src/commands/profile.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles)
+- [X] T085 [US2] Implement Suite model mapping in `backend/src/models/suite.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T086 [US2] Implement Suite service in `backend/src/services/suite-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T087 [US2] Extend Runs service for suites in `backend/src/services/run-service.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/data-model.md)
+- [X] T088 [US2] Implement Suites API in `backend/src/api/routes/suites.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /suites, /suites/{suiteId})
+- [X] T089 [US2] Implement run history API in `backend/src/api/routes/runs.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}, /runs/{runId}/results)
+- [X] T090 [US2] Implement Profiles API in `backend/src/api/routes/profiles.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles, /profiles/{profileId})
+- [X] T091 [US2] Implement Models API in `backend/src/api/routes/models.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /models, /models/{modelId})
+- [X] T092 [US2] Extend OpenAPI with /models endpoints in `specs/001-llm-server-test-harness/contracts/openapi.yaml`
+- [X] T093 [US2] Implement dashboard run history page in `frontend/src/pages/RunHistory.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
+- [X] T094 [US2] Implement dashboard comparison page in `frontend/src/pages/CompareRuns.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}/results)
+- [X] T095 [US2] Implement charts components in `frontend/src/components/RunCharts.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results)
+- [X] T096 [US2] Display effective parameters in results view in `frontend/src/pages/Results.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results, /results/{resultId})
+- [X] T097 [US2] Add context utilization chart in `frontend/src/components/ContextUtilChart.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results)
+- [X] T098 [US2] Add parameter filter controls in comparison page in `frontend/src/pages/CompareRuns.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs, /runs/{runId}/results)
+- [X] T099 [US2] Add sweep comparison panel in `frontend/src/pages/CompareRuns.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs)
+- [X] T100 [US2] Implement profiles management page in `frontend/src/pages/Profiles.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles)
+- [X] T101 [US2] Implement models list page in `frontend/src/pages/Models.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /models)
+- [X] T102 [US2] Implement model details page in `frontend/src/pages/ModelDetails.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /models, /models/{modelId})
+- [X] T103 [US2] Add profile selector to single run page in `frontend/src/pages/RunSingle.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles)
+- [X] T104 [US2] Implement CLI profile commands in `cli/src/commands/profile.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /profiles)
 
 **Checkpoint**: User Stories 1 and 2 should both work independently
 
@@ -187,22 +187,22 @@ description: "Task list template for feature implementation"
 
 ### Tests for User Story 3 (REQUIRED unless exempted in spec.md) ⚠️
 
-- [ ] T105 [P] [US3] Unit test JSON schema validation in `backend/tests/unit/json-tests.test.ts`
-- [ ] T106 [P] [US3] Integration test test reload API in `backend/tests/integration/tests-reload.test.ts`
-- [ ] T107 [P] [US3] Unit test Python runner sandbox in `backend/tests/unit/python-runner.test.ts`
-- [ ] T108 [P] [US3] Unit test proxy perplexity scoring in `backend/tests/unit/perplexity.test.ts`
+- [X] T105 [P] [US3] Unit test JSON schema validation in `backend/tests/unit/json-tests.test.ts`
+- [X] T106 [P] [US3] Integration test test reload API in `backend/tests/integration/tests-reload.test.ts`
+- [X] T107 [P] [US3] Unit test Python runner sandbox in `backend/tests/unit/python-runner.test.ts`
+- [X] T108 [P] [US3] Unit test proxy perplexity scoring in `backend/tests/unit/perplexity.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T109 [US3] Define JSON test schema in `backend/src/plugins/test-schema.json`
-- [ ] T110 [US3] Implement tests reload route in `backend/src/api/routes/tests.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests, /tests/reload)
-- [ ] T111 [US3] Implement CLI reload command in `cli/src/commands/tests.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests/reload)
-- [ ] T112 [US3] Implement dashboard reload button in `frontend/src/components/ReloadTestsButton.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests/reload)
-- [ ] T113 [US3] Implement tests directory config in `backend/src/plugins/config.ts`
-- [ ] T114 [US3] Implement perplexity dataset loader in `backend/src/services/perplexity.ts`
-- [ ] T115 [US3] Implement proxy perplexity runner in `backend/src/services/perplexity-runner.ts`
-- [ ] T116 [US3] Add proxy perplexity test definition in `backend/src/plugins/builtins/proxy-perplexity.json`
-- [ ] T117 [US3] Surface perplexity metrics in results view in `frontend/src/pages/Results.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results)
+- [X] T109 [US3] Define JSON test schema in `backend/src/plugins/test-schema.json`
+- [X] T110 [US3] Implement tests reload route in `backend/src/api/routes/tests.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests, /tests/reload)
+- [X] T111 [US3] Implement CLI reload command in `cli/src/commands/tests.ts` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests/reload)
+- [X] T112 [US3] Implement dashboard reload button in `frontend/src/components/ReloadTestsButton.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /tests/reload)
+- [X] T113 [US3] Implement tests directory config in `backend/src/plugins/config.ts`
+- [X] T114 [US3] Implement perplexity dataset loader in `backend/src/services/perplexity.ts`
+- [X] T115 [US3] Implement proxy perplexity runner in `backend/src/services/perplexity-runner.ts`
+- [X] T116 [US3] Add proxy perplexity test definition in `backend/src/plugins/builtins/proxy-perplexity.json`
+- [X] T117 [US3] Surface perplexity metrics in results view in `frontend/src/pages/Results.tsx` (ref: /Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-test-harness/contracts/openapi.yaml) (endpoints: /runs/{runId}/results)
 
 **Checkpoint**: All user stories should now be independently functional
 
@@ -212,14 +212,29 @@ description: "Task list template for feature implementation"
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T118 UX consistency review against design system in `frontend/src/styles/index.css`
-- [ ] T119 Distraction-free UI review and cleanup in `frontend/src/pages/`
-- [ ] T120 OWASP Top Ten review and hardening in `backend/src/api/`
-- [ ] T121 Performance benchmarking against budgets in `backend/tests/perf/benchmarks.ts`
-- [ ] T122 [P] Documentation updates in `specs/001-llm-server-test-harness/quickstart.md`
-- [ ] T123 [P] Code cleanup and refactoring in `backend/src/` and `frontend/src/`
+- [X] T118 UX consistency review against design system in `frontend/src/styles/index.css`
+- [X] T119 Distraction-free UI review and cleanup in `frontend/src/pages/`
+- [X] T120 OWASP Top Ten review and hardening in `backend/src/api/`
+- [X] T121 Performance benchmarking against budgets in `backend/tests/perf/benchmarks.ts`
+- [X] T122 [P] Documentation updates in `specs/001-llm-server-test-harness/quickstart.md`
+- [X] T123 [P] Code cleanup and refactoring in `backend/src/` and `frontend/src/`
 
 ---
+
+## Traceability Mapping
+
+| Requirement | Coverage Tasks |
+|-------------|----------------|
+| FR-019, FR-020, FR-021 | T028, T029, T030 |
+| FR-022 | T030 |
+| FR-025 | T016, T017, T018 |
+| FR-026, FR-026a | T035, T036 |
+| FR-052 to FR-063 | T019, T021, T023, T077, T078 |
+| FR-059, FR-060 | T048, T049 |
+| FR-065 | T077, T078 |
+| NFR-002 | T033 |
+| NFR-005 | T025 |
+| NFR-007 | T034 |
 
 ## Dependencies & Execution Order
 

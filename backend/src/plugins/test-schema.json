@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["id", "version", "name", "description", "protocols", "request", "assertions", "metrics"],
+  "properties": {
+    "id": { "type": "string" },
+    "version": { "type": "string" },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "protocols": { "type": "array", "items": { "type": "string" } },
+    "request": { "type": "object" },
+    "assertions": { "type": "array" },
+    "metrics": { "type": "object" }
+  }
+}

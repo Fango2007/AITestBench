@@ -30,6 +30,12 @@ npm run dev
 This starts the backend API on `http://localhost:8080` and the dashboard on
 `http://localhost:5173`.
 
+## Run Tests
+
+```bash
+npm -w backend run test
+```
+
 ## Add a Target
 
 ```bash
