@@ -239,7 +239,8 @@ Example (JSON test override)
   - Trend charts over time for key metrics
   - Run-to-run comparison view
 - FR-025: System MUST persist all results locally (SQLite preferred) and support export to JSON/CSV.
-- FR-026: System MUST support time-based result retention (keep runs for X days).
+- FR-026: System MUST support time-based result retention with a configurable
+  `RETENTION_DAYS` setting (default: 30 days).
 - FR-034: System MUST provide a Model Details view in the dashboard showing:
   - full stored metadata for a model,
   - the list of runs/tests executed against that model,

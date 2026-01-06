@@ -79,6 +79,8 @@ components:
         verdict: { type: string, enum: [pass, fail, skip] }
         failure_reason: { type: string }
         metrics: { type: object }
+        artefacts: { type: object }
+        raw_events: { type: array, items: { type: object } }
 paths:
   /health:
     get:
@@ -275,6 +277,7 @@ paths:
                 test_id: { type: string }
                 suite_id: { type: string }
                 profile_id: { type: string }
+                profile_version: { type: string }
                 repetitions: { type: integer }
                 continue_on_failure: { type: boolean }
       responses:
