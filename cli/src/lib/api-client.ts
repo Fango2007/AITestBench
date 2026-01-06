@@ -10,7 +10,9 @@ export class ApiClient {
   private token?: string;
 
   constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+    this.baseUrl = options.baseUrl
+      ?? process.env.LLM_HARNESS_API_BASE_URL
+      ?? DEFAULT_BASE_URL;
     this.token = options.token ?? process.env.LLM_HARNESS_API_TOKEN;
   }
 

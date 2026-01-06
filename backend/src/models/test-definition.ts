@@ -106,3 +106,23 @@ export function getTestDefinition(id: string, version: string): TestDefinitionRe
     metric_rules: row.metric_rules ? JSON.parse(row.metric_rules as unknown as string) : null
   };
 }
+
+export function getLatestTestDefinition(id: string): TestDefinitionRecord | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM test_definitions WHERE id = ? ORDER BY version DESC LIMIT 1')
+    .get(id) as TestDefinitionRecord | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    ...row,
+    tags: parseJsonArray(row.tags as unknown as string),
+    protocols: parseJsonArray(row.protocols as unknown as string),
+    assertions: parseJsonArray(row.assertions as unknown as string),
+    request_template: row.request_template ? JSON.parse(row.request_template as unknown as string) : null,
+    metric_rules: row.metric_rules ? JSON.parse(row.metric_rules as unknown as string) : null
+  };
+}

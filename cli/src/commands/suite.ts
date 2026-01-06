@@ -15,3 +15,19 @@ export async function runSuite(client: ApiClient, input: RunSuiteInput) {
     profile_version: input.profile_version
   });
 }
+
+export interface CreateSuiteInput {
+  id: string;
+  name: string;
+  ordered_test_ids?: string[];
+  stop_on_fail?: boolean;
+}
+
+export async function createSuite(client: ApiClient, input: CreateSuiteInput) {
+  return client.post('/suites', {
+    id: input.id,
+    name: input.name,
+    ordered_test_ids: input.ordered_test_ids ?? [],
+    stop_on_fail: input.stop_on_fail ?? false
+  });
+}

@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { runSchema } from '../models/db';
+import { reloadTests } from '../services/test-service';
 import { registerAuth } from './middleware/auth';
 import { registerResultsRoutes } from './routes/results';
 import { registerRunsRoutes } from './routes/runs';
@@ -22,9 +23,9 @@ export function createServer() {
     runSchema(fs.readFileSync(schemaPath, 'utf8'));
   }
 
-  if (process.env.LLM_HARNESS_API_TOKEN) {
-    registerAuth(app);
-  }
+  reloadTests();
+
+  registerAuth(app);
 
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');

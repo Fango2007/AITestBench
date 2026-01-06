@@ -6,6 +6,7 @@ import { upsertTestDefinition } from '../../src/models/test-definition';
 
 describe('runs API', () => {
   it('creates a single run', async () => {
+    process.env.LLM_HARNESS_API_TOKEN = 'test-token';
     const app = createServer();
     const target = createTargetRecord({
       name: `local-${Date.now()}`,
@@ -28,6 +29,7 @@ describe('runs API', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/runs',
+      headers: { 'x-api-token': 'test-token' },
       payload: { target_id: target.id, test_id: 'test-1' }
     });
 

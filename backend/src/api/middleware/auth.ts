@@ -2,25 +2,26 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 const TOKEN_HEADER = 'x-api-token';
 
-function validateToken(request: FastifyRequest, reply: FastifyReply): void {
+function validateToken(request: FastifyRequest, reply: FastifyReply): boolean {
   const expected = process.env.LLM_HARNESS_API_TOKEN;
   if (!expected) {
-    reply.code(500).send({ error: 'API token not configured' });
-    return;
+    reply.code(503).send({ error: 'LLM_HARNESS_API_TOKEN is not configured' });
+    return false;
   }
 
   const provided = request.headers[TOKEN_HEADER] as string | undefined;
   if (!provided || provided !== expected) {
     reply.code(401).send({ error: 'Unauthorized' });
+    return false;
   }
+  return true;
 }
 
 export function registerAuth(app: FastifyInstance): void {
-  app.addHook('preHandler', (request, reply, done) => {
-    validateToken(request, reply);
-    if (reply.sent) {
+  app.addHook('preHandler', async (request, reply) => {
+    const ok = validateToken(request, reply);
+    if (!ok) {
       return;
     }
-    done();
   });
 }

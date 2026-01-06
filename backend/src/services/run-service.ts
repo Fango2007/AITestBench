@@ -1,8 +1,10 @@
 import crypto from 'crypto';
 
 import { getDb } from '../models/db';
+import { getTargetById } from '../models/target';
 import { nowIso, parseJson } from '../models/repositories';
 import { getRetentionDays } from './retention';
+import { executeRun, RunExecutionResult } from './run-executor';
 
 export interface RunRecord {
   id: string;
@@ -57,13 +59,15 @@ function buildRunId(input: CreateRunInput): string {
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 20);
 }
 
-export function createSingleRun(input: CreateRunInput): RunRecord {
+function insertRunRecord(
+  input: CreateRunInput,
+  status: string,
+  startedAt: string,
+  environmentSnapshot: Record<string, unknown>,
+  retentionDays: number,
+  id: string
+): void {
   const db = getDb();
-  const now = nowIso();
-  const retentionDays = getRetentionDays();
-  const id = buildRunId(input);
-  const effectiveConfig = resolveOverrides(input);
-
   db.prepare(
     `INSERT INTO runs (
       id, target_id, suite_id, test_id, profile_id, profile_version,
@@ -76,32 +80,84 @@ export function createSingleRun(input: CreateRunInput): RunRecord {
     input.test_id ?? null,
     input.profile_id ?? null,
     input.profile_version ?? null,
-    'completed',
-    now,
-    now,
-    JSON.stringify({
-      ...input.environment_snapshot,
-      effective_config: effectiveConfig,
-      model_metadata: input.model_metadata ?? null
-    }),
+    status,
+    startedAt,
+    null,
+    JSON.stringify(environmentSnapshot),
     retentionDays
   );
+}
+
+function updateRunStatus(id: string, status: string, endedAt: string): void {
+  const db = getDb();
+  db.prepare('UPDATE runs SET status = ?, ended_at = ? WHERE id = ?').run(status, endedAt, id);
+}
+
+function insertTestResult(runId: string, result: RunExecutionResult['results'][number]): void {
+  const db = getDb();
+  const id = crypto.createHash('sha256').update(`${runId}:${result.test_id}:${Date.now()}`).digest('hex').slice(0, 20);
+  db.prepare(
+    `INSERT INTO test_results (
+      id, run_id, test_id, verdict, failure_reason, metrics, artefacts, raw_events,
+      repetition_stats, started_at, ended_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    id,
+    runId,
+    result.test_id,
+    result.verdict,
+    result.failure_reason,
+    result.metrics ? JSON.stringify(result.metrics) : null,
+    result.artefacts ? JSON.stringify(result.artefacts) : null,
+    result.raw_events ? JSON.stringify(result.raw_events) : null,
+    JSON.stringify({ repetitions: 1 }),
+    result.started_at,
+    result.ended_at
+  );
+}
+
+export async function createSingleRun(input: CreateRunInput): Promise<RunRecord> {
+  const now = nowIso();
+  const retentionDays = getRetentionDays();
+  const id = buildRunId(input);
+  const target = getTargetById(input.target_id);
+  const targetDefaults = input.target_defaults ?? target?.default_params ?? null;
+  const effectiveConfig = resolveOverrides({ ...input, target_defaults: targetDefaults });
+  const environmentSnapshot = {
+    ...input.environment_snapshot,
+    effective_config: effectiveConfig,
+    model_metadata: input.model_metadata ?? null
+  };
+
+  insertRunRecord(input, 'running', now, environmentSnapshot, retentionDays, id);
+
+  const execution = await executeRun({
+    run_id: id,
+    target_id: input.target_id,
+    test_id: input.test_id ?? null,
+    suite_id: input.suite_id ?? null,
+    profile_id: input.profile_id ?? null,
+    profile_version: input.profile_version ?? null,
+    effective_config: effectiveConfig
+  });
+
+  for (const result of execution.results) {
+    insertTestResult(id, result);
+  }
+
+  updateRunStatus(id, execution.status, execution.ended_at);
 
   return {
     id,
     target_id: input.target_id,
-    suite_id: null,
+    suite_id: input.suite_id ?? null,
     test_id: input.test_id ?? null,
     profile_id: input.profile_id ?? null,
     profile_version: input.profile_version ?? null,
-    status: 'completed',
+    status: execution.status,
     started_at: now,
-    ended_at: now,
-    environment_snapshot: {
-      ...input.environment_snapshot,
-      effective_config: effectiveConfig,
-      model_metadata: input.model_metadata ?? null
-    },
+    ended_at: execution.ended_at,
+    environment_snapshot: environmentSnapshot,
     retention_days: retentionDays
   };
 }

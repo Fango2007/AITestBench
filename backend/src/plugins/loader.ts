@@ -21,7 +21,7 @@ export interface LoadResult {
 const JSON_EXT = '.json';
 const PY_EXT = '.py';
 
-function loadBuiltins(): TestDefinitionMeta[] {
+export function loadBuiltinTests(): TestDefinitionMeta[] {
   const builtinDir = path.join(__dirname, 'builtins');
   if (!fs.existsSync(builtinDir)) {
     return [];
@@ -57,8 +57,6 @@ export function loadTestsFromDir(dirPath: string): LoadResult {
   const files = fs.readdirSync(dirPath);
   const tests: TestDefinitionMeta[] = [];
   const errors: string[] = [];
-
-  tests.push(...loadBuiltins());
 
   for (const file of files) {
     const fullPath = path.join(dirPath, file);

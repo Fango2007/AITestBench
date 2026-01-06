@@ -60,3 +60,17 @@ export function listSuites(): SuiteRecord[] {
     stop_on_fail: Boolean(row.stop_on_fail)
   }));
 }
+
+export function getSuiteById(id: string): SuiteRecord | null {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM suites WHERE id = ?').get(id) as SuiteRecord | undefined;
+  if (!row) {
+    return null;
+  }
+  return {
+    ...row,
+    ordered_test_ids: parseJsonArray(row.ordered_test_ids as unknown as string),
+    filters: row.filters ? JSON.parse(row.filters as unknown as string) : null,
+    stop_on_fail: Boolean(row.stop_on_fail)
+  };
+}

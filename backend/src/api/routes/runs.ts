@@ -12,7 +12,7 @@ export function registerRunsRoutes(app: FastifyInstance): void {
       profile_id?: string;
       profile_version?: string;
     };
-    const run = createSingleRun(payload);
+    const run = await createSingleRun(payload);
     reply.code(201).send(run);
   });
 
