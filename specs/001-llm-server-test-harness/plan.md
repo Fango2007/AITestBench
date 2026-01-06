@@ -20,6 +20,7 @@ in SQLite for comparison over time.
 **Project Type**: Web app (frontend + backend + CLI)  
 **Performance Goals**: API p95 < 200ms local; dashboard renders 1,000 runs < 3s  
 **Constraints**: Local-only API (localhost + token), offline-capable, redaction at rest, Python runners sandboxed with best-effort limits  
+**Defaults**: request timeout 30s, per-test timeout 120s, per-suite timeout 900s, concurrency limit 4  
 **Scale/Scope**: Single user; ~100 targets, ~200 tests, ~1,000 runs, ~50,000 results
 
 ## Constitution Check

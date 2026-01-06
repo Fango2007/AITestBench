@@ -49,6 +49,8 @@ As a user, I want to run all tests in a suite sequentially against a target and 
 **Acceptance Scenarios**:
 1. Given a target and a suite, When I run the suite, Then every test runs in a deterministic order, failures are recorded without stopping the entire run (unless configured), and a final run summary is produced.
 2. Given two stored runs for the same target, When I open the dashboard comparison view, Then I can compare key metrics (TTFB, prefill latency, tokens/sec, error rate) test-by-test.
+3. Given a suite with failures, When I retry in recovery mode, Then only failed
+   tests are re-run and a retry summary is recorded.
 
 ---
 
@@ -76,6 +78,8 @@ As a user, I want to add new tests without editing the core application, by drop
 - What happens when the model output is huge (max tokens) and the response exceeds capture limits?
 - What happens when the endpoint is OpenAI-compatible but deviates on fields (`max_completion_tokens` vs `max_tokens`, etc.)?
 - How does the system behave when multiple runs execute concurrently (resource contention)?
+- What is the system behavior when a suite partially fails and is retried?
+- Expected handling for the above edge cases MUST follow FR-011a..FR-011h.
 
 ---
 
@@ -87,6 +91,14 @@ As a user, I want to add new tests without editing the core application, by drop
 - FR-001: System MUST support configuring targets of type OpenAI-compatible Chat Completions at `/v1/chat/completions`.
 - FR-002: System MUST support configuring targets of type Ollama (local or remote) using the Ollama HTTP API.
 - FR-003: System MUST allow per-target configuration of: base URL, auth header (Bearer token), default model, default temperature/top_p, request timeout(s), and concurrency limits.
+- FR-003a: All timeout values MUST be specified in milliseconds and clearly
+  scoped (per-request, per-test, per-suite).
+- FR-003b: Concurrency limits MUST be specified as a maximum number of parallel
+  requests per target.
+- FR-003c: Default timeout values MUST be: per-request 30,000 ms, per-test
+  120,000 ms, per-suite 900,000 ms, unless explicitly overridden.
+- FR-003d: Default concurrency limit MUST be 4 parallel requests per target,
+  unless explicitly overridden.
 - FR-004: System MUST support both `stream=false` and `stream=true` requests where the protocol allows it.
 - FR-005: System MUST capture and store request/response artefacts (headers + body), with secrets redacted at rest (Bearer tokens, API keys).
 - FR-069: Targets MUST be unique by name + base_url.
@@ -180,6 +192,12 @@ Example (JSON test override)
   - temperature
   - streaming mode
   - quantisation level (via model metadata)
+- FR-046a: Sweep definitions MUST include explicit parameter ranges/sets and
+  step sizes (or enumerated values) for each parameter in the matrix.
+- FR-046b: Sweep grouping MUST specify a stable sweep_id and parameter keys used
+  for grouping and comparison.
+- FR-046c: Sweep definitions MUST declare the parameter value format
+  (range with step, explicit list, or categorical set) per parameter.
 
 #### Persistence & Reproducibility
 - FR-047: Every TestResult MUST persist:
@@ -203,6 +221,24 @@ Example (JSON test override)
 - FR-010: System MUST compute aggregated metrics over repetitions: min/median/p95/max/stddev and failure rate.
 - FR-011: System MUST record a deterministic test verdict: PASS/FAIL/SKIP plus failure reason and reproducible evidence.
 
+#### Failure Handling & Recovery
+- FR-011a: Malformed streaming (SSE) responses MUST be marked FAIL with a
+  failure reason and preserved raw events.
+- FR-011b: Rate-limit (429) and transient network failures MUST be classified
+  as RETRYABLE or NON-RETRYABLE with a recorded reason.
+- FR-011c: Suite runs MUST support a retry mode that re-runs only failed tests
+  with identical parameters and records a retry summary.
+- FR-011d: Request timeouts and no-first-byte conditions MUST be recorded as
+  FAIL with a clear timeout reason and associated timing metrics.
+- FR-011e: Non-JSON error bodies MUST be preserved as raw artefacts with a
+  content-type label.
+- FR-011f: If tool calling responses are returned as plain text, the system
+  MUST record a compatibility mismatch finding with evidence.
+- FR-011g: If response size exceeds capture limits, the system MUST truncate
+  artefacts, mark them as truncated, and preserve the first/last bytes.
+- FR-011h: When a run would exceed concurrency limits, it MUST be queued or
+  rejected with a recorded reason.
+
 #### Compliance Tests (minimum built-ins)
 - FR-012: System MUST include built-in compliance tests for:
   - Basic chat completion response shape (non-streaming)
@@ -210,6 +246,8 @@ Example (JSON test override)
   - Tool calling: structured `tool_calls` emission (OpenAI-style) when tools are provided
   - Error handling: 4xx/5xx bodies parseability and schema adherence
 - FR-013: System MUST detect common OpenAI-compatibility mismatches and report them as actionable findings (e.g., missing required fields, wrong types, unsupported parameters).
+- FR-013a: “OpenAI-compatible” MUST mean passing the built-in compliance tests
+  in FR-012 without critical mismatches.
 
 #### Perplexity & Quality Probes (quantised-model-focused)
 - FR-014: System MUST support running perplexity evaluation on a provided text dataset (local file) against a target that can expose token logprobs or a compatible scoring endpoint.
@@ -241,6 +279,8 @@ Example (JSON test override)
 - FR-025: System MUST persist all results locally (SQLite preferred) and support export to JSON/CSV.
 - FR-026: System MUST support time-based result retention with a configurable
   `RETENTION_DAYS` setting (default: 30 days).
+- FR-026a: When retention cleanup runs, the system MUST record a summary entry
+  (timestamp, runs deleted, reason) for audit purposes.
 - FR-034: System MUST provide a Model Details view in the dashboard showing:
   - full stored metadata for a model,
   - the list of runs/tests executed against that model,
@@ -301,6 +341,8 @@ Example (JSON test override)
   - a Suite with a selected Profile,
   - all tests matching Profile-defined filters.
 - FR-065: CLI and API interfaces MUST support Profile selection when triggering runs.
+- FR-065a: If a selected Profile is missing or incompatible, the system MUST
+  fail fast with a clear, actionable error.
 
 #### CLI + API (for automation)
 - FR-027: System MUST provide a CLI to:
@@ -428,6 +470,17 @@ A Python test module MUST expose:
 - NFR-003: The dashboard MUST load and render 1,000 historical runs in under 3 seconds on a typical laptop.
 - NFR-004: The system MUST be deterministic given the same inputs (except inherently stochastic model outputs; randomness must be controlled via fixed seeds where supported).
 - NFR-005: The system MUST emit structured logs and basic metrics with run_id and test_id tags.
+- NFR-006: All performance-related terms (e.g., "fast", "low latency") MUST be
+  quantified with explicit thresholds.
+- NFR-007: The spec MUST define a traceability scheme that links requirements
+  (FR/NFR) to tasks and acceptance criteria.
+
+---
+
+## Traceability Scheme
+
+- Requirements are identified as FR-### / NFR-### and map to tasks T###.
+- Acceptance criteria map to SC-### and must cite the related FR/NFR IDs.
 
 ---
 
