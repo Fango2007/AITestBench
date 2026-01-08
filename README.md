@@ -32,11 +32,16 @@ single tests, suites, and parameter sweeps with reusable profiles.
 npm install
 ```
 
-Set the API token used by the local HTTP API and CLI:
+## Environment variables
+Create a local `.env` file at the repo root:
 
-```bash
-export LLM_HARNESS_API_TOKEN="local-dev-token"
-```
+- `AITESTBENCH_API_TOKEN` (required): shared token for API + CLI auth.
+- `AITESTBENCH_DB_PATH` (optional): override DB file path.
+- `RETENTION_DAYS` (optional): days to keep results (default: 30).
+- `VITE_AITESTBENCH_API_BASE_URL` (optional): dashboard API base URL (default: http://localhost:8080).
+- `AITESTBENCH_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).
+- `VITE_AITESTBENCH_API_TOKEN` (optional): alternate dashboard token env name.
+
 
 ## Run (dev)
 
@@ -44,7 +49,7 @@ export LLM_HARNESS_API_TOKEN="local-dev-token"
 npm run dev
 ```
 
-- API: `http://localhost:8080`
+- API: `http://localhost:8080` **(by default)**
 - Dashboard: `http://localhost:5173`
 
 If you are not using a root dev script, run in two terminals:
@@ -57,42 +62,58 @@ npm -w backend run dev
 npm -w frontend run dev
 ```
 
-To change ports:
+To change tcp port for backend:
 
 ```bash
-PORT=9090 npm run dev
+PORT=9090 npm run dev  # don't forget to update the VITE_AITESTBENCH_API_BASE_URL 
 ```
+
+## CLI usage (reference)
 
 ```bash
-export LLM_HARNESS_API_BASE_URL="http://localhost:9090"
-export VITE_API_BASE_URL="http://localhost:9090"
+# target management
+npm run cli -- target add \
+  --name "local-ollama" \
+  --base-url "http://localhost:11434" \
+  --type "ollama"
+
+# list targets
+npm run cli -- target list
+
+# delete target
+npm run cli -- target delete --id "<target-id>"
+
+# update target
+npm run cli -- target update --id "<target-id>" --name "new-name" --base-url "http://localhost:11434"
+
+# single test
+npm run cli -- test run --id "chat-basic" --target "local-ollama"
+
+# suite run
+npm run cli -- suite run --id "default" --target "local-ollama"
+
+# profile selection on runs
+npm run cli -- test run --id "chat-basic" --target "local-ollama" \
+  --profile-id "perf-default" --profile-version "1.0.0"
+
+# create profile
+npm run cli -- profiles create \
+  --id "perf-default" \
+  --version "1.0.0" \
+  --name "Perf default"
+
+# reload tests
+npm run cli -- tests reload
+
+# list profiles
+npm run cli -- profiles list
+
+# list models
+npm run cli -- models list
+
+# export results
+npm run cli -- export --format json --run-id <run-id>
 ```
-
-To change the endpoint URI (host/base path), set the base URL env vars:
-
-```bash
-export LLM_HARNESS_API_BASE_URL="http://127.0.0.1:9090"
-export VITE_API_BASE_URL="http://127.0.0.1:9090"
-```
-
-If you need a non-root base path (e.g., `/api`), update the app code to
-prefix routes, then set:
-
-```bash
-export LLM_HARNESS_API_BASE_URL="http://127.0.0.1:9090/api"
-export VITE_API_BASE_URL="http://127.0.0.1:9090/api"
-```
-
-## Environment variables
-
-- `LLM_HARNESS_API_TOKEN` (required): shared token for API + CLI auth.
-- `LLM_HARNESS_DB_PATH` (optional): override DB file path.
-- `RETENTION_DAYS` (optional): days to keep results (default: 30).
-- `LLM_HARNESS_API_BASE_URL` (optional): CLI base URL (default: http://localhost:8080).
-- `VITE_API_BASE_URL` (optional): dashboard API base URL (default: http://localhost:8080).
-- `LLM_HARNESS_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).
-- `VITE_API_TOKEN` (optional): dashboard token (same value as `LLM_HARNESS_API_TOKEN`).
-- `VITE_LLM_HARNESS_API_TOKEN` (optional): alternate dashboard token env name.
 
 ## API endpoints (local-only)
 
@@ -397,47 +418,6 @@ Response (200):
 ]
 ```
 
-## CLI usage (reference)
-
-```bash
-# target management
-npm run cli -- target add \
-  --name "local-ollama" \
-  --base-url "http://localhost:11434" \
-  --type "ollama"
-
-# list targets
-npm run cli -- target list
-
-# single test
-npm run cli -- test run --id "chat-basic" --target "local-ollama"
-
-# suite run
-npm run cli -- suite run --id "default" --target "local-ollama"
-
-# profile selection on runs
-npm run cli -- test run --id "chat-basic" --target "local-ollama" \
-  --profile-id "perf-default" --profile-version "1.0.0"
-
-# create profile
-npm run cli -- profiles create \
-  --id "perf-default" \
-  --version "1.0.0" \
-  --name "Perf default"
-
-# reload tests
-npm run cli -- tests reload
-
-# list profiles
-npm run cli -- profiles list
-
-# list models
-npm run cli -- models list
-
-# export results
-npm run cli -- export --format json --run-id <run-id>
-```
-
 ## Profiles (example)
 
 Profiles define reusable parameter sets, context strategy, and test selection.
@@ -540,40 +520,6 @@ def run(ctx):
 - Tokens/sec: completion_tokens / decode_duration
 - Proxy perplexity: cloze accuracy when logprobs are unavailable
 
-## CLI usage
-
-```bash
-# add a target
-npm run cli -- target add \
-  --name "local-ollama" \
-  --base-url "http://localhost:11434" \
-  --type "ollama"
-
-# list targets
-npm run cli -- target list
-
-# run a single test
-npm run cli -- test run --id "chat-basic" --target "local-ollama"
-
-# run a suite
-npm run cli -- suite run --id "default" --target "local-ollama"
-
-# reload tests from disk
-npm run cli -- tests reload
-
-# list profiles
-npm run cli -- profiles list
-
-# list models
-npm run cli -- models list
-
-# create suite
-npm run cli -- suite create --id "default" --name "Default suite"
-
-# export results
-npm run cli -- export --format json --run-id <run-id>
-```
-
 ## Tests
 
 ```bash
@@ -589,11 +535,12 @@ is controlled by `RETENTION_DAYS` (default: 30 days).
 
 ## Notes
 
-- API is intended for localhost use only and requires `LLM_HARNESS_API_TOKEN`.
+- API is intended for localhost use only and requires `AITESTBENCH_API_TOKEN`.
 - Tests can be JSON-defined or Python-defined (loaded from `tests/definitions`).
 
 ## Troubleshooting
 
-- `401 Unauthorized`: confirm `LLM_HARNESS_API_TOKEN` matches in CLI + backend env.
+- `401 Unauthorized`: confirm `AITESTBENCH_API_TOKEN` matches in CLI + backend env.
+- `409 Conflict` with `"Target has existing runs"` : Targets with existing runs cannot be deleted. Delete runs first or use a separate cleanup workflow.
 - `no such table`: delete `./data/harness.sqlite` or ensure schema load on startup.
 - `python3 not found`: install Python 3.10+ and ensure it is on PATH.

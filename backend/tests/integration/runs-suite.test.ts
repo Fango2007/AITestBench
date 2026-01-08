@@ -8,7 +8,7 @@ import { upsertTestDefinition } from '../../src/models/test-definition';
 
 describe('suite runs API', () => {
   it('creates a suite run', async () => {
-    process.env.LLM_HARNESS_API_TOKEN = 'test-token';
+    process.env.AITESTBENCH_API_TOKEN = 'test-token';
     const app = createServer();
     const target = createTargetRecord({
       name: `suite-target-${Date.now()}`,

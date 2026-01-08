@@ -1,4 +1,4 @@
-import { ApiClient } from '../lib/api-client';
+import { ApiClient } from '../lib/api-client.ts';
 
 export interface RunTestInput {
   target_id: string;

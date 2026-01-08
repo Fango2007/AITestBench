@@ -18,7 +18,7 @@ npm install
 Set the API token used by the local HTTP API and CLI:
 
 ```bash
-export LLM_HARNESS_API_TOKEN="local-dev-token"
+export AITESTBENCH_API_TOKEN="local-dev-token"
 ```
 
 ## Run (dev)

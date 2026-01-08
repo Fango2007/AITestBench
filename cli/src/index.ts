@@ -1,14 +1,30 @@
-import { ApiClient } from './lib/api-client';
-import { addTarget } from './commands/target';
-import { runTest } from './commands/test';
-import { createSuite, runSuite } from './commands/suite';
-import { exportResults } from './commands/export';
-import { listTargets } from './commands/targets-list';
-import { listTests } from './commands/tests-list';
-import { listSuites } from './commands/suites-list';
-import { reloadTests } from './commands/tests';
-import { createProfile, listProfiles } from './commands/profile';
-import { listModels } from './commands/model';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import dotenv from 'dotenv';
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(moduleDir, '..', '..');
+const envPath = path.join(repoRoot, '.env');
+
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+} else {
+  dotenv.config();
+}
+
+import { ApiClient } from './lib/api-client.ts';
+import { addTarget, deleteTarget, updateTarget } from './commands/target.ts';
+import { runTest } from './commands/test.ts';
+import { createSuite, runSuite } from './commands/suite.ts';
+import { exportResults } from './commands/export.ts';
+import { listTargets } from './commands/targets-list.ts';
+import { listTests } from './commands/tests-list.ts';
+import { listSuites } from './commands/suites-list.ts';
+import { reloadTests } from './commands/tests.ts';
+import { createProfile, listProfiles } from './commands/profile.ts';
+import { listModels } from './commands/model.ts';
 
 function printHelp(): void {
   const message = `LLM Test Harness CLI
@@ -58,6 +74,41 @@ async function main(): Promise<void> {
 
   if (command === 'target' && subcommand === 'list') {
     const result = await listTargets(client);
+    process.stdout.write(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (command === 'target' && subcommand === 'delete') {
+    const id = getArg('--id', args);
+    if (!id) {
+      throw new Error('Missing required --id');
+    }
+    const result = await deleteTarget(client, id);
+    if (!result.ok) {
+      process.stdout.write(JSON.stringify({
+        deleted: false,
+        status: result.status,
+        error: result.body ?? { message: 'Delete failed' }
+      }, null, 2));
+      return;
+    }
+    process.stdout.write(JSON.stringify({ deleted: id }, null, 2));
+    return;
+  }
+
+  if (command === 'target' && subcommand === 'update') {
+    const id = getArg('--id', args);
+    if (!id) {
+      throw new Error('Missing required --id');
+    }
+    const name = getArg('--name', args);
+    const baseUrl = getArg('--base-url', args);
+    const authType = getArg('--type', args);
+    const payload: Record<string, unknown> = {};
+    if (name) payload.name = name;
+    if (baseUrl) payload.base_url = baseUrl;
+    if (authType) payload.auth_type = authType;
+    const result = await updateTarget(client, id, payload);
     process.stdout.write(JSON.stringify(result, null, 2));
     return;
   }

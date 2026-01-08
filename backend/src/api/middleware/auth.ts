@@ -3,9 +3,9 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 const TOKEN_HEADER = 'x-api-token';
 
 function validateToken(request: FastifyRequest, reply: FastifyReply): boolean {
-  const expected = process.env.LLM_HARNESS_API_TOKEN;
+  const expected = process.env.AITESTBENCH_API_TOKEN;
   if (!expected) {
-    reply.code(503).send({ error: 'LLM_HARNESS_API_TOKEN is not configured' });
+    reply.code(503).send({ error: 'AITESTBENCH_API_TOKEN is not configured' });
     return false;
   }
 

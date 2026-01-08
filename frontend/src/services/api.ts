@@ -1,13 +1,12 @@
 const BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)
+  (import.meta.env.VITE_AITESTBENCH_API_BASE_URL as string | undefined)
   ?? 'http://localhost:8080';
 
 function headers(): Record<string, string> {
   const headers: Record<string, string> = {
     'content-type': 'application/json'
   };
-  const token = (import.meta.env.VITE_API_TOKEN as string | undefined)
-    ?? (import.meta.env.VITE_LLM_HARNESS_API_TOKEN as string | undefined);
+  const token = import.meta.env.VITE_AITESTBENCH_API_TOKEN as string | undefined;
   if (token) {
     headers['x-api-token'] = token;
   }

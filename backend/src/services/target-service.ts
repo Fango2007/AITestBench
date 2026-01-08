@@ -8,6 +8,7 @@ import {
   listTargets,
   updateTarget
 } from '../models/target';
+import { getDb } from '../models/db';
 
 export interface TargetInput {
   name: string;
@@ -54,4 +55,15 @@ export function updateTargetRecord(id: string, updates: Partial<TargetInput>): T
 
 export function removeTarget(id: string): boolean {
   return deleteTarget(id);
+}
+
+export function canDeleteTarget(id: string): { ok: boolean; reason?: string } {
+  const db = getDb();
+  const row = db.prepare('SELECT COUNT(1) as count FROM runs WHERE target_id = ?').get(id) as {
+    count: number;
+  };
+  if (row.count > 0) {
+    return { ok: false, reason: 'Target has existing runs' };
+  }
+  return { ok: true };
 }

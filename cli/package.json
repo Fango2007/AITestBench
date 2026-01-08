@@ -9,6 +9,10 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "vitest": "^1.6.0"
+    "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "vite": "7.3.1"
   }
 }

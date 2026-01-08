@@ -11,6 +11,10 @@
     "fastify": "^5.6.2"
   },
   "scripts": {
-    "cli": "npm -w cli run cli --"
+    "cli": "npm -w cli run cli --",
+    "dev": "concurrently \"npm -w backend run dev\" \"npm -w frontend run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
   }
 }

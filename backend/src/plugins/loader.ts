@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { validateJsonTestSpec } from './json-validator';
 
 export interface TestDefinitionMeta {
@@ -22,7 +23,8 @@ const JSON_EXT = '.json';
 const PY_EXT = '.py';
 
 export function loadBuiltinTests(): TestDefinitionMeta[] {
-  const builtinDir = path.join(__dirname, 'builtins');
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const builtinDir = path.join(moduleDir, 'builtins');
   if (!fs.existsSync(builtinDir)) {
     return [];
   }

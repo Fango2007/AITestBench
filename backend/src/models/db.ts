@@ -18,7 +18,7 @@ export function getDb(): Database.Database {
     return dbInstance;
   }
 
-  const dbPath = process.env.LLM_HARNESS_DB_PATH || DEFAULT_DB_PATH;
+  const dbPath = process.env.AITESTBENCH_DB_PATH || DEFAULT_DB_PATH;
   ensureDir(dbPath);
 
   const db = new Database(dbPath);

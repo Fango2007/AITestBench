@@ -11,19 +11,24 @@ export class ApiClient {
 
   constructor(options: ApiClientOptions = {}) {
     this.baseUrl = options.baseUrl
-      ?? process.env.LLM_HARNESS_API_BASE_URL
+      ?? process.env.VITE_AITESTBENCH_API_BASE_URL
       ?? DEFAULT_BASE_URL;
-    this.token = options.token ?? process.env.LLM_HARNESS_API_TOKEN;
+    this.token = options.token ?? process.env.AITESTBENCH_API_TOKEN;
   }
 
   private headers(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'content-type': 'application/json'
-    };
+    const headers: Record<string, string> = {};
     if (this.token) {
       headers['x-api-token'] = this.token;
     }
     return headers;
+  }
+
+  private jsonHeaders(): Record<string, string> {
+    return {
+      ...this.headers(),
+      'content-type': 'application/json'
+    };
   }
 
   async get<T>(path: string): Promise<T> {
@@ -40,7 +45,19 @@ export class ApiClient {
   async post<T>(path: string, payload: unknown): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'POST',
-      headers: this.headers(),
+      headers: this.jsonHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
+  async put<T>(path: string, payload: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PUT',
+      headers: this.jsonHeaders(),
       body: JSON.stringify(payload)
     });
     if (!response.ok) {
@@ -57,5 +74,19 @@ export class ApiClient {
     if (!response.ok) {
       throw new Error(`Request failed: ${response.status}`);
     }
+  }
+
+  async deleteWithBody(path: string): Promise<{ ok: boolean; status: number; body?: unknown }> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'DELETE',
+      headers: this.headers()
+    });
+    let body: unknown = undefined;
+    try {
+      body = await response.json();
+    } catch {
+      body = undefined;
+    }
+    return { ok: response.ok, status: response.status, body };
   }
 }

@@ -279,7 +279,7 @@ async function executeHttpTest(
 
 export async function executeRun(request: RunExecutionRequest): Promise<RunExecutionResult> {
   const startedAt = new Date().toISOString();
-  const dryRun = process.env.LLM_HARNESS_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
+  const dryRun = process.env.AITESTBENCH_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
 
   const target = getTargetById(request.target_id);
   if (!target) {

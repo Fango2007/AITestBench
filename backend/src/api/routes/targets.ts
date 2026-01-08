@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
 import {
+  canDeleteTarget,
   createTargetRecord,
   fetchTarget,
   fetchTargets,
@@ -38,6 +39,11 @@ export function registerTargetsRoutes(app: FastifyInstance): void {
 
   app.delete('/targets/:targetId', async (request, reply) => {
     const { targetId } = request.params as { targetId: string };
+    const guard = canDeleteTarget(targetId);
+    if (!guard.ok) {
+      reply.code(409).send({ error: guard.reason });
+      return;
+    }
     const removed = removeTarget(targetId);
     reply.code(removed ? 204 : 404).send();
   });
