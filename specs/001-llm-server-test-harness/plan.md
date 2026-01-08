@@ -33,6 +33,7 @@ in SQLite for comparison over time.
 - Distraction-free UI checks defined — PASS
 - OWASP Top Ten review planned — PASS
 - Performance budgets defined and measurable — PASS
+- Explicit error handling strategy defined — PASS
 
 ## Project Structure
 
@@ -94,6 +95,7 @@ Output: `/Users/Fango/DEV/Projects/codebase/AITestBench/specs/001-llm-server-tes
 - Distraction-free UI checks defined — PASS
 - OWASP Top Ten review planned — PASS
 - Performance budgets defined and measurable — PASS
+- Explicit error handling strategy defined — PASS
 
 ## Complexity Tracking
 
