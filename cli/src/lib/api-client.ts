@@ -1,5 +1,20 @@
 const DEFAULT_BASE_URL = 'http://localhost:8080';
 
+export class ApiError extends Error {
+  status: number;
+  path: string;
+  body: unknown;
+  baseUrl: string;
+
+  constructor(message: string, status: number, path: string, body: unknown, baseUrl: string) {
+    super(message);
+    this.status = status;
+    this.path = path;
+    this.body = body;
+    this.baseUrl = baseUrl;
+  }
+}
+
 export interface ApiClientOptions {
   baseUrl?: string;
   token?: string;
@@ -31,15 +46,26 @@ export class ApiClient {
     };
   }
 
+  private async parseBody(response: Response): Promise<unknown> {
+    const text = await response.text();
+    if (!text) return undefined;
+    try {
+      return JSON.parse(text) as unknown;
+    } catch {
+      return text;
+    }
+  }
+
   async get<T>(path: string): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'GET',
       headers: this.headers()
     });
+    const body = await this.parseBody(response);
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
+      throw new ApiError(`Request failed: ${response.status}`, response.status, path, body, this.baseUrl);
     }
-    return (await response.json()) as T;
+    return body as T;
   }
 
   async post<T>(path: string, payload: unknown): Promise<T> {
@@ -48,10 +74,11 @@ export class ApiClient {
       headers: this.jsonHeaders(),
       body: JSON.stringify(payload)
     });
+    const body = await this.parseBody(response);
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
+      throw new ApiError(`Request failed: ${response.status}`, response.status, path, body, this.baseUrl);
     }
-    return (await response.json()) as T;
+    return body as T;
   }
 
   async put<T>(path: string, payload: unknown): Promise<T> {
@@ -60,10 +87,11 @@ export class ApiClient {
       headers: this.jsonHeaders(),
       body: JSON.stringify(payload)
     });
+    const body = await this.parseBody(response);
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
+      throw new ApiError(`Request failed: ${response.status}`, response.status, path, body, this.baseUrl);
     }
-    return (await response.json()) as T;
+    return body as T;
   }
 
   async delete(path: string): Promise<void> {
@@ -71,8 +99,9 @@ export class ApiClient {
       method: 'DELETE',
       headers: this.headers()
     });
+    const body = await this.parseBody(response);
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
+      throw new ApiError(`Request failed: ${response.status}`, response.status, path, body, this.baseUrl);
     }
   }
 
@@ -81,12 +110,7 @@ export class ApiClient {
       method: 'DELETE',
       headers: this.headers()
     });
-    let body: unknown = undefined;
-    try {
-      body = await response.json();
-    } catch {
-      body = undefined;
-    }
+    const body = await this.parseBody(response);
     return { ok: response.ok, status: response.status, body };
   }
 }
