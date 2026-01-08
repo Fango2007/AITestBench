@@ -1,0 +1,17 @@
+# Node.js / TypeScript
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# Environment
+.env*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.vscode/
+.idea/

@@ -1,0 +1,21 @@
+{
+  "name": "@llm-harness/backend",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "tsx": "^4.15.0",
+    "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.5.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.6.2",
+    "vite": "7.3.1"
+  }
+}

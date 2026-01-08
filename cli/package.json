@@ -1,0 +1,18 @@
+{
+  "name": "@llm-harness/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "node --experimental-strip-types --experimental-specifier-resolution=node src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "vite": "7.3.1"
+  }
+}
