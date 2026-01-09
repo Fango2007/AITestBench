@@ -14,6 +14,7 @@ export interface TargetInput {
   name: string;
   base_url: string;
   auth_type?: string | null;
+  provider?: 'openai' | 'ollama' | 'auto';
   auth_token_ref?: string | null;
   default_model?: string | null;
   default_params?: Record<string, unknown> | null;
@@ -41,11 +42,17 @@ export function createTargetRecord(input: TargetInput): TargetRecord {
     name: input.name,
     base_url: input.base_url,
     auth_type: input.auth_type ?? null,
+    provider: input.provider ?? 'openai',
     auth_token_ref: input.auth_token_ref ?? null,
     default_model: input.default_model ?? null,
     default_params: input.default_params ?? null,
     timeouts: input.timeouts ?? null,
-    concurrency_limit: input.concurrency_limit ?? null
+    concurrency_limit: input.concurrency_limit ?? null,
+    status: 'active',
+    connectivity_status: 'pending',
+    last_check_at: null,
+    last_error: null,
+    models: null
   });
 }
 

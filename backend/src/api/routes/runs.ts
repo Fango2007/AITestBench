@@ -11,8 +11,12 @@ export function registerRunsRoutes(app: FastifyInstance): void {
       suite_id?: string;
       profile_id?: string;
       profile_version?: string;
+      model?: string;
     };
-    const run = await createSingleRun(payload);
+    const run = await createSingleRun({
+      ...payload,
+      test_overrides: payload.model ? { model: payload.model } : undefined
+    });
     reply.code(201).send(run);
   });
 

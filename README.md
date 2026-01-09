@@ -19,6 +19,13 @@ single tests, suites, and parameter sweeps with reusable profiles.
 - `cli/`: TypeScript CLI for automation
 - `frontend/`: React dashboard (Vite)
 
+## Dashboard: Target Management
+
+The dashboard includes a Targets area to create, update, delete, and archive
+targets. New and updated targets run an automatic connectivity check and fetch
+available models; failed checks remain visible with a retry action. Archived
+targets are listed separately and are hidden from run selection by default.
+
 ## Prerequisites
 
 - Node.js 20 LTS (Node 25 also works in this repo)
@@ -38,7 +45,8 @@ Create a local `.env` file at the repo root:
 - `AITESTBENCH_API_TOKEN` (required): shared token for API + CLI auth.
 - `AITESTBENCH_DB_PATH` (optional): override DB file path.
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
-- `VITE_AITESTBENCH_API_BASE_URL` (optional): dashboard API base URL (default: http://localhost:8080).
+- `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
+- `VITE_AITESTBENCH_FRONTEND_BASE_URL` (optional): frontend base URL (`http://localhost:5173` by default)
 - `AITESTBENCH_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).
 - `VITE_AITESTBENCH_API_TOKEN` (optional): alternate dashboard token env name.
 
@@ -48,11 +56,7 @@ Create a local `.env` file at the repo root:
 ```bash
 npm run dev
 ```
-
-- API: `http://localhost:8080` **(by default)**
-- Dashboard: `http://localhost:5173`
-
-If you are not using a root dev script, run in two terminals:
+or 
 
 ```bash
 npm -w backend run dev

@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { expect, test } from '@playwright/test';
 
-describe('models view', () => {
-  it('loads models page', () => {
-    expect(true).toBe(true);
-  });
+test('loads models page', async ({ page }) => {
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Models' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
 });

@@ -16,7 +16,7 @@ function headers(): Record<string, string> {
 export async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${BASE_URL}${path}`, { headers: headers() });
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    throw new Error(await parseError(response));
   }
   return (await response.json()) as T;
 }
@@ -28,7 +28,41 @@ export async function apiPost<T>(path: string, payload: unknown): Promise<T> {
     body: JSON.stringify(payload)
   });
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    throw new Error(await parseError(response));
   }
   return (await response.json()) as T;
+}
+
+export async function apiPut<T>(path: string, payload: unknown): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+  return (await response.json()) as T;
+}
+
+export async function apiDelete(path: string): Promise<void> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    method: 'DELETE',
+    headers: (() => {
+      const { 'content-type': _contentType, ...rest } = headers();
+      return rest;
+    })()
+  });
+  if (!response.ok) {
+    throw new Error(await parseError(response));
+  }
+}
+
+async function parseError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as { error?: string; message?: string };
+    return payload.error ?? payload.message ?? `Request failed: ${response.status}`;
+  } catch {
+    return `Request failed: ${response.status}`;
+  }
 }

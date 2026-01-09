@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
-  background: radial-gradient(circle at top, #f5f2ec, #f0efe9 40%, #e9e6df 100%);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #f5f1ea 0%, #efe9df 45%, #e4ddd1 100%);
   color: #1b1a17;
 }
 
@@ -13,16 +13,115 @@ body {
   margin: 0;
 }
 
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid #d4cbbf;
+  background: linear-gradient(120deg, rgba(255, 249, 241, 0.9), rgba(240, 233, 223, 0.9));
+  box-shadow: 0 12px 30px rgba(24, 22, 18, 0.08);
+}
+
+.app-header h1 {
+  margin: 0;
+}
+
+.subhead {
+  margin: 6px 0 0;
+  color: #5b554c;
+  font-size: 14px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #645f57;
+  margin: 0 0 4px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tabs button {
+  background: transparent;
+  border: 1px solid #b8b1a5;
+  color: #1b1a17;
+}
+
+.tabs button.active {
+  background: #1b1a17;
+  color: #f9f6ef;
+}
+
+.app-main {
+  flex: 1;
+  padding: 24px 0 48px;
+}
+
+.app-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.app-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px 16px;
+}
+
+.app-nav button {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #1b1a17;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.app-nav button.active {
+  border-color: #c8bfb2;
+  background: #fff4e6;
+}
+
+.nav-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #766f66;
+  margin: 0 0 6px;
+}
+
 .page {
   max-width: 960px;
   margin: 0 auto;
   padding: 32px 24px 64px;
 }
 
-h1 {
-  font-size: 28px;
+h1,
+h2,
+h3 {
   letter-spacing: -0.02em;
-  margin-bottom: 16px;
+  margin: 0 0 8px;
+}
+
+h2 {
+  font-size: 24px;
+}
+
+.page-header {
+  margin-bottom: 20px;
 }
 
 label {
@@ -40,6 +139,18 @@ input {
   background: #fffdfa;
 }
 
+select {
+  border: 1px solid #c7c0b3;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  background: #fffdfa;
+}
+
+select[multiple] {
+  min-height: 140px;
+}
+
 button {
   align-self: flex-start;
   border: none;
@@ -50,10 +161,131 @@ button {
   cursor: pointer;
 }
 
+.card {
+  background: #fffdf8;
+  border: 1px solid #dacfc0;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 12px 30px rgba(27, 26, 23, 0.08);
+}
+
+.targets-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 20px;
+}
+
+.targets-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  background: #f9f6ef;
+  border-radius: 12px;
+}
+
+.list-item.selected {
+  border: 1px solid #b59862;
+  background: #fff1d6;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.muted {
+  color: #6a645b;
+  font-size: 14px;
+}
+
+.meta {
+  color: #6a645b;
+  font-size: 12px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #e1d8cb;
+  font-size: 14px;
+}
+
+.detail-row span {
+  color: #6a645b;
+}
+
+.divider {
+  height: 1px;
+  background: #e1d8cb;
+  margin: 12px 0;
+}
+
+.error {
+  color: #b42318;
+  background: #ffe8e5;
+  border: 1px solid #f4c7c3;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 pre {
   background: #171615;
   color: #f9f6ef;
   padding: 16px;
   border-radius: 12px;
   overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .app-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .app-body {
+    grid-template-columns: 1fr;
+  }
+
+  .app-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .targets-grid {
+    grid-template-columns: 1fr;
+  }
 }

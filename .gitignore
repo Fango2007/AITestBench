@@ -5,6 +5,11 @@ build/
 coverage/
 *.log
 
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/.cache/
+
 # Environment
 .env*
 
@@ -15,3 +20,7 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

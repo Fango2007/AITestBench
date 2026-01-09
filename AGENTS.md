@@ -3,6 +3,7 @@
 Auto-generated from all feature plans. Last updated: 2026-01-06
 
 ## Active Technologies
+- SQLite (local file, WAL mode) (001-manage-targets)
 
 - TypeScript 5.x (Node.js 20 LTS) + Fastify (API), React 18 + Vite (dashboard), TailwindCSS 3.x, SQLite (better-sqlite3), Ajv (JSON schema), eventsource-parser (SSE) (001-llm-server-test-harness)
 
@@ -22,6 +23,7 @@ npm test && npm run lint
 TypeScript 5.x (Node.js 20 LTS): Follow standard conventions
 
 ## Recent Changes
+- 001-manage-targets: Added TypeScript 5.x (Node.js 20 LTS) + Fastify (API), React 18 + Vite (dashboard), TailwindCSS 3.x, SQLite (better-sqlite3), Ajv (JSON schema), eventsource-parser (SSE)
 
 - 001-llm-server-test-harness: Added TypeScript 5.x (Node.js 20 LTS) + Fastify (API), React 18 + Vite (dashboard), TailwindCSS 3.x, SQLite (better-sqlite3), Ajv (JSON schema), eventsource-parser (SSE)
 
