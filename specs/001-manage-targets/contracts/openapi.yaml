@@ -1,0 +1,271 @@
+openapi: 3.0.3
+info:
+  title: Target Management API
+  version: 1.0.0
+  description: API for managing targets and connectivity checks.
+servers:
+  - url: http://localhost:8080
+paths:
+  /targets:
+    get:
+      summary: List targets
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, archived, all]
+          description: Filter by target status
+      responses:
+        "200":
+          description: List of targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Target"
+    post:
+      summary: Create target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetCreate"
+      responses:
+        "201":
+          description: Created target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+        "400":
+          description: Validation error
+        "409":
+          description: Duplicate name
+  /targets/{targetId}:
+    get:
+      summary: Get target
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+        "404":
+          description: Not found
+    put:
+      summary: Update target
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetUpdate"
+      responses:
+        "200":
+          description: Updated target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+        "400":
+          description: Validation error
+        "404":
+          description: Not found
+        "409":
+          description: Duplicate name
+    delete:
+      summary: Delete target (only if no runs)
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+        "409":
+          description: Has runs; archive instead
+  /targets/{targetId}/archive:
+    post:
+      summary: Archive target
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Archived target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+        "404":
+          description: Not found
+  /targets/{targetId}/connectivity-check:
+    post:
+      summary: Run connectivity check and refresh models
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Check queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectivityCheck"
+        "404":
+          description: Not found
+components:
+  schemas:
+    Target:
+      type: object
+      required:
+        - id
+        - name
+        - base_url
+        - status
+        - connectivity_status
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        base_url:
+          type: string
+        auth_type:
+          type: string
+        auth_token_ref:
+          type: string
+        default_model:
+          type: string
+        default_params:
+          type: object
+        timeouts:
+          type: object
+        concurrency_limit:
+          type: integer
+        status:
+          type: string
+          enum: [active, archived]
+        connectivity_status:
+          type: string
+          enum: [pending, ok, failed]
+        last_check_at:
+          type: string
+          format: date-time
+        last_error:
+          type: string
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/Model"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TargetCreate:
+      type: object
+      required:
+        - name
+        - base_url
+      properties:
+        name:
+          type: string
+        base_url:
+          type: string
+        auth_type:
+          type: string
+        auth_token_ref:
+          type: string
+        default_model:
+          type: string
+        default_params:
+          type: object
+        timeouts:
+          type: object
+        concurrency_limit:
+          type: integer
+    TargetUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        base_url:
+          type: string
+        auth_type:
+          type: string
+        auth_token_ref:
+          type: string
+        default_model:
+          type: string
+        default_params:
+          type: object
+        timeouts:
+          type: object
+        concurrency_limit:
+          type: integer
+    ConnectivityCheck:
+      type: object
+      required:
+        - target_id
+        - status
+        - checked_at
+      properties:
+        target_id:
+          type: string
+        status:
+          type: string
+          enum: [ok, failed]
+        checked_at:
+          type: string
+          format: date-time
+        error_summary:
+          type: string
+        response_time_ms:
+          type: integer
+    Model:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        provider:
+          type: string
+        version:
+          type: string
+        metadata:
+          type: object
+        refreshed_at:
+          type: string
+          format: date-time

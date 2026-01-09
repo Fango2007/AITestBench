@@ -15,7 +15,7 @@ import { registerProfilesRoutes } from './routes/profiles';
 import { registerModelsRoutes } from './routes/models';
 
 export function createServer() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
   const schemaPath = path.resolve(moduleDir, '../models/schema.sql');
@@ -26,6 +26,22 @@ export function createServer() {
   reloadTests();
 
   registerAuth(app);
+
+  app.addHook('onRequest', async (request, reply) => {
+    const origin = request.headers.origin ?? '*';
+    const reqHeaders = request.headers['access-control-request-headers'];
+    reply.header('Access-Control-Allow-Origin', origin);
+    reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    reply.header(
+      'Access-Control-Allow-Headers',
+      typeof reqHeaders === 'string' && reqHeaders.length > 0
+        ? reqHeaders
+        : 'content-type,x-api-token'
+    );
+    if (request.method === 'OPTIONS') {
+      reply.code(204).send();
+    }
+  });
 
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
