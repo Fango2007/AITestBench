@@ -23,6 +23,7 @@ npm test && npm run lint
 TypeScript 5.x (Node.js 20 LTS): Follow standard conventions
 
 ## Recent Changes
+- 001-test-templates: Added TypeScript 5.x (Node.js 20 LTS) + Fastify (API), React 18 + Vite (dashboard), TailwindCSS 3.x,
 - 001-manage-targets: Added TypeScript 5.x (Node.js 20 LTS) + Fastify (API), React 18 + Vite (dashboard), TailwindCSS 3.x, SQLite (better-sqlite3), Ajv (JSON schema), eventsource-parser (SSE)
 
 - 001-llm-server-test-harness: Added TypeScript 5.x (Node.js 20 LTS) + Fastify (API), React 18 + Vite (dashboard), TailwindCSS 3.x, SQLite (better-sqlite3), Ajv (JSON schema), eventsource-parser (SSE)

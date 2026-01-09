@@ -1,0 +1,285 @@
+openapi: 3.0.3
+info:
+  title: Test Templates API
+  version: 1.0.0
+paths:
+  /test-templates:
+    get:
+      summary: List test templates
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, archived, all]
+      responses:
+        '200':
+          description: Templates list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestTemplate'
+    post:
+      summary: Create a test template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestTemplateCreateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplate'
+        '400':
+          description: Invalid template content
+        '409':
+          description: Duplicate template name
+  /test-templates/{templateId}:
+    get:
+      summary: Fetch a single template
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplateDetail'
+        '404':
+          description: Not found
+    put:
+      summary: Update template (creates new version)
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestTemplateUpdateRequest'
+      responses:
+        '200':
+          description: Updated template with new version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplate'
+        '400':
+          description: Invalid template content
+        '404':
+          description: Not found
+        '409':
+          description: Duplicate template name
+    delete:
+      summary: Delete template
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+        '409':
+          description: Deletion blocked by traceability
+  /test-templates/{templateId}/archive:
+    post:
+      summary: Archive a template
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Archived template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplate'
+        '404':
+          description: Not found
+  /test-templates/{templateId}/unarchive:
+    post:
+      summary: Unarchive a template
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unarchived template
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplate'
+        '404':
+          description: Not found
+  /test-templates/{templateId}/versions:
+    get:
+      summary: List template versions
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Version list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestTemplateVersion'
+        '404':
+          description: Not found
+  /test-templates/{templateId}/versions/{versionId}:
+    get:
+      summary: Fetch a specific template version
+      parameters:
+        - in: path
+          name: templateId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: versionId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Version detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplateVersion'
+        '404':
+          description: Not found
+  /tests/instantiate:
+    post:
+      summary: Instantiate a test from a template version
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestInstantiationRequest'
+      responses:
+        '201':
+          description: Test instantiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstantiatedTest'
+        '400':
+          description: Invalid template content or archived template
+        '404':
+          description: Template or version not found
+components:
+  schemas:
+    TestTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        format:
+          type: string
+          enum: [json, python]
+        status:
+          type: string
+          enum: [active, archived]
+        current_version_id:
+          type: string
+        current_version_number:
+          type: integer
+      required: [id, name, format, status, current_version_id, current_version_number]
+    TestTemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/TestTemplate'
+        - type: object
+          properties:
+            versions:
+              type: array
+              items:
+                $ref: '#/components/schemas/TestTemplateVersion'
+    TestTemplateVersion:
+      type: object
+      properties:
+        id:
+          type: string
+        template_id:
+          type: string
+        version_number:
+          type: integer
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, template_id, version_number, content, created_at]
+    TestTemplateCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        format:
+          type: string
+          enum: [json, python]
+        content:
+          type: string
+      required: [name, format, content]
+    TestTemplateUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        content:
+          type: string
+      required: [content]
+    TestInstantiationRequest:
+      type: object
+      properties:
+        template_id:
+          type: string
+        template_version_id:
+          type: string
+      required: [template_id, template_version_id]
+    InstantiatedTest:
+      type: object
+      properties:
+        id:
+          type: string
+        template_id:
+          type: string
+        template_version_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required: [id, template_id, template_version_id, created_at]
