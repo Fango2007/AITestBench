@@ -1,6 +1,7 @@
 import { listTestDefinitions, upsertTestDefinition } from '../models/test-definition';
 import { loadTestsFromDir, loadBuiltinTests } from '../plugins/loader';
 import { DEFAULT_TESTS_DIR } from '../plugins/config';
+import { instantiateTestFromTemplate, TestInstantiationInput } from './test-templates-repository';
 
 export function fetchTests() {
   return listTestDefinitions();
@@ -42,4 +43,8 @@ export function reloadTests(dirPath = DEFAULT_TESTS_DIR) {
     });
   }
   return { count: tests.length + builtin.length, errors };
+}
+
+export function instantiateTest(input: TestInstantiationInput) {
+  return instantiateTestFromTemplate(input);
 }

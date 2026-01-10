@@ -30,3 +30,10 @@
 - Decision: Deletion is allowed only when the template is not referenced by any instantiated test.
 - Rationale: Preserves traceability for historical runs.
 - Alternatives considered: Soft-delete with tombstone references; allow delete with orphaned history.
+
+## Decision: Template Storage Location
+- Decision: Templates are stored as local files on disk, with a configurable storage directory set
+  via `AITESTBENCH_TEST_TEMPLATE_DIR` (defaults to app root).
+- Rationale: Aligns with local-first deployment and keeps template content auditable on disk.
+- Alternatives considered: Store template content only in the database; store templates in remote
+  object storage.

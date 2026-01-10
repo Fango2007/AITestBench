@@ -22,6 +22,15 @@ export interface TargetRecord {
   provider: string;
 }
 
+export interface TestTemplateRecord {
+  id: string;
+  name: string;
+  format: 'json' | 'python';
+  status: 'active' | 'archived';
+  current_version_id: string;
+  current_version_number: number;
+}
+
 export async function createTarget(
   request: APIRequestContext,
   overrides?: Partial<Pick<TargetRecord, 'name' | 'base_url' | 'provider'>>
@@ -65,5 +74,31 @@ export async function deleteTarget(request: APIRequestContext, id: string) {
   if (!response.ok()) {
     const body = await response.text();
     throw new Error(`deleteTarget failed: ${response.status()} ${body}`);
+  }
+}
+
+export async function listTestTemplates(request: APIRequestContext) {
+  const response = await request.get(`${API_BASE_URL}/test-templates?status=all`, {
+    headers: authHeaders
+  });
+  if (!response.ok()) {
+    const body = await response.text();
+    throw new Error(`listTestTemplates failed: ${response.status()} ${body}`);
+  }
+  return (await response.json()) as TestTemplateRecord[];
+}
+
+export async function findTemplateByName(request: APIRequestContext, name: string) {
+  const templates = await listTestTemplates(request);
+  return templates.find((template) => template.name === name) ?? null;
+}
+
+export async function deleteTemplate(request: APIRequestContext, id: string) {
+  const response = await request.delete(`${API_BASE_URL}/test-templates/${id}`, {
+    headers: authHeaders
+  });
+  if (!response.ok()) {
+    const body = await response.text();
+    throw new Error(`deleteTemplate failed: ${response.status()} ${body}`);
   }
 }

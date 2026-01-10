@@ -104,6 +104,26 @@ template is referenced by any instantiated test.
 
 [Add more user stories as needed, each with an assigned priority]
 
+### User Story 5 - Backend Health Indicator (Priority: P2)
+
+As a user, I can see whether the backend is online directly in the dashboard header, so I
+understand connectivity at a glance.
+
+**Why this priority**: Backend availability affects all template workflows, so quick visibility
+reduces confusion and support load.
+
+**Independent Test**: In the dashboard, verify the backend indicator shows online when the API
+responds to `/health` and shows offline when the API is unavailable. Automate via Playwright.
+
+**Acceptance Scenarios**:
+
+1. **Given** the API responds to `/health`, **When** I open the dashboard, **Then** the backend
+   indicator shows online.
+2. **Given** the API is unreachable or returns an error, **When** I open the dashboard, **Then**
+   the backend indicator shows offline.
+
+---
+
 ## Clarifications
 
 ### Session 2026-01-09
@@ -160,11 +180,17 @@ template is referenced by any instantiated test.
   actionable message.
 - **FR-009**: Template edits (create/update/archive/delete) MUST be allowed only by the template
   owner.
+- **FR-010**: Each test template MUST be stored as a local file on disk.
+- **FR-011**: The storage directory for template files MUST be configurable via the
+  `AITESTBENCH_TEST_TEMPLATE_DIR` environment variable; if unset, it MUST default to the
+  application root directory.
+- **FR-012**: The dashboard MUST display backend health using a status indicator driven by the
+  `/health` endpoint with the configured API token.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Test Template**: A reusable blueprint for constructing a test; includes name, format, status,
-  and a pointer to the current version.
+- **Test Template**: A reusable blueprint for constructing a test; stored as a local file and
+  includes name, format, status, and a pointer to the current version.
 - **Test Template Version**: An immutable snapshot of template content + metadata that can be used
   to instantiate tests; includes version identifier and created timestamp.
 - **Instantiated Test**: A test created from a specific template version; records template id +

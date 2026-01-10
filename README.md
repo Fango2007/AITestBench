@@ -40,7 +40,8 @@ npm install
 ```
 
 ## Environment variables
-Create a local `.env` file at the repo root:
+Create a local `.env` file at the repo root. All components MUST read from this
+app-root `.env` file (no per-package `.env` files).
 
 - `AITESTBENCH_API_TOKEN` (required): shared token for API + CLI auth.
 - `AITESTBENCH_DB_PATH` (optional): override DB file path.

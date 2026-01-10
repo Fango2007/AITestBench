@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(moduleDir, '..', '..');
-const envPath = path.join(repoRoot, '.env');
+const appRoot = path.resolve(moduleDir, '..', '..');
+const envPath = path.join(appRoot, '.env');
 
 if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });

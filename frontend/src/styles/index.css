@@ -47,6 +47,43 @@ body {
   margin: 0 0 4px;
 }
 
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #5b554c;
+}
+
+.status-label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 11px;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #c8bfb2;
+  box-shadow: 0 0 0 3px rgba(200, 191, 178, 0.25);
+}
+
+.status-dot--ok {
+  background: #2f8f46;
+  box-shadow: 0 0 0 3px rgba(47, 143, 70, 0.2);
+}
+
+.status-dot--error {
+  background: #b42318;
+  box-shadow: 0 0 0 3px rgba(180, 35, 24, 0.2);
+}
+
+.status-dot--pending {
+  background: #c8bfb2;
+  box-shadow: 0 0 0 3px rgba(200, 191, 178, 0.25);
+}
+
 .tabs {
   display: flex;
   gap: 8px;

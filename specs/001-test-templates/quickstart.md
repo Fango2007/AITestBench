@@ -6,6 +6,8 @@
 3. Enter a unique template name (unique among active templates).
 4. Paste template content and save.
 5. Confirm the template appears with version v1.
+6. Ensure the template file is created under the directory set in
+   `AITESTBENCH_TEST_TEMPLATE_DIR` (defaults to app root).
 
 ## Update a Template (New Version)
 1. Open the template details.

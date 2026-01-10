@@ -13,6 +13,7 @@ import { registerTargetsRoutes } from './routes/targets';
 import { registerTestsRoutes } from './routes/tests';
 import { registerProfilesRoutes } from './routes/profiles';
 import { registerModelsRoutes } from './routes/models';
+import { registerTestTemplatesRoutes } from './routes/test-templates';
 
 export function createServer() {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
@@ -60,6 +61,7 @@ export function createServer() {
   registerProfilesRoutes(app);
   registerModelsRoutes(app);
   registerResultsRoutes(app);
+  registerTestTemplatesRoutes(app);
 
   return app;
 }

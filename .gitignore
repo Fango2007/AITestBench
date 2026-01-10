@@ -24,3 +24,4 @@ Thumbs.db
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+data/test-templates/

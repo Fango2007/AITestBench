@@ -11,6 +11,7 @@
   - status (enum: active | archived)
   - owner_id (string)
   - current_version_id (string, references TestTemplateVersion)
+  - storage_path (string, local file path)
   - created_at (timestamp)
   - updated_at (timestamp)
 
@@ -44,6 +45,8 @@
 - Archived templates cannot be used for new instantiations.
 - Deletion is blocked if any InstantiatedTest references the template.
 - Version numbers are auto-incremented per template and immutable once created.
+- Template storage directory is set via `AITESTBENCH_TEST_TEMPLATE_DIR` and defaults to app root
+  when unset.
 
 ## State Transitions
 - TestTemplate.status: active → archived → active

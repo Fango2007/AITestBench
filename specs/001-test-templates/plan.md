@@ -29,7 +29,9 @@ better-sqlite3, Ajv, eventsource-parser
 **Target Platform**: Local web app (browser UI + Node.js API)  
 **Project Type**: Web application (frontend + backend)  
 **Performance Goals**: Template list and detail views load in under 1s for up to 500 templates.  
-**Constraints**: Local SQLite storage, offline-capable, owner-only edits enforced.  
+**Constraints**: Local SQLite storage, offline-capable, owner-only edits enforced, template files
+stored on disk with storage directory set via `AITESTBENCH_TEST_TEMPLATE_DIR` (defaults to app
+root).  
 **Scale/Scope**: Single-user local instance; hundreds of templates, thousands of versions.
 
 ## Constitution Check
