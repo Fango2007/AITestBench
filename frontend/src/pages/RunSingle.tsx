@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiGet, apiPost } from '../services/api';
 import { RunTargetSelect } from '../components/RunTargetSelect';
@@ -22,6 +22,9 @@ export function RunSingle() {
   const [profileVersion, setProfileVersion] = useState('');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const handleTargetsLoaded = useCallback((data: TargetRecord[]) => {
+    setTargets(data);
+  }, []);
 
   const selectedTarget = useMemo(
     () => targets.find((target) => target.id === targetId) ?? null,
@@ -91,7 +94,7 @@ export function RunSingle() {
         <RunTargetSelect
           value={targetId}
           onChange={setTargetId}
-          onTargetsLoaded={(data) => setTargets(data)}
+          onTargetsLoaded={handleTargetsLoaded}
         />
         {modelOptions.length > 0 ? (
           <label>

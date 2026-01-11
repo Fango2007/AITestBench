@@ -13,6 +13,7 @@ import { registerTargetsRoutes } from './routes/targets';
 import { registerTestsRoutes } from './routes/tests';
 import { registerProfilesRoutes } from './routes/profiles';
 import { registerModelsRoutes } from './routes/models';
+import { registerSystemRoutes } from './routes/system';
 
 export function createServer() {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
@@ -53,6 +54,7 @@ export function createServer() {
 
   app.get('/health', async () => ({ status: 'ok' }));
 
+  registerSystemRoutes(app);
   registerTargetsRoutes(app);
   registerTestsRoutes(app);
   registerRunsRoutes(app);

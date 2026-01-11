@@ -33,6 +33,56 @@ body {
   margin: 0;
 }
 
+.brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-metrics {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.header-status {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metrics-card {
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid #dacfc0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  min-width: 220px;
+  box-shadow: 0 12px 24px rgba(27, 26, 23, 0.08);
+}
+
+.metrics-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6a645b;
+}
+
+.metrics-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #4f4a43;
+  padding: 2px 0;
+}
+
+.metrics-row strong {
+  font-weight: 600;
+  color: #2d2a25;
+}
+
 .subhead {
   margin: 6px 0 0;
   color: #5b554c;
@@ -269,11 +319,49 @@ pre {
   overflow: auto;
 }
 
+.health-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid #d7cdbf;
+  box-shadow: 0 8px 18px rgba(27, 26, 23, 0.12);
+  font-size: 12px;
+  color: #4f4a43;
+}
+
+.health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #b3aca2;
+}
+
+.health-indicator.up .health-dot {
+  background: #2f9e44;
+  box-shadow: 0 0 0 4px rgba(47, 158, 68, 0.2);
+}
+
+.health-indicator.down .health-dot {
+  background: #c92a2a;
+  box-shadow: 0 0 0 4px rgba(201, 42, 42, 0.2);
+}
+
 @media (max-width: 900px) {
   .app-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .header-metrics {
+    width: 100%;
+  }
+
+  .metrics-card {
+    width: 100%;
   }
 
   .app-body {
