@@ -11,6 +11,17 @@ type View = 'targets' | 'run-single' | 'models' | 'compare' | 'test-templates';
 export function App() {
   const [view, setView] = useState<View>('targets');
   const [backendOk, setBackendOk] = useState<boolean | null>(null);
+  const navItems: Array<{ id: View; label: string; icon: string }> = [
+    { id: 'targets', label: 'Targets', icon: 'grid' },
+    { id: 'test-templates', label: 'Templates', icon: 'document' },
+    { id: 'run-single', label: 'Run', icon: 'calendar' },
+    { id: 'models', label: 'Models', icon: 'globe' },
+    { id: 'compare', label: 'Compare', icon: 'chat' }
+  ];
+  const activeLabel = navItems.find((item) => item.id === view)?.label ?? 'Dashboard';
+  const backendStatusLabel = backendOk === null ? 'Checking' : backendOk ? 'Online' : 'Offline';
+  const backendPillClass =
+    backendOk === null ? 'pill' : backendOk ? 'pill pill--ok' : 'pill pill--error';
 
   useEffect(() => {
     let active = true;
@@ -47,74 +58,85 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <p className="eyebrow">AITestBench</p>
-          <h1>AITESTBENCH</h1>
-          <p className="subhead">Local-first target control and test execution.</p>
+      <aside className="app-sidebar">
+        <div className="logo-mark" aria-label="AITESTBENCH">
+          A
         </div>
-        <div className="status-row">
-          <span className="status-label">Backend:</span>
-          <span
-            className={`status-dot ${
-              backendOk === null ? 'status-dot--pending' : backendOk ? 'status-dot--ok' : 'status-dot--error'
-            }`}
-            aria-label={backendOk === null ? 'Checking backend' : backendOk ? 'Backend online' : 'Backend offline'}
-          />
+        <nav className="nav-stack" aria-label="Primary">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`nav-button ${view === item.id ? 'active' : ''}`}
+              onClick={() => setView(item.id)}
+              aria-label={item.label}
+            >
+              <span className={`nav-icon nav-icon--${item.icon}`} aria-hidden="true" />
+              <span className="nav-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="nav-footer">
+          <button type="button" className="nav-button" aria-label="Settings">
+            <span className="nav-icon nav-icon--settings" aria-hidden="true" />
+            <span className="nav-label">Settings</span>
+          </button>
+          <button type="button" className="nav-button" aria-label="Help">
+            <span className="nav-icon nav-icon--help" aria-hidden="true" />
+            <span className="nav-label">Help</span>
+          </button>
         </div>
-      </header>
-      <div className="app-body">
-        <aside className="app-nav">
-          <p className="nav-title">Menu</p>
-          <button
-            type="button"
-            className={view === 'targets' ? 'active' : undefined}
-            onClick={() => setView('targets')}
-          >
-            Targets
-          </button>
-          <button
-            type="button"
-            className={view === 'test-templates' ? 'active' : undefined}
-            onClick={() => setView('test-templates')}
-          >
-            Test Templates
-          </button>
-          <button
-            type="button"
-            className={view === 'run-single' ? 'active' : undefined}
-            onClick={() => setView('run-single')}
-          >
-            Run Single
-          </button>
-          <button
-            type="button"
-            className={view === 'models' ? 'active' : undefined}
-            onClick={() => setView('models')}
-          >
-            Models
-          </button>
-          <button
-            type="button"
-            className={view === 'compare' ? 'active' : undefined}
-            onClick={() => setView('compare')}
-          >
-            Compare Runs
-          </button>
-        </aside>
-        <main className="app-main">
-          {view === 'targets' ? (
-            <Targets />
-          ) : view === 'test-templates' ? (
-            <TestTemplates />
-          ) : view === 'run-single' ? (
-            <RunSingle />
-          ) : view === 'models' ? (
-            <Models />
-          ) : (
-            <CompareRuns />
-          )}
-        </main>
+      </aside>
+      <div className="app-main">
+        <header className="app-header">
+          <div>
+            <div className="brand-row">
+              <h1>AITESTBENCH</h1>
+              <div className="status-row">
+                <span className="status-label">Backend:</span>
+                <span
+                  className={`status-dot ${
+                    backendOk === null ? 'status-dot--pending' : backendOk ? 'status-dot--ok' : 'status-dot--error'
+                  }`}
+                  aria-label={
+                    backendOk === null ? 'Checking backend' : backendOk ? 'Backend online' : 'Backend offline'
+                  }
+                />
+              </div>
+            </div>
+            <p className="subhead">Local-first target control and test execution.</p>
+          </div>
+        </header>
+        <div className="app-content">
+          <main className="app-workspace">
+            {view === 'targets' ? (
+              <Targets />
+            ) : view === 'test-templates' ? (
+              <TestTemplates />
+            ) : view === 'run-single' ? (
+              <RunSingle />
+            ) : view === 'models' ? (
+              <Models />
+            ) : (
+              <CompareRuns />
+            )}
+          </main>
+          <aside className="app-panel">
+            <div className="panel-card">
+              <p className="panel-eyebrow">Active View</p>
+              <h2>{activeLabel}</h2>
+              <p className="muted">Use the left rail to switch workflows.</p>
+            </div>
+            <div className="panel-card">
+              <p className="panel-eyebrow">Backend</p>
+              <div className="panel-row">
+                <span>Status</span>
+                <span className={backendPillClass}>{backendStatusLabel}</span>
+              </div>
+              <p className="muted">Health checks run every 15 seconds.</p>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
