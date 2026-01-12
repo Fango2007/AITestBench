@@ -60,7 +60,18 @@ export async function apiDelete(path: string): Promise<void> {
 
 async function parseError(response: Response): Promise<string> {
   try {
-    const payload = (await response.json()) as { error?: string; message?: string };
+    const payload = (await response.json()) as {
+      error?: string;
+      message?: string;
+      issues?: Array<{ message?: string }>;
+    };
+    if (payload.issues && payload.issues.length > 0) {
+      const issueText = payload.issues
+        .map((issue) => issue.message)
+        .filter(Boolean)
+        .join('; ');
+      return `${payload.error ?? payload.message ?? 'Validation failed'}${issueText ? `: ${issueText}` : ''}`;
+    }
     return payload.error ?? payload.message ?? `Request failed: ${response.status}`;
   } catch {
     return `Request failed: ${response.status}`;

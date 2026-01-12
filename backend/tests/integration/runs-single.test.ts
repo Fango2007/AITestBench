@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { createServer } from '../../src/api/server';
-import { createTargetRecord } from '../../src/services/target-service';
-import { upsertTestDefinition } from '../../src/models/test-definition';
+import { createServer } from '../../src/api/server.js';
+import { createTargetRecord } from '../../src/services/target-service.js';
+import { upsertTestDefinition } from '../../src/models/test-definition.js';
 
 describe('runs API', () => {
   it('creates a single run', async () => {

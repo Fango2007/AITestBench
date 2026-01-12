@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-import { getDb } from '../models/db';
+import { getDb } from '../models/db.js';
 import {
   TargetRecord,
   TargetModelSummary,
@@ -10,7 +10,7 @@ import {
   getTargetByName,
   listTargets,
   updateTarget
-} from '../models/target';
+} from '../models/target.js';
 
 export interface TargetInput {
   name: string;

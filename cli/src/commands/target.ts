@@ -1,4 +1,4 @@
-import { ApiClient } from '../lib/api-client.ts';
+import { ApiClient } from '../lib/api-client.js';
 
 export async function addTarget(client: ApiClient, input: Record<string, unknown>) {
   return client.post('/targets', input);

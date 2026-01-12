@@ -1,5 +1,5 @@
-import { getDb } from '../models/db';
-import { getRetentionDays } from './retention';
+import { getDb } from '../models/db.js';
+import { getRetentionDays } from './retention.js';
 
 export interface RetentionSummary {
   cutoff: string;

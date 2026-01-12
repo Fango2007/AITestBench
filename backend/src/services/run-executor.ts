@@ -1,11 +1,12 @@
 import { performance } from 'perf_hooks';
 
-import { getTargetById } from '../models/target';
-import { getSuiteById } from '../models/suite';
-import { getLatestTestDefinition } from '../models/test-definition';
-import { computeMetrics } from './metrics';
-import { parseSseEvents } from './sse-parser';
-import { logEvent } from './observability';
+import { getTargetById } from '../models/target.js';
+import { getSuiteById } from '../models/suite.js';
+import { getLatestTestDefinition } from '../models/test-definition.js';
+import { computeMetrics } from './metrics.js';
+import { loadPerplexityDataset } from './perplexity.js';
+import { parseSseEvents } from './sse-parser.js';
+import { logEvent } from './observability.js';
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
 
@@ -43,6 +44,27 @@ interface Assertion {
   type: string;
   target?: string;
   expected?: unknown;
+}
+
+function replacePlaceholders(value: unknown, replacements: Record<string, string>): unknown {
+  if (typeof value === 'string') {
+    let output = value;
+    for (const [key, replacement] of Object.entries(replacements)) {
+      output = output.split(`{${key}}`).join(replacement);
+    }
+    return output;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => replacePlaceholders(entry, replacements));
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+      key,
+      replacePlaceholders(entry, replacements)
+    ]);
+    return Object.fromEntries(entries);
+  }
+  return value;
 }
 
 function pickModelParams(input: Record<string, unknown> | null): Record<string, unknown> {
@@ -170,7 +192,7 @@ async function executeHttpTest(
     ...bodyTemplate,
     ...pickModelParams(effectiveConfig)
   };
-  if (!('model' in mergedBody) && effectiveConfig?.model) {
+  if (effectiveConfig?.model) {
     mergedBody.model = effectiveConfig.model;
   }
 
@@ -277,6 +299,102 @@ async function executeHttpTest(
   }
 }
 
+async function executeProxyPerplexityTest(
+  targetBaseUrl: string,
+  requestTemplate: Record<string, unknown> | null,
+  assertions: Assertion[],
+  effectiveConfig: Record<string, unknown> | null,
+  authToken: string | null
+): Promise<Omit<TestExecutionResult, 'test_id'>> {
+  const startedAtIso = new Date().toISOString();
+  const datasetPath = process.env.AITESTBENCH_PROXY_PERPLEXITY_DATASET;
+  if (!datasetPath) {
+    return {
+      verdict: 'fail',
+      failure_reason: 'Proxy perplexity dataset path not configured.',
+      metrics: null,
+      artefacts: null,
+      raw_events: null,
+      started_at: startedAtIso,
+      ended_at: new Date().toISOString()
+    };
+  }
+
+  let items = [];
+  try {
+    items = loadPerplexityDataset(datasetPath);
+  } catch (error) {
+    return {
+      verdict: 'fail',
+      failure_reason: error instanceof Error ? error.message : 'Unable to load proxy perplexity dataset.',
+      metrics: null,
+      artefacts: null,
+      raw_events: null,
+      started_at: startedAtIso,
+      ended_at: new Date().toISOString()
+    };
+  }
+
+  if (items.length === 0) {
+    return {
+      verdict: 'fail',
+      failure_reason: 'Proxy perplexity dataset is empty.',
+      metrics: null,
+      artefacts: null,
+      raw_events: null,
+      started_at: startedAtIso,
+      ended_at: new Date().toISOString()
+    };
+  }
+
+  let correct = 0;
+  const failures: string[] = [];
+
+  for (const item of items) {
+    const replacements = {
+      prompt: item.prompt,
+      correct: item.correct
+    };
+    const replacedTemplate = replacePlaceholders(requestTemplate, replacements) as Record<string, unknown> | null;
+    const replacedAssertions = replacePlaceholders(assertions, replacements) as Assertion[];
+    const result = await executeHttpTest(
+      targetBaseUrl,
+      replacedTemplate,
+      replacedAssertions,
+      effectiveConfig,
+      authToken
+    );
+    if (result.verdict === 'pass') {
+      correct += 1;
+    } else if (result.failure_reason) {
+      failures.push(result.failure_reason);
+    }
+  }
+
+  const total = items.length;
+  const accuracy = total > 0 ? correct / total : 0;
+  const verdict = correct === total ? 'pass' : 'fail';
+
+  return {
+    verdict,
+    failure_reason: verdict === 'pass' ? null : `Proxy accuracy ${correct}/${total}`,
+    metrics: {
+      proxy_accuracy: accuracy,
+      proxy_total: total,
+      proxy_correct: correct
+    },
+    artefacts: {
+      proxy_accuracy: accuracy,
+      proxy_total: total,
+      proxy_correct: correct,
+      failure_samples: failures.slice(0, 3)
+    },
+    raw_events: null,
+    started_at: startedAtIso,
+    ended_at: new Date().toISOString()
+  };
+}
+
 export async function executeRun(request: RunExecutionRequest): Promise<RunExecutionResult> {
   const startedAt = new Date().toISOString();
   const dryRun = process.env.AITESTBENCH_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
@@ -365,13 +483,22 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
         model: target.default_model
       };
     }
-    const result = await executeHttpTest(
-      target.base_url,
-      definition.request_template,
-      definition.assertions as Assertion[],
-      request.effective_config ?? null,
-      tokenRef
-    );
+    const usesProxyPerplexity = definition.protocols?.includes('proxy_perplexity');
+    const result = usesProxyPerplexity
+      ? await executeProxyPerplexityTest(
+          target.base_url,
+          definition.request_template,
+          definition.assertions as Assertion[],
+          request.effective_config ?? null,
+          tokenRef
+        )
+      : await executeHttpTest(
+          target.base_url,
+          definition.request_template,
+          definition.assertions as Assertion[],
+          request.effective_config ?? null,
+          tokenRef
+        );
 
     results.push({
       test_id: testId,

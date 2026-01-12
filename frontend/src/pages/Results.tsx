@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { apiGet } from '../services/api';
+import { apiGet } from '../services/api.js';
 
 export function Results() {
   const [results, setResults] = useState<Record<string, unknown>[]>([]);

@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
-import { getDb } from '../../models/db';
-import { parseJson } from '../../models/repositories';
+import { getDb } from '../../models/db.js';
+import { parseJson } from '../../models/repositories.js';
 
 export function registerResultsRoutes(app: FastifyInstance): void {
   app.get('/results/:resultId', async (request, reply) => {

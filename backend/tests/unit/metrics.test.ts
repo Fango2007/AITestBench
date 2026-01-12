@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeMetrics } from '../../src/services/metrics';
+import { computeMetrics } from '../../src/services/metrics.js';
 
 describe('computeMetrics', () => {
   it('marks decode duration as not measurable without token timestamps', () => {

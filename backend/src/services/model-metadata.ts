@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { ModelRecord, upsertModel } from '../models/model';
+import { ModelRecord, upsertModel } from '../models/model.js';
 
 export interface ModelMetadataInput {
   name: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runCli } from '../support/cli-runner';
+import { runCli } from '../support/cli-runner.js';
 
 describe('cli single run', () => {
   it('invokes the run command', async () => {

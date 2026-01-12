@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 
-import { CompareRuns } from './pages/CompareRuns';
-import { Models } from './pages/Models';
-import { RunSingle } from './pages/RunSingle';
-import { Targets } from './pages/Targets';
-import { apiGet } from './services/api';
+import { CompareRuns } from './pages/CompareRuns.js';
+import { Models } from './pages/Models.js';
+import { RunSingle } from './pages/RunSingle.js';
+import { Templates } from './pages/Templates.js';
+import { Targets } from './pages/Targets.js';
+import { apiGet } from './services/api.js';
+import { TargetRecord, listTargets } from './services/targets-api.js';
 
-type View = 'targets' | 'run-single' | 'models' | 'compare';
+type View = 'targets' | 'run-single' | 'templates' | 'models' | 'compare';
 
 type SystemMetrics = {
   cpu: {
@@ -33,6 +35,9 @@ type SystemMetrics = {
   };
 };
 
+type LlmParams = Record<string, unknown> | null;
+const PARAM_OVERRIDES_KEY = 'aitestbench:param-overrides';
+
 function formatBytes(value: number): string {
   if (value <= 0) {
     return '0 B';
@@ -43,11 +48,40 @@ function formatBytes(value: number): string {
   return `${scaled.toFixed(index >= 2 ? 1 : 0)} ${units[index]}`;
 }
 
+function pickParamValue(params: LlmParams, keys: string[]): unknown {
+  if (!params) {
+    return null;
+  }
+  for (const key of keys) {
+    const value = params[key];
+    if (value !== undefined && value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function formatNumericParam(value: unknown, digits = 2): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const fixed = value.toFixed(digits);
+    return digits > 0 ? fixed.replace(/\.0+$/, '') : fixed;
+  }
+  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
+    return value;
+  }
+  return 'N/A';
+}
+
 export function App() {
   const [view, setView] = useState<View>('targets');
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'up' | 'down'>('unknown');
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const [metricsError, setMetricsError] = useState(false);
+  const [targets, setTargets] = useState<TargetRecord[]>([]);
+  const [targetsError, setTargetsError] = useState(false);
+  const [railPinned, setRailPinned] = useState(true);
+  const [railVisible, setRailVisible] = useState(true);
+  const [paramOverrides, setParamOverrides] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -71,6 +105,25 @@ export function App() {
       isActive = false;
       window.clearInterval(intervalId);
     };
+  }, []);
+
+  useEffect(() => {
+    const loadOverrides = () => {
+      const raw = localStorage.getItem(PARAM_OVERRIDES_KEY);
+      if (!raw) {
+        setParamOverrides(null);
+        return;
+      }
+      try {
+        setParamOverrides(JSON.parse(raw) as Record<string, unknown>);
+      } catch {
+        setParamOverrides(null);
+      }
+    };
+    loadOverrides();
+    const handleUpdate = () => loadOverrides();
+    window.addEventListener('param-overrides:updated', handleUpdate);
+    return () => window.removeEventListener('param-overrides:updated', handleUpdate);
   }, []);
 
   useEffect(() => {
@@ -98,6 +151,53 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let isActive = true;
+    const fetchTargets = async () => {
+      try {
+        const data = await listTargets('all');
+        if (isActive) {
+          setTargets(data);
+          setTargetsError(false);
+        }
+      } catch {
+        if (isActive) {
+          setTargetsError(true);
+        }
+      }
+    };
+
+    const handleTargetsUpdated = () => {
+      fetchTargets();
+    };
+
+    fetchTargets();
+    const intervalId = window.setInterval(fetchTargets, 10000);
+    window.addEventListener('targets:updated', handleTargetsUpdated);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('targets:updated', handleTargetsUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (railPinned) {
+      setRailVisible(true);
+      return;
+    }
+    if (!railVisible) {
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setRailVisible(false);
+    }, 4000);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [railPinned, railVisible]);
+
   const cpuValue =
     systemMetrics?.cpu.usage_percent != null ? `${systemMetrics.cpu.usage_percent.toFixed(1)}%` : 'N/A';
   const memoryValue = systemMetrics
@@ -114,9 +214,72 @@ export function App() {
       ? `${systemMetrics.gpu.memory_used_mb.toFixed(0)} / ${systemMetrics.gpu.memory_total_mb.toFixed(0)} MB`
       : null;
   const dbStatus = systemMetrics ? (systemMetrics.db.ok ? 'up' : 'down') : 'unknown';
+  const activeTargets = targets.filter((target) => target.status === 'active');
+  const targetOkCount = activeTargets.filter((target) => target.connectivity_status === 'ok').length;
+  const targetFailedCount = activeTargets.filter((target) => target.connectivity_status === 'failed').length;
+  const targetPendingCount = activeTargets.filter((target) => target.connectivity_status === 'pending').length;
+  const targetsStatus = targetsError
+    ? 'down'
+    : activeTargets.length === 0
+      ? 'unknown'
+      : targetFailedCount > 0
+        ? 'down'
+        : targetPendingCount > 0
+          ? 'unknown'
+          : 'up';
+  const targetStatusLabel = (status: TargetRecord['connectivity_status']) => {
+    if (status === 'ok') {
+      return { ok: 1, pending: 0, failed: 0 };
+    }
+    if (status === 'failed') {
+      return { ok: 0, pending: 0, failed: 1 };
+    }
+    return { ok: 0, pending: 1, failed: 0 };
+  };
+  const targetStatusClass = (status: TargetRecord['connectivity_status']) => {
+    if (status === 'ok') {
+      return 'up';
+    }
+    if (status === 'failed') {
+      return 'down';
+    }
+    return 'unknown';
+  };
+  const targetParamSource = activeTargets.find(
+    (target) => target.default_params && Object.keys(target.default_params).length > 0
+  );
+  const llmParams = targetParamSource?.default_params ?? null;
+  const temperatureValue = formatNumericParam(
+    pickParamValue(paramOverrides ?? llmParams, ['temperature', 'temp']),
+    2
+  );
+  const topPValue = formatNumericParam(
+    pickParamValue(paramOverrides ?? llmParams, ['top_p', 'topP']),
+    2
+  );
+  const topKValue = formatNumericParam(
+    pickParamValue(paramOverrides ?? llmParams, ['top_k', 'topK']),
+    0
+  );
+  const contextWindowValue = formatNumericParam(
+    pickParamValue(paramOverrides ?? llmParams, [
+      'context_window',
+      'context_window_tokens',
+      'max_context_tokens',
+      'context_length'
+    ]),
+    0
+  );
+  const streamValue = (() => {
+    const value = pickParamValue(paramOverrides ?? llmParams, ['stream']);
+    if (typeof value === 'boolean') {
+      return value ? 'On' : 'Off';
+    }
+    return 'N/A';
+  })();
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${railVisible ? 'rail-visible' : 'rail-hidden'}`}>
       <header className="app-header">
         <div>
           <div className="brand-row">
@@ -125,29 +288,93 @@ export function App() {
           <h1>LLM Test Harness Dashboard</h1>
           <p className="subhead">Local-first target control and test execution.</p>
         </div>
-        <div className="header-metrics">
-          <div className="header-status">
-            <div className={`health-indicator ${healthStatus}`}>
-              <span className="health-dot" aria-hidden="true" />
-              <span>
-                Backend:{' '}
-                {healthStatus === 'up'
-                  ? 'Online'
-                  : healthStatus === 'down'
-                    ? 'Offline'
-                    : 'Checking'}
-              </span>
-            </div>
-            <div className={`health-indicator ${dbStatus}`}>
-              <span className="health-dot" aria-hidden="true" />
-              <span>
-                DB:{' '}
-                {dbStatus === 'up' ? 'Online' : dbStatus === 'down' ? 'Offline' : 'Checking'}
-              </span>
-            </div>
-          </div>
-          <div className="metrics-card">
-            <p className="metrics-title">System Metrics</p>
+      </header>
+      <div className="app-body">
+        <aside className="app-nav">
+          <p className="nav-title">Menu</p>
+          <button
+            type="button"
+            className={view === 'targets' ? 'active' : undefined}
+            onClick={() => setView('targets')}
+          >
+            Targets
+          </button>
+          <button
+            type="button"
+            className={view === 'templates' ? 'active' : undefined}
+            onClick={() => setView('templates')}
+          >
+            Templates
+          </button>
+          <button
+            type="button"
+            className={view === 'run-single' ? 'active' : undefined}
+            onClick={() => setView('run-single')}
+          >
+            Run
+          </button>
+          <button
+            type="button"
+            className={view === 'compare' ? 'active' : undefined}
+            onClick={() => setView('compare')}
+          >
+            Compare
+          </button>
+        </aside>
+        <main className="app-main">
+          {view === 'targets' ? (
+            <Targets />
+          ) : view === 'run-single' ? (
+            <RunSingle />
+          ) : view === 'templates' ? (
+            <Templates />
+          ) : view === 'models' ? (
+            <Models />
+          ) : (
+            <CompareRuns />
+          )}
+        </main>
+      </div>
+      <aside className={`status-rail ${railVisible ? 'is-visible' : 'is-hidden'}`}>
+        <div className="status-rail-header">
+          <button
+            type="button"
+            className="rail-toggle"
+            onClick={() => {
+              setRailPinned((prev) => !prev);
+              setRailVisible(true);
+            }}
+            aria-label={railPinned ? 'Unpin status rail' : 'Pin status rail'}
+            title={railPinned ? 'Unpin' : 'Pin'}
+          >
+            {railPinned ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M8 3h8l1 3-3 4v6l-2 2-2-2v-6l-3-4 1-3zM12 18v3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M8 3h8l1 3-3 4v2l-2 2-2-2v-2l-3-4 1-3zM5 19l14-14M12 16v5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+        </div>
+        <div className="status-rail-section">
+          <p className="status-rail-section-title">System Metrics</p>
+          <div className="rail-card">
             <div className="metrics-row">
               <span>CPU</span>
               <strong>{metricsError ? 'Unavailable' : cpuValue}</strong>
@@ -168,51 +395,99 @@ export function App() {
             </div>
           </div>
         </div>
-      </header>
-      <div className="app-body">
-        <aside className="app-nav">
-          <p className="nav-title">Menu</p>
-          <button
-            type="button"
-            className={view === 'targets' ? 'active' : undefined}
-            onClick={() => setView('targets')}
-          >
-            Targets
-          </button>
-          <button
-            type="button"
-            className={view === 'run-single' ? 'active' : undefined}
-            onClick={() => setView('run-single')}
-          >
-            Run Single
-          </button>
-          <button
-            type="button"
-            className={view === 'models' ? 'active' : undefined}
-            onClick={() => setView('models')}
-          >
-            Models
-          </button>
-          <button
-            type="button"
-            className={view === 'compare' ? 'active' : undefined}
-            onClick={() => setView('compare')}
-          >
-            Compare Runs
-          </button>
-        </aside>
-        <main className="app-main">
-          {view === 'targets' ? (
-            <Targets />
-          ) : view === 'run-single' ? (
-            <RunSingle />
-          ) : view === 'models' ? (
-            <Models />
-          ) : (
-            <CompareRuns />
-          )}
-        </main>
-      </div>
+        <div className="status-rail-section">
+          <p className="status-rail-section-title">App Status</p>
+          <div className="rail-card">
+            <div className={`health-indicator ${healthStatus}`}>
+              <span className="health-dot" aria-hidden="true" />
+              <span>
+                Backend:{' '}
+                {healthStatus === 'up'
+                  ? 'Online'
+                  : healthStatus === 'down'
+                    ? 'Offline'
+                    : 'Checking'}
+              </span>
+            </div>
+            <div className={`health-indicator ${dbStatus}`}>
+              <span className="health-dot" aria-hidden="true" />
+              <span>
+                DB:{' '}
+                {dbStatus === 'up' ? 'Online' : dbStatus === 'down' ? 'Offline' : 'Checking'}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="status-rail-section">
+          <p className="status-rail-section-title">Inferencer Servers</p>
+          <div className="rail-card">
+            {targetsError ? (
+              <div className={`health-indicator ${targetsStatus}`}>
+                <span className="health-dot" aria-hidden="true" />
+                <span>Targets: Unavailable</span>
+              </div>
+            ) : activeTargets.length === 0 ? (
+              <div className={`health-indicator ${targetsStatus}`}>
+                <span className="health-dot" aria-hidden="true" />
+                <span>Targets: None</span>
+              </div>
+            ) : (
+              activeTargets.map((target) => {
+                const counts = targetStatusLabel(target.connectivity_status);
+                return (
+                  <div key={target.id} className={`health-indicator ${targetStatusClass(target.connectivity_status)}`}>
+                    <span className="health-dot" aria-hidden="true" />
+                    <span>
+                      {target.name}: {counts.ok} ok · {counts.pending} pending · {counts.failed} failed
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+        <div className="status-rail-section">
+          <p className="status-rail-section-title">LLM Parameters</p>
+          <div className="rail-card">
+            <div className="metrics-row">
+              <span>Temperature</span>
+              <strong>{temperatureValue}</strong>
+            </div>
+            <div className="metrics-row">
+              <span>Top P</span>
+              <strong>{topPValue}</strong>
+            </div>
+            <div className="metrics-row">
+              <span>Top K</span>
+              <strong>{topKValue}</strong>
+            </div>
+            <div className="metrics-row">
+              <span>Context Window</span>
+              <strong>{contextWindowValue}</strong>
+            </div>
+            <div className="metrics-row">
+              <span>Stream</span>
+              <strong>{streamValue}</strong>
+            </div>
+            <p className="status-rail-footnote">
+              {paramOverrides
+                ? 'Overrides from Run Single'
+                : targetParamSource
+                  ? `Defaults from ${targetParamSource.name}`
+                  : 'No target defaults found'}
+            </p>
+          </div>
+        </div>
+      </aside>
+      {!railVisible ? (
+        <button
+          type="button"
+          className="status-rail-tab"
+          onClick={() => setRailVisible(true)}
+        >
+          System Rail
+        </button>
+      ) : null}
     </div>
   );
 }

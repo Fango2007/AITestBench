@@ -1,4 +1,4 @@
-import { apiDelete, apiGet, apiPost, apiPut } from './api';
+import { apiDelete, apiGet, apiPost, apiPut } from './api.js';
 
 export interface TargetModelSummary {
   id?: string | null;

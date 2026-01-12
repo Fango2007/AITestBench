@@ -1,4 +1,4 @@
-import { TargetRecord } from '../services/targets-api';
+import { TargetRecord } from '../services/targets-api.js';
 
 interface TargetDetailsProps {
   target: TargetRecord | null;

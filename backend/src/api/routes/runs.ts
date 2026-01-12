@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
-import { getDb } from '../../models/db';
-import { createSingleRun, getRun, listRunResults } from '../../services/run-service';
+import { getDb } from '../../models/db.js';
+import { createSingleRun, getRun, listRunResults } from '../../services/run-service.js';
 
 export function registerRunsRoutes(app: FastifyInstance): void {
   app.post('/runs', async (request, reply) => {
@@ -12,10 +12,15 @@ export function registerRunsRoutes(app: FastifyInstance): void {
       profile_id?: string;
       profile_version?: string;
       model?: string;
+      test_overrides?: Record<string, unknown>;
+    };
+    const overrides = {
+      ...(payload.test_overrides ?? {}),
+      ...(payload.model ? { model: payload.model } : {})
     };
     const run = await createSingleRun({
       ...payload,
-      test_overrides: payload.model ? { model: payload.model } : undefined
+      test_overrides: Object.keys(overrides).length ? overrides : undefined
     });
     reply.code(201).send(run);
   });

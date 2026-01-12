@@ -1,4 +1,4 @@
-import { ProfileRecord, getProfileById, listProfiles, upsertProfile } from '../models/profile';
+import { ProfileRecord, getProfileById, listProfiles, upsertProfile } from '../models/profile.js';
 
 export interface ProfileInput {
   id: string;

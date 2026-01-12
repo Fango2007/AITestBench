@@ -2,7 +2,7 @@ import os from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-import { getDb } from '../models/db';
+import { getDb } from '../models/db.js';
 
 const execFileAsync = promisify(execFile);
 

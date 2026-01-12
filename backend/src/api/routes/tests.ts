@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 
-import { fetchTests, reloadTests } from '../../services/test-service';
+import { fetchTests, reloadTests } from '../../services/test-service.js';
 
 export function registerTestsRoutes(app: FastifyInstance): void {
   app.get('/tests', async () => fetchTests());

@@ -1,4 +1,4 @@
-import { listSuites, upsertSuite } from '../models/suite';
+import { listSuites, upsertSuite } from '../models/suite.js';
 
 export interface SuiteInput {
   id: string;

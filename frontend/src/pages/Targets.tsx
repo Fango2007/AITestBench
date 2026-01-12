@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { TargetCreateForm } from '../components/TargetCreateForm';
-import { TargetDetails } from '../components/TargetDetails';
-import { TargetEditForm } from '../components/TargetEditForm';
-import { TargetErrors } from '../components/TargetErrors';
-import { TargetList } from '../components/TargetList';
+import { TargetCreateForm } from '../components/TargetCreateForm.js';
+import { TargetDetails } from '../components/TargetDetails.js';
+import { TargetEditForm } from '../components/TargetEditForm.js';
+import { TargetErrors } from '../components/TargetErrors.js';
+import { TargetList } from '../components/TargetList.js';
 import {
   TargetRecord,
   archiveTarget,
@@ -13,7 +13,7 @@ import {
   listTargets,
   retryConnectivity,
   updateTarget
-} from '../services/targets-api';
+} from '../services/targets-api.js';
 
 export function Targets() {
   const [targets, setTargets] = useState<TargetRecord[]>([]);
@@ -21,6 +21,10 @@ export function Targets() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<TargetRecord | null>(null);
   const [inspecting, setInspecting] = useState<TargetRecord | null>(null);
+
+  function notifyTargetsUpdated() {
+    window.dispatchEvent(new CustomEvent('targets:updated'));
+  }
 
   async function refreshTargets() {
     setLoading(true);
@@ -43,6 +47,12 @@ export function Targets() {
 
   useEffect(() => {
     refreshTargets();
+    const intervalId = window.setInterval(() => {
+      refreshTargets();
+    }, 8000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   async function handleCreate(input: Parameters<typeof createTarget>[0]) {
@@ -50,6 +60,7 @@ export function Targets() {
     try {
       await createTarget(input);
       await refreshTargets();
+      notifyTargetsUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to create target');
     }
@@ -64,6 +75,7 @@ export function Targets() {
       await updateTarget(editing.id, updates);
       setEditing(null);
       await refreshTargets();
+      notifyTargetsUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to update target');
     }
@@ -74,6 +86,7 @@ export function Targets() {
     try {
       await archiveTarget(target.id);
       await refreshTargets();
+      notifyTargetsUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to archive target');
     }
@@ -88,6 +101,7 @@ export function Targets() {
     try {
       await deleteTarget(target.id);
       await refreshTargets();
+      notifyTargetsUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to delete target');
     }
@@ -98,6 +112,7 @@ export function Targets() {
     try {
       await retryConnectivity(target.id);
       await refreshTargets();
+      notifyTargetsUpdated();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to retry connectivity');
     }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { runPythonModule } from '../../src/plugins/python-runner';
+import { runPythonModule } from '../../src/plugins/python-runner.js';
 
 describe('python runner', () => {
   it('rejects disallowed paths', async () => {

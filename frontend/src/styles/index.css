@@ -3,6 +3,7 @@
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   background: radial-gradient(circle at top, #f5f1ea 0%, #efe9df 45%, #e4ddd1 100%);
   color: #1b1a17;
+  --status-rail-width: 280px;
 }
 
 * {
@@ -17,6 +18,10 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.app-shell.rail-visible {
+  padding-right: var(--status-rail-width);
 }
 
 .app-header {
@@ -69,6 +74,17 @@ body {
   color: #6a645b;
 }
 
+.param-section {
+  margin-top: 8px;
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
 .metrics-row {
   display: flex;
   justify-content: space-between;
@@ -81,6 +97,106 @@ body {
 .metrics-row strong {
   font-weight: 600;
   color: #2d2a25;
+}
+
+.status-rail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: var(--status-rail-width);
+  height: 100vh;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255, 249, 241, 0.96);
+  border-left: 1px solid #d4cbbf;
+  box-shadow: -12px 0 30px rgba(24, 22, 18, 0.1);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.status-rail.is-hidden {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.status-rail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.status-rail-title {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #6a645b;
+}
+
+.status-rail-subtitle {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #7a7266;
+}
+
+.status-rail-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #6a645b;
+}
+
+.status-rail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rail-card {
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid #dacfc0;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 12px 24px rgba(27, 26, 23, 0.08);
+}
+
+.rail-toggle {
+  align-self: flex-start;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.rail-toggle svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.status-rail-footnote {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #7a7266;
+}
+
+.status-rail-tab {
+  position: fixed;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  z-index: 11;
 }
 
 .subhead {
@@ -189,6 +305,16 @@ input {
   background: #fffdfa;
 }
 
+textarea {
+  border: 1px solid #c7c0b3;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #fffdfa;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  min-height: 220px;
+}
+
 select {
   border: 1px solid #c7c0b3;
   border-radius: 8px;
@@ -211,6 +337,46 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+button[disabled] {
+  background: #b8b1a5;
+  color: #f2efe8;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+button.is-pending {
+  position: relative;
+  background: #3f3a33;
+  color: #f9f6ef;
+}
+
+button.is-pending::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 8px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 999px;
+  background: #f2c94c;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 1;
+  }
+}
+
 .card {
   background: #fffdf8;
   border: 1px solid #dacfc0;
@@ -224,6 +390,13 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 20px;
+}
+
+.templates-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
 }
 
 .targets-column {
@@ -375,5 +548,32 @@ pre {
 
   .targets-grid {
     grid-template-columns: 1fr;
+  }
+
+  .templates-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell.rail-visible {
+    padding-right: 0;
+  }
+
+  .status-rail {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-left: none;
+    border-top: 1px solid #d4cbbf;
+    box-shadow: none;
+  }
+
+  .status-rail.is-hidden {
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .status-rail-tab {
+    display: none;
   }
 }

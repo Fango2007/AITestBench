@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createTarget, deleteTarget, findTargetByName } from './helpers';
+import { createTarget, deleteTarget, findTargetByName } from './helpers.js';
 
 test('edits a target', async ({ page, request }) => {
   const created = await createTarget(request);

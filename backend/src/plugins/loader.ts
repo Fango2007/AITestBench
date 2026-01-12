@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { validateJsonTestSpec } from './json-validator';
+import { validateJsonTestSpec } from './json-validator.js';
 
 export interface TestDefinitionMeta {
   id: string;

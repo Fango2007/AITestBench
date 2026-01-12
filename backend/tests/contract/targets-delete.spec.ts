@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createServer } from '../../src/api/server';
-import { getDb } from '../../src/models/db';
+import { createServer } from '../../src/api/server.js';
+import { getDb } from '../../src/models/db.js';
 
 const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 

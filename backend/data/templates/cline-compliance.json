@@ -1,0 +1,23 @@
+{
+  "id": "cline-compliance",
+  "version": "1.0.0",
+  "name": "Cline coding AI compliance",
+  "description": "Validate chat response shape with Cline.",
+  "protocols": ["ollama"],
+  "request": {
+    "method": "POST",
+    "path": "/api/chat",
+    "body_template": {
+      "model": "llama3",
+      "messages": [
+        { "role": "user", "content": "ping" }
+      ]
+    }
+  },
+  "assertions": [
+    { "type": "json_path_exists", "target": "body", "expected": "$.message" }
+  ],
+  "metrics": {
+    "ttfb": "client"
+  }
+}

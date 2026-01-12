@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeProxyPerplexity } from '../../src/services/perplexity-runner';
+import { computeProxyPerplexity } from '../../src/services/perplexity-runner.js';
 
 describe('proxy perplexity', () => {
   it('computes accuracy', () => {

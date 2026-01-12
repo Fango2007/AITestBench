@@ -11,10 +11,10 @@ import {
   removeTarget,
   updateTargetConnectivity,
   updateTargetRecord
-} from '../../services/targets-repository';
-import { queueConnectivityCheck } from '../../services/connectivity-runner';
-import { targetCreateSchema, targetUpdateSchema } from '../targets-schemas';
-import { nowIso } from '../../models/repositories';
+} from '../../services/targets-repository.js';
+import { queueConnectivityCheck } from '../../services/connectivity-runner.js';
+import { targetCreateSchema, targetUpdateSchema } from '../targets-schemas.js';
+import { nowIso } from '../../models/repositories.js';
 
 export function registerTargetsRoutes(app: FastifyInstance): void {
   app.get('/targets', async (request) => {

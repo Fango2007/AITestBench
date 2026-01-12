@@ -1,5 +1,5 @@
-import { getDb } from './db';
-import { nowIso, parseJsonArray, serializeJson } from './repositories';
+import { getDb } from './db.js';
+import { nowIso, parseJsonArray, serializeJson } from './repositories.js';
 
 export interface TestDefinitionRecord {
   id: string;

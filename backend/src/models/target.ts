@@ -1,5 +1,5 @@
-import { getDb } from './db';
-import { nowIso, parseJson, serializeJson } from './repositories';
+import { getDb } from './db.js';
+import { nowIso, parseJson, serializeJson } from './repositories.js';
 
 export interface TargetRecord {
   id: string;

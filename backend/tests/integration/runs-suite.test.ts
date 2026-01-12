@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createServer } from '../../src/api/server';
-import { createTargetRecord } from '../../src/services/target-service';
-import { saveSuite } from '../../src/services/suite-service';
-import { upsertTestDefinition } from '../../src/models/test-definition';
+import { createServer } from '../../src/api/server.js';
+import { createTargetRecord } from '../../src/services/target-service.js';
+import { saveSuite } from '../../src/services/suite-service.js';
+import { upsertTestDefinition } from '../../src/models/test-definition.js';
 
 
 describe('suite runs API', () => {

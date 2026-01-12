@@ -1,4 +1,4 @@
-import { PerplexityItem } from './perplexity';
+import { PerplexityItem } from './perplexity.js';
 
 export interface ProxyPerplexityResult {
   accuracy: number;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { TargetInput, TargetRecord } from '../services/targets-api';
+import { TargetInput, TargetRecord } from '../services/targets-api.js';
 
 interface TargetEditFormProps {
   target: TargetRecord;

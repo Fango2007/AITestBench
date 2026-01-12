@@ -1,11 +1,22 @@
-import { TargetRecord, TargetModelSummary } from '../models/target';
-import { nowIso } from '../models/repositories';
-import { fetchTarget, updateTargetConnectivity } from './targets-repository';
+import { TargetRecord, TargetModelSummary } from '../models/target.js';
+import { nowIso } from '../models/repositories.js';
+import { fetchTarget, fetchTargets, updateTargetConnectivity } from './targets-repository.js';
 
 interface ConnectivityResult {
   status: 'ok' | 'failed';
   models: TargetModelSummary[];
   error?: string | null;
+}
+
+function logDebug(message: string, details?: Record<string, unknown>): void {
+  if (process.env.CONNECTIVITY_DEBUG !== '1') {
+    return;
+  }
+  if (details) {
+    console.info(`[connectivity-debug] ${message}`, details);
+  } else {
+    console.info(`[connectivity-debug] ${message}`);
+  }
 }
 
 function buildHeaders(target: TargetRecord): Record<string, string> {
@@ -26,7 +37,9 @@ function normalizeBaseUrl(url: string): string {
 }
 
 async function fetchOpenAIModels(target: TargetRecord): Promise<TargetModelSummary[]> {
-  const response = await fetch(`${normalizeBaseUrl(target.base_url)}/v1/models`, {
+  const url = `${normalizeBaseUrl(target.base_url)}/v1/models`;
+  logDebug('Fetching OpenAI models', { targetId: target.id, url });
+  const response = await fetch(url, {
     headers: buildHeaders(target)
   });
   if (!response.ok) {
@@ -42,7 +55,9 @@ async function fetchOpenAIModels(target: TargetRecord): Promise<TargetModelSumma
 }
 
 async function fetchOllamaModels(target: TargetRecord): Promise<TargetModelSummary[]> {
-  const response = await fetch(`${normalizeBaseUrl(target.base_url)}/api/tags`, {
+  const url = `${normalizeBaseUrl(target.base_url)}/api/tags`;
+  logDebug('Fetching Ollama tags', { targetId: target.id, url });
+  const response = await fetch(url, {
     headers: buildHeaders(target)
   });
   if (!response.ok) {
@@ -69,8 +84,26 @@ function dedupeModels(models: TargetModelSummary[]): TargetModelSummary[] {
   });
 }
 
+function dedupeModelsByName(models: TargetModelSummary[]): TargetModelSummary[] {
+  const seen = new Set<string>();
+  return models.filter((model) => {
+    const key = `${model.name}:${model.version ?? ''}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 async function runConnectivityCheck(target: TargetRecord): Promise<ConnectivityResult> {
   try {
+    logDebug('Running connectivity check', {
+      targetId: target.id,
+      name: target.name,
+      baseUrl: target.base_url,
+      provider: target.provider
+    });
     if (target.provider === 'auto') {
       const results = await Promise.allSettled([
         fetchOpenAIModels(target),
@@ -87,7 +120,7 @@ async function runConnectivityCheck(target: TargetRecord): Promise<ConnectivityR
         }
       });
       if (models.length > 0) {
-        return { status: 'ok', models: dedupeModels(models) };
+        return { status: 'ok', models: dedupeModelsByName(models) };
       }
       return {
         status: 'failed',
@@ -102,6 +135,10 @@ async function runConnectivityCheck(target: TargetRecord): Promise<ConnectivityR
         : await fetchOpenAIModels(target);
     return { status: 'ok', models };
   } catch (error) {
+    logDebug('Connectivity check threw', {
+      targetId: target.id,
+      error: error instanceof Error ? error.message : String(error)
+    });
     const message = error instanceof Error ? error.message : 'Connectivity check failed';
     return { status: 'failed', models: [], error: message };
   }
@@ -111,9 +148,16 @@ export function queueConnectivityCheck(targetId: string): void {
   setTimeout(async () => {
     const target = fetchTarget(targetId);
     if (!target) {
+      logDebug('Target missing for connectivity check', { targetId });
       return;
     }
 
+    logDebug('Queued connectivity check', {
+      targetId: target.id,
+      name: target.name,
+      baseUrl: target.base_url,
+      provider: target.provider
+    });
     updateTargetConnectivity(target.id, {
       connectivity_status: 'pending',
       last_check_at: nowIso(),
@@ -133,4 +177,16 @@ export function queueConnectivityCheck(targetId: string): void {
       console.info(`[connectivity-check] ${target.name} ${outcome}`);
     }
   }, 0);
+}
+
+export function startConnectivityMonitor(): void {
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') {
+    return;
+  }
+  const intervalMs = Number(process.env.CONNECTIVITY_POLL_INTERVAL_MS ?? 30000);
+  const safeIntervalMs = Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : 30000;
+  setInterval(() => {
+    const targets = fetchTargets('active');
+    targets.forEach((target) => queueConnectivityCheck(target.id));
+  }, safeIntervalMs);
 }
