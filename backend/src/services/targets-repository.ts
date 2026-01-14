@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 
-import { getDb } from '../models/db';
+import { getDb } from '../models/db.js';
 import {
   TargetRecord,
   TargetModelSummary,
@@ -10,7 +10,7 @@ import {
   getTargetByName,
   listTargets,
   updateTarget
-} from '../models/target';
+} from '../models/target.js';
 
 export interface TargetInput {
   name: string;
@@ -122,6 +122,24 @@ export function updateTargetConnectivity(
   }
 ): TargetRecord | null {
   return updateTarget(id, updates as Partial<TargetRecord>);
+}
+
+export function updateTargetModel(
+  id: string,
+  modelId: string,
+  updates: Partial<TargetModelSummary>
+): TargetRecord | null {
+  const existing = getTargetById(id);
+  if (!existing || !existing.models) {
+    return null;
+  }
+  const updatedModels = existing.models.map((model) => {
+    if (model.model_id === modelId || model.api_model_name === modelId) {
+      return { ...model, ...updates };
+    }
+    return model;
+  });
+  return updateTarget(id, { models: updatedModels } as Partial<TargetRecord>);
 }
 
 export function archiveTarget(id: string): TargetRecord | null {

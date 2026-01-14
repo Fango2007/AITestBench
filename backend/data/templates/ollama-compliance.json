@@ -3,19 +3,28 @@
   "version": "1.0.0",
   "name": "Ollama compliance",
   "description": "Validate Ollama chat response shape.",
-  "protocols": ["ollama"],
+  "protocols": [
+    "ollama"
+  ],
   "request": {
     "method": "POST",
     "path": "/api/chat",
     "body_template": {
-      "model": "llama3",
+      "model": "MODEL",
       "messages": [
-        { "role": "user", "content": "ping" }
+        {
+          "role": "user",
+          "content": "ping"
+        }
       ]
     }
   },
   "assertions": [
-    { "type": "json_path_exists", "target": "body", "expected": "$.message" }
+    {
+      "type": "json_path_exists",
+      "target": "body",
+      "expected": "$.message"
+    }
   ],
   "metrics": {
     "ttfb": "client"

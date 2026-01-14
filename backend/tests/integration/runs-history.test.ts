@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createServer } from '../../src/api/server';
+import { createServer } from '../../src/api/server.js';
 
 
 describe('run history API', () => {

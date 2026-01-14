@@ -14,17 +14,17 @@ if (fs.existsSync(envPath)) {
   dotenv.config();
 }
 
-import { ApiClient, ApiError } from './lib/api-client.ts';
-import { addTarget, deleteTarget, updateTarget } from './commands/target.ts';
-import { runTest } from './commands/test.ts';
-import { createSuite, runSuite } from './commands/suite.ts';
-import { exportResults } from './commands/export.ts';
-import { listTargets } from './commands/targets-list.ts';
-import { listTests } from './commands/tests-list.ts';
-import { listSuites } from './commands/suites-list.ts';
-import { reloadTests } from './commands/tests.ts';
-import { createProfile, listProfiles } from './commands/profile.ts';
-import { listModels } from './commands/model.ts';
+import { ApiClient, ApiError } from './lib/api-client.js';
+import { addTarget, deleteTarget, updateTarget } from './commands/target.js';
+import { runTest } from './commands/test.js';
+import { createSuite, runSuite } from './commands/suite.js';
+import { exportResults } from './commands/export.js';
+import { listTargets } from './commands/targets-list.js';
+import { listTests } from './commands/tests-list.js';
+import { listSuites } from './commands/suites-list.js';
+import { reloadTests } from './commands/tests.js';
+import { createProfile, listProfiles } from './commands/profile.js';
+import { listModels } from './commands/model.js';
 
 class CliUsageError extends Error {}
 

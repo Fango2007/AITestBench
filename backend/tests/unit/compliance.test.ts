@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluateCompliance } from '../../src/services/compliance';
+import { evaluateCompliance } from '../../src/services/compliance.js';
 
 describe('evaluateCompliance', () => {
   it('flags missing required fields', () => {

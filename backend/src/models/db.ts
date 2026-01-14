@@ -33,6 +33,7 @@ export function runSchema(sql: string): void {
   const db = getDb();
   db.exec(sql);
   ensureTargetsColumns(db);
+  ensureActiveTestsSchema(db);
 }
 
 function ensureTargetsColumns(db: Database.Database): void {
@@ -74,4 +75,48 @@ function ensureTargetsColumns(db: Database.Database): void {
   db.exec("UPDATE targets SET provider = 'openai' WHERE provider IS NULL");
   db.exec("UPDATE targets SET status = 'active' WHERE status IS NULL");
   db.exec("UPDATE targets SET connectivity_status = 'pending' WHERE connectivity_status IS NULL");
+}
+
+function ensureActiveTestsSchema(db: Database.Database): void {
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS active_tests (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      template_version TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      model_name TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      deleted_at TEXT,
+      version TEXT NOT NULL,
+      command_preview TEXT,
+      python_ready INTEGER NOT NULL DEFAULT 0
+    )`
+  );
+
+  const columns = db.prepare('PRAGMA table_info(active_tests)').all() as Array<{ name: string }>;
+  if (columns.length === 0) {
+    return;
+  }
+  const existing = new Set(columns.map((column) => column.name));
+  const additions = [
+    { name: 'template_version', sql: 'ALTER TABLE active_tests ADD COLUMN template_version TEXT' },
+    { name: 'target_id', sql: 'ALTER TABLE active_tests ADD COLUMN target_id TEXT' },
+    { name: 'model_name', sql: 'ALTER TABLE active_tests ADD COLUMN model_name TEXT' },
+    { name: 'status', sql: "ALTER TABLE active_tests ADD COLUMN status TEXT NOT NULL DEFAULT 'ready'" },
+    { name: 'created_at', sql: 'ALTER TABLE active_tests ADD COLUMN created_at TEXT' },
+    { name: 'deleted_at', sql: 'ALTER TABLE active_tests ADD COLUMN deleted_at TEXT' },
+    { name: 'version', sql: 'ALTER TABLE active_tests ADD COLUMN version TEXT' },
+    { name: 'command_preview', sql: 'ALTER TABLE active_tests ADD COLUMN command_preview TEXT' },
+    {
+      name: 'python_ready',
+      sql: 'ALTER TABLE active_tests ADD COLUMN python_ready INTEGER NOT NULL DEFAULT 0'
+    }
+  ];
+
+  for (const addition of additions) {
+    if (!existing.has(addition.name)) {
+      db.exec(addition.sql);
+    }
+  }
 }

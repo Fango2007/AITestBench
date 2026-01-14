@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "The capital of France is",
+    "options": ["Paris", "Rome", "Madrid"],
+    "correct": "Paris"
+  },
+  {
+    "prompt": "The chemical symbol for water is",
+    "options": ["H2O", "CO2", "O2"],
+    "correct": "H2O"
+  },
+  {
+    "prompt": "The largest planet in our solar system is",
+    "options": ["Jupiter", "Mars", "Venus"],
+    "correct": "Jupiter"
+  }
+]

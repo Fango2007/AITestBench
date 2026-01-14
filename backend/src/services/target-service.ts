@@ -7,8 +7,8 @@ import {
   getTargetById,
   listTargets,
   updateTarget
-} from '../models/target';
-import { getDb } from '../models/db';
+} from '../models/target.js';
+import { getDb } from '../models/db.js';
 
 export interface TargetInput {
   name: string;

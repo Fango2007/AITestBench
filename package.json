@@ -12,9 +12,13 @@
   },
   "scripts": {
     "cli": "npm -w cli run cli --",
-    "dev": "concurrently \"npm -w backend run dev\" \"npm -w frontend run dev\""
+    "dev": "concurrently \"npm -w backend run dev\" \"npm -w frontend run dev\"",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },
   "devDependencies": {
-    "concurrently": "^9.0.1"
+    "@typescript-eslint/parser": "^8.0.0",
+    "concurrently": "^9.0.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-import": "^2.31.0"
   }
 }

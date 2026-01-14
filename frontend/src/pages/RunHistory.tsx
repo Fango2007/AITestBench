@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { apiGet } from '../services/api';
+import { apiGet } from '../services/api.js';
 
 export function RunHistory() {
   const [runs, setRuns] = useState<Record<string, unknown>[]>([]);

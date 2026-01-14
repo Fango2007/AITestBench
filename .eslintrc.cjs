@@ -7,9 +7,34 @@ module.exports = {
   extends: [
     "eslint:recommended"
   ],
+  parser: "@typescript-eslint/parser",
   parserOptions: {
     ecmaVersion: "latest",
     sourceType: "module"
+  },
+  plugins: [
+    "import"
+  ],
+  rules: {
+    "import/extensions": [
+      "error",
+      "ignorePackages",
+      {
+        js: "always",
+        jsx: "always",
+        ts: "always",
+        tsx: "always"
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          "*.ts",
+          "*.tsx"
+        ]
+      }
+    ]
   },
   ignorePatterns: [
     "dist/",

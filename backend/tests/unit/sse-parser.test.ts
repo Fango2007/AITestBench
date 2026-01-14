@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSseEvents } from '../../src/services/sse-parser';
+import { parseSseEvents } from '../../src/services/sse-parser.js';
 
 describe('parseSseEvents', () => {
   it('parses data events and end markers', () => {

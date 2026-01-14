@@ -1,4 +1,4 @@
-import { ApiClient } from '../lib/api-client.ts';
+import { ApiClient } from '../lib/api-client.js';
 
 export interface RunSuiteInput {
   target_id: string;

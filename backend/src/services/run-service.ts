@@ -1,10 +1,10 @@
 import crypto from 'crypto';
 
-import { getDb } from '../models/db';
-import { getTargetById } from '../models/target';
-import { nowIso, parseJson } from '../models/repositories';
-import { getRetentionDays } from './retention';
-import { executeRun, RunExecutionResult } from './run-executor';
+import { getDb } from '../models/db.js';
+import { getTargetById } from '../models/target.js';
+import { nowIso, parseJson } from '../models/repositories.js';
+import { getRetentionDays } from './retention.js';
+import { executeRun, RunExecutionResult } from './run-executor.js';
 
 export interface RunRecord {
   id: string;

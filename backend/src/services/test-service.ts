@@ -1,6 +1,6 @@
-import { listTestDefinitions, upsertTestDefinition } from '../models/test-definition';
-import { loadTestsFromDir, loadBuiltinTests } from '../plugins/loader';
-import { DEFAULT_TESTS_DIR } from '../plugins/config';
+import { listTestDefinitions, upsertTestDefinition } from '../models/test-definition.js';
+import { loadTestsFromDir, loadBuiltinTests } from '../plugins/loader.js';
+import { DEFAULT_TESTS_DIR } from '../plugins/config.js';
 
 export function fetchTests() {
   return listTestDefinitions();

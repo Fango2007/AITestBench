@@ -1,10 +1,23 @@
-import { apiDelete, apiGet, apiPost, apiPut } from './api';
+import { apiDelete, apiGet, apiPost, apiPut } from './api.js';
 
 export interface TargetModelSummary {
-  id?: string | null;
-  name: string;
-  provider?: string | null;
-  version?: string | null;
+  model_id: string;
+  source: 'openai' | 'ollama';
+  api_model_name: string;
+  family?: string | null;
+  parameter_count?: string | null;
+  quantization?: string | null;
+  context_window?: number | null;
+  capabilities?: {
+    chat?: boolean;
+    tools?: boolean;
+    vision?: boolean;
+  } | null;
+  artifacts?: {
+    format?: string | null;
+    size_bytes?: number | null;
+    digest?: string | null;
+  } | null;
 }
 
 export interface TargetRecord {
@@ -60,4 +73,11 @@ export async function deleteTarget(id: string): Promise<void> {
 
 export async function retryConnectivity(id: string): Promise<void> {
   await apiPost(`/targets/${id}/connectivity-check`, {});
+}
+
+export async function probeModelContextWindow(targetId: string, modelId: string) {
+  return apiPost<{ model: TargetModelSummary }>(
+    `/targets/${targetId}/models/${encodeURIComponent(modelId)}/context-probe`,
+    {}
+  );
 }

@@ -10,16 +10,27 @@ const envPath = path.join(repoRoot, '.env');
 
 if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });
+  const envContents = fs.readFileSync(envPath, 'utf8');
+  console.info(`[env] Loaded ${envPath}\n${envContents}`);
 } else {
   dotenv.config();
 }
 
-import { createServer } from './api/server';
+import { createServer } from './api/server.js';
+import { startConnectivityMonitor } from './services/connectivity-runner.js';
+import { migrateBuiltinTemplates } from './services/template-migration.js';
+
+const migration = migrateBuiltinTemplates();
+if (!migration.sourceMissing && migration.copied > 0) {
+  console.log(`Migrated ${migration.copied} template(s) into templates directory.`);
+}
 
 const app = createServer();
 const port = Number(process.env.PORT || 8080);
 
-app.listen({ port, host: '0.0.0.0' }).catch((err) => {
+startConnectivityMonitor();
+
+app.listen({ port, host: '0.0.0.0' }).catch((err: unknown) => {
   app.log.error(err, 'Failed to start server');
   process.exit(1);
 });

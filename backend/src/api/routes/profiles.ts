@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 
-import { fetchProfiles, saveProfile } from '../../services/profile-service';
+import { fetchProfiles, saveProfile } from '../../services/profile-service.js';
 
 export function registerProfilesRoutes(app: FastifyInstance): void {
   app.get('/profiles', async () => fetchProfiles());

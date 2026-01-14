@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { TargetInput } from '../services/targets-api';
+import { TargetInput } from '../services/targets-api.js';
 
 interface TargetCreateFormProps {
   onCreate: (input: TargetInput) => Promise<void>;

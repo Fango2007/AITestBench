@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateJsonTestSpec } from '../../src/plugins/json-validator';
+import { validateJsonTestSpec } from '../../src/plugins/json-validator.js';
 
 describe('json test validation', () => {
   it('flags missing fields', () => {

@@ -1,4 +1,4 @@
-import { ApiClient } from '../lib/api-client.ts';
+import { ApiClient } from '../lib/api-client.js';
 
 export async function listProfiles(client: ApiClient) {
   return client.get('/profiles');

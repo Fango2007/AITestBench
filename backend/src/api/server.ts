@@ -3,17 +3,18 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { runSchema } from '../models/db';
-import { reloadTests } from '../services/test-service';
-import { registerAuth } from './middleware/auth';
-import { registerResultsRoutes } from './routes/results';
-import { registerRunsRoutes } from './routes/runs';
-import { registerSuitesRoutes } from './routes/suites';
-import { registerTargetsRoutes } from './routes/targets';
-import { registerTestsRoutes } from './routes/tests';
-import { registerProfilesRoutes } from './routes/profiles';
-import { registerModelsRoutes } from './routes/models';
-import { registerSystemRoutes } from './routes/system';
+import { runSchema } from '../models/db.js';
+import { reloadTests } from '../services/test-service.js';
+import { registerAuth } from './middleware/auth.js';
+import { registerResultsRoutes } from './routes/results.js';
+import { registerRunsRoutes } from './routes/runs.js';
+import { registerSuitesRoutes } from './routes/suites.js';
+import { registerTargetsRoutes } from './routes/targets.js';
+import { registerTestsRoutes } from './routes/tests.js';
+import { registerProfilesRoutes } from './routes/profiles.js';
+import { registerModelsRoutes } from './routes/models.js';
+import { registerSystemRoutes } from './routes/system.js';
+import { registerTemplatesRoutes } from './routes/templates.js';
 
 export function createServer() {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
@@ -62,6 +63,7 @@ export function createServer() {
   registerProfilesRoutes(app);
   registerModelsRoutes(app);
   registerResultsRoutes(app);
+  registerTemplatesRoutes(app);
 
   return app;
 }

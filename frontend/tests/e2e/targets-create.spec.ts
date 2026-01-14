@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-import { deleteTarget, findTargetByName } from './helpers';
+import { deleteTarget, findTargetByName } from './helpers.js';
 
 test('creates a new target from the dashboard', async ({ page, request }) => {
   const targetName = `E2E Target ${Date.now()}`;
-  const baseUrl = 'http://localhost:11434';
+  const baseUrl = 'http://localhost:8080';
 
   await page.goto('/');
 

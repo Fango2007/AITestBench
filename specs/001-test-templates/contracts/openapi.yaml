@@ -1,0 +1,203 @@
+openapi: 3.0.3
+info:
+  title: AITestBench Templates API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /templates:
+    get:
+      summary: List templates
+      responses:
+        '200':
+          description: Template list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestTemplate'
+    post:
+      summary: Create template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestTemplateCreate'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplate'
+        '400':
+          description: Validation error
+  /templates/{templateId}:
+    put:
+      summary: Update template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestTemplateUpdate'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestTemplate'
+        '400':
+          description: Validation error
+        '404':
+          description: Not found
+    delete:
+      summary: Delete template
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+  /active-tests:
+    get:
+      summary: List active tests
+      responses:
+        '200':
+          description: Active test list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveTest'
+  /active-tests/instantiate:
+    post:
+      summary: Instantiate active tests from templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_id, model_name, template_ids]
+              properties:
+                target_id:
+                  type: string
+                model_name:
+                  type: string
+                template_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Active tests created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveTest'
+        '400':
+          description: Validation error
+  /active-tests/{activeTestId}:
+    delete:
+      summary: Delete active test
+      parameters:
+        - name: activeTestId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          description: Not found
+components:
+  schemas:
+    TestTemplate:
+      type: object
+      required: [id, name, type, content, version, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [json, python]
+        content:
+          type: string
+        version:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    TestTemplateCreate:
+      type: object
+      required: [id, name, type, content, version]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [json, python]
+        content:
+          type: string
+        version:
+          type: string
+    TestTemplateUpdate:
+      type: object
+      required: [name, type, content, version]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [json, python]
+        content:
+          type: string
+        version:
+          type: string
+    ActiveTest:
+      type: object
+      required: [id, template_id, template_version, target_id, model_name, status, created_at, version]
+      properties:
+        id:
+          type: string
+        template_id:
+          type: string
+        template_version:
+          type: string
+        target_id:
+          type: string
+        model_name:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        version:
+          type: string

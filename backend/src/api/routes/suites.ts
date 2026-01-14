@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 
-import { fetchSuites, saveSuite } from '../../services/suite-service';
+import { fetchSuites, saveSuite } from '../../services/suite-service.js';
 
 export function registerSuitesRoutes(app: FastifyInstance): void {
   app.get('/suites', async () => fetchSuites());

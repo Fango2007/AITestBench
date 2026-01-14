@@ -3,20 +3,33 @@
   "version": "1.0.0",
   "name": "OpenAI compliance",
   "description": "Validate OpenAI chat completion response shape.",
-  "protocols": ["openai_chat_completions"],
+  "protocols": [
+    "openai_chat_completions"
+  ],
   "request": {
     "method": "POST",
     "path": "/v1/chat/completions",
     "body_template": {
-      "model": "gpt-4o-mini",
+      "model": "MODEL",
       "messages": [
-        { "role": "user", "content": "ping" }
+        {
+          "role": "user",
+          "content": "ping"
+        }
       ]
     }
   },
   "assertions": [
-    { "type": "json_path_exists", "target": "body", "expected": "$.id" },
-    { "type": "json_path_exists", "target": "body", "expected": "$.choices" }
+    {
+      "type": "json_path_exists",
+      "target": "body",
+      "expected": "$.id"
+    },
+    {
+      "type": "json_path_exists",
+      "target": "body",
+      "expected": "$.choices"
+    }
   ],
   "metrics": {
     "ttfb": "client"

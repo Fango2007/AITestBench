@@ -1,7 +1,7 @@
-# LLM Server Test Harness & Benchmark Dashboard
+# Inference server Test Bench
 
 Local-first harness for running automated LLM tests against OpenAI-compatible
-or Ollama servers. It provides:
+or Ollama inference servers. It provides:
 
 - A local HTTP API for triggering runs and fetching results
 - A CLI for automation and scripting
@@ -44,7 +44,10 @@ Create a local `.env` file at the repo root:
 
 - `AITESTBENCH_API_TOKEN` (required): shared token for API + CLI auth.
 - `AITESTBENCH_DB_PATH` (optional): override DB file path.
+- `AITESTBENCH_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
+- `CONNECTIVITY_POLL_INTERVAL_MS` (optional): interval for target connectivity checks in ms (default: 30000).
+- `AITESTBENCH_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
 - `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
 - `VITE_AITESTBENCH_FRONTEND_BASE_URL` (optional): frontend base URL (`http://localhost:5173` by default)
 - `AITESTBENCH_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).
