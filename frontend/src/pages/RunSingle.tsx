@@ -381,8 +381,11 @@ export function RunSingle() {
             <select value={model} onChange={(event) => setModel(event.target.value)}>
               <option value="">Use target default</option>
               {modelOptions.map((entry) => (
-                <option key={`${entry.provider ?? 'unknown'}-${entry.name}`} value={entry.name}>
-                  {entry.name}
+                <option
+                  key={`${entry.source ?? 'unknown'}-${entry.model_id ?? entry.api_model_name}`}
+                  value={entry.api_model_name ?? entry.model_id}
+                >
+                  {entry.model_id ?? entry.api_model_name}
                 </option>
               ))}
             </select>

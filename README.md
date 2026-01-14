@@ -1,7 +1,7 @@
-# LLM Server Test Harness & Benchmark Dashboard
+# Inference server Test Bench
 
 Local-first harness for running automated LLM tests against OpenAI-compatible
-or Ollama servers. It provides:
+or Ollama inference servers. It provides:
 
 - A local HTTP API for triggering runs and fetching results
 - A CLI for automation and scripting

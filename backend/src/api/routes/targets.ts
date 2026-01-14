@@ -10,9 +10,11 @@ import {
   fetchTargets,
   removeTarget,
   updateTargetConnectivity,
+  updateTargetModel,
   updateTargetRecord
 } from '../../services/targets-repository.js';
 import { queueConnectivityCheck } from '../../services/connectivity-runner.js';
+import { probeContextWindow } from '../../services/model-probe.js';
 import { targetCreateSchema, targetUpdateSchema } from '../targets-schemas.js';
 import { nowIso } from '../../models/repositories.js';
 
@@ -104,6 +106,38 @@ export function registerTargetsRoutes(app: FastifyInstance): void {
     });
     queueConnectivityCheck(targetId);
     reply.code(202).send({ status: 'queued' });
+  });
+
+  app.post('/targets/:targetId/models/:modelId/context-probe', async (request, reply) => {
+    const { targetId, modelId } = request.params as { targetId: string; modelId: string };
+    const target = fetchTarget(targetId);
+    if (!target || !target.models) {
+      reply.code(404).send({ error: 'Target not found' });
+      return;
+    }
+    const model = target.models.find(
+      (entry) => entry.model_id === modelId || entry.api_model_name === modelId
+    );
+    if (!model) {
+      reply.code(404).send({ error: 'Model not found' });
+      return;
+    }
+    if (model.context_window) {
+      reply.send({ model });
+      return;
+    }
+    const contextWindow = await probeContextWindow(target, model);
+    if (!contextWindow) {
+      reply.code(400).send({ error: 'Context probe failed' });
+      return;
+    }
+    const updated = updateTargetModel(targetId, model.model_id, { context_window: contextWindow });
+    const updatedModel =
+      updated?.models?.find((entry) => entry.model_id === model.model_id) ?? {
+        ...model,
+        context_window: contextWindow
+      };
+    reply.send({ model: updatedModel });
   });
 
   app.delete('/targets/:targetId', async (request, reply) => {

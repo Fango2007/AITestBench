@@ -46,11 +46,16 @@ async function fetchOpenAIModels(target: TargetRecord): Promise<TargetModelSumma
     throw new Error(`OpenAI models request failed (${response.status})`);
   }
   const payload = (await response.json()) as { data?: Array<{ id: string }> };
-  const host = new URL(target.base_url).host;
   return (payload.data ?? []).map((model) => ({
-    id: model.id,
-    name: model.id,
-    provider: host
+    model_id: model.id,
+    source: 'openai',
+    api_model_name: model.id,
+    family: null,
+    parameter_count: null,
+    quantization: null,
+    context_window: null,
+    capabilities: null,
+    artifacts: null
   }));
 }
 
@@ -63,37 +68,70 @@ async function fetchOllamaModels(target: TargetRecord): Promise<TargetModelSumma
   if (!response.ok) {
     throw new Error(`Ollama tags request failed (${response.status})`);
   }
-  const payload = (await response.json()) as { models?: Array<{ name: string; version?: string }> };
-  const host = new URL(target.base_url).host;
+  const payload = (await response.json()) as {
+    models?: Array<{
+      name: string;
+      model?: string;
+      size?: number;
+      digest?: string;
+      details?: {
+        family?: string;
+        parameter_size?: string;
+        quantization_level?: string;
+        format?: string;
+      };
+      context_length?: number;
+      capabilities?: { chat?: boolean; tools?: boolean; vision?: boolean };
+    }>;
+  };
   return (payload.models ?? []).map((model) => ({
-    name: model.name,
-    provider: host,
-    version: model.version ?? null
+    model_id: model.model ?? model.name,
+    source: 'ollama',
+    api_model_name: model.name,
+    family: model.details?.family ?? null,
+    parameter_count: model.details?.parameter_size ?? null,
+    quantization: model.details?.quantization_level ?? null,
+    context_window: model.context_length ?? null,
+    capabilities: model.capabilities ?? null,
+    artifacts: {
+      format: model.details?.format ?? null,
+      size_bytes: model.size ?? null,
+      digest: model.digest ?? null
+    }
   }));
 }
 
-function dedupeModels(models: TargetModelSummary[]): TargetModelSummary[] {
-  const seen = new Set<string>();
-  return models.filter((model) => {
-    const key = `${model.provider ?? ''}:${model.name}:${model.version ?? ''}`;
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
+function mergeModels(primary: TargetModelSummary, secondary: TargetModelSummary): TargetModelSummary {
+  const preferOllama =
+    primary.source === 'ollama' || secondary.source === 'ollama' ? 'ollama' : primary.source;
+  return {
+    model_id: primary.model_id || secondary.model_id,
+    source: preferOllama,
+    api_model_name: primary.api_model_name || secondary.api_model_name,
+    family: primary.family ?? secondary.family ?? null,
+    parameter_count: primary.parameter_count ?? secondary.parameter_count ?? null,
+    quantization: primary.quantization ?? secondary.quantization ?? null,
+    context_window: primary.context_window ?? secondary.context_window ?? null,
+    capabilities: primary.capabilities ?? secondary.capabilities ?? null,
+    artifacts: primary.artifacts ?? secondary.artifacts ?? null
+  };
 }
 
-function dedupeModelsByName(models: TargetModelSummary[]): TargetModelSummary[] {
-  const seen = new Set<string>();
-  return models.filter((model) => {
-    const key = `${model.name}:${model.version ?? ''}`;
-    if (seen.has(key)) {
-      return false;
+function mergeModelsByIdentity(models: TargetModelSummary[]): TargetModelSummary[] {
+  const map = new Map<string, TargetModelSummary>();
+  for (const model of models) {
+    const key = model.model_id || model.api_model_name;
+    if (!key) {
+      continue;
     }
-    seen.add(key);
-    return true;
-  });
+    const existing = map.get(key);
+    if (existing) {
+      map.set(key, mergeModels(existing, model));
+    } else {
+      map.set(key, model);
+    }
+  }
+  return Array.from(map.values());
 }
 
 async function runConnectivityCheck(target: TargetRecord): Promise<ConnectivityResult> {
@@ -120,7 +158,7 @@ async function runConnectivityCheck(target: TargetRecord): Promise<ConnectivityR
         }
       });
       if (models.length > 0) {
-        return { status: 'ok', models: dedupeModelsByName(models) };
+        return { status: 'ok', models: mergeModelsByIdentity(models) };
       }
       return {
         status: 'failed',
@@ -133,7 +171,7 @@ async function runConnectivityCheck(target: TargetRecord): Promise<ConnectivityR
       target.provider === 'ollama'
         ? await fetchOllamaModels(target)
         : await fetchOpenAIModels(target);
-    return { status: 'ok', models };
+    return { status: 'ok', models: mergeModelsByIdentity(models) };
   } catch (error) {
     logDebug('Connectivity check threw', {
       targetId: target.id,

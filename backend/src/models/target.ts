@@ -22,10 +22,23 @@ export interface TargetRecord {
 }
 
 export interface TargetModelSummary {
-  id?: string | null;
-  name: string;
-  provider?: string | null;
-  version?: string | null;
+  model_id: string;
+  source: 'openai' | 'ollama';
+  api_model_name: string;
+  family?: string | null;
+  parameter_count?: string | null;
+  quantization?: string | null;
+  context_window?: number | null;
+  capabilities?: {
+    chat?: boolean;
+    tools?: boolean;
+    vision?: boolean;
+  } | null;
+  artifacts?: {
+    format?: string | null;
+    size_bytes?: number | null;
+    digest?: string | null;
+  } | null;
 }
 
 export function listTargets(): TargetRecord[] {

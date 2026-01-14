@@ -285,40 +285,67 @@ export function App() {
           <div className="brand-row">
             <p className="eyebrow">AITestBench</p>
           </div>
-          <h1>LLM Test Harness Dashboard</h1>
-          <p className="subhead">Local-first target control and test execution.</p>
         </div>
       </header>
       <div className="app-body">
         <aside className="app-nav">
-          <p className="nav-title">Menu</p>
           <button
             type="button"
             className={view === 'targets' ? 'active' : undefined}
             onClick={() => setView('targets')}
+            aria-label="Targets"
+            title="Targets"
           >
-            Targets
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="4" y="5" width="16" height="6" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <rect x="4" y="13" width="16" height="6" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
           </button>
           <button
             type="button"
             className={view === 'templates' ? 'active' : undefined}
             onClick={() => setView('templates')}
+            aria-label="Templates"
+            title="Templates"
           >
-            Templates
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M6 4h9l3 3v13H6V4z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+              <path d="M9 9h6M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
           </button>
           <button
             type="button"
             className={view === 'run-single' ? 'active' : undefined}
             onClick={() => setView('run-single')}
+            aria-label="Run"
+            title="Run"
           >
-            Run
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M8 5l11 7-11 7V5z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+            </svg>
           </button>
           <button
             type="button"
             className={view === 'compare' ? 'active' : undefined}
             onClick={() => setView('compare')}
+            aria-label="Compare"
+            title="Compare"
           >
-            Compare
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 7h14M5 12h10M5 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
           </button>
         </aside>
         <main className="app-main">
