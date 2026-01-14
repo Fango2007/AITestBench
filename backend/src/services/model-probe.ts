@@ -1,6 +1,7 @@
 import { TargetRecord, TargetModelSummary } from '../models/target.js';
 
 const CONTEXT_THRESHOLDS = [4076, 8192, 32768, 128000, 262144];
+const DEFAULT_TIMEOUT_MS = 600000;
 
 function normalizeBaseUrl(url: string): string {
   return url.endsWith('/') ? url.slice(0, -1) : url;
@@ -26,31 +27,46 @@ function buildPrompt(tokens: number): string {
 export async function probeContextWindow(
   target: TargetRecord,
   model: TargetModelSummary
-): Promise<number | null> {
+): Promise<{ contextWindow: number | null; reason?: string }>{
   const url = `${normalizeBaseUrl(target.base_url)}/v1/chat/completions`;
+  const modelName = model.api_model_name || model.model_id;
   let lastSuccess: number | null = null;
 
   for (const threshold of CONTEXT_THRESHOLDS) {
     const body = {
-      model: model.api_model_name,
+      model: modelName,
       messages: [{ role: 'user', content: buildPrompt(threshold) }],
       max_completion_tokens: 1,
       stream: false
     };
     try {
+      const controller = new AbortController();
+      const timeoutMs = Number(process.env.AITESTBENCH_CONTEXT_PROBE_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+      const safeTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS;
+      const timeout = setTimeout(() => controller.abort(), safeTimeoutMs);
       const response = await fetch(url, {
         method: 'POST',
         headers: buildHeaders(target),
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: controller.signal
       });
+      clearTimeout(timeout);
       if (!response.ok) {
-        break;
+        let reason: string | undefined;
+        try {
+          const payload = (await response.json()) as { error?: { message?: string } };
+          reason = payload.error?.message;
+        } catch {
+          const text = await response.text();
+          reason = text || undefined;
+        }
+        return { contextWindow: lastSuccess, reason };
       }
       lastSuccess = threshold;
     } catch {
-      break;
+      return { contextWindow: lastSuccess, reason: 'Probe request failed.' };
     }
   }
 
-  return lastSuccess;
+  return { contextWindow: lastSuccess };
 }

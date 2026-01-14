@@ -89,6 +89,11 @@ export function Targets() {
         setModelInspecting((prev) =>
           prev ? { ...prev, model: response.model } : prev
         );
+        if (response.probe?.reason) {
+          setModelProbeError(response.probe.reason);
+          setModelProbeState('error');
+          return;
+        }
         setModelProbeState('idle');
       } catch (err) {
         setModelProbeError(err instanceof Error ? err.message : 'Unable to probe context window');

@@ -48,6 +48,7 @@ Create a local `.env` file at the repo root:
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
 - `CONNECTIVITY_POLL_INTERVAL_MS` (optional): interval for target connectivity checks in ms (default: 30000).
 - `AITESTBENCH_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
+- `AITESTBENCH_CONTEXT_PROBE_TIMEOUT_MS` (optional): context window probe timeout in ms (default: 600000).
 - `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
 - `VITE_AITESTBENCH_FRONTEND_BASE_URL` (optional): frontend base URL (`http://localhost:5173` by default)
 - `AITESTBENCH_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).

@@ -76,7 +76,7 @@ export async function retryConnectivity(id: string): Promise<void> {
 }
 
 export async function probeModelContextWindow(targetId: string, modelId: string) {
-  return apiPost<{ model: TargetModelSummary }>(
+  return apiPost<{ model: TargetModelSummary; probe?: { contextWindow: number | null; reason?: string } }>(
     `/targets/${targetId}/models/${encodeURIComponent(modelId)}/context-probe`,
     {}
   );

@@ -126,18 +126,18 @@ export function registerTargetsRoutes(app: FastifyInstance): void {
       reply.send({ model });
       return;
     }
-    const contextWindow = await probeContextWindow(target, model);
-    if (!contextWindow) {
-      reply.code(400).send({ error: 'Context probe failed' });
+    const probe = await probeContextWindow(target, model);
+    if (!probe.contextWindow) {
+      reply.send({ model, probe });
       return;
     }
-    const updated = updateTargetModel(targetId, model.model_id, { context_window: contextWindow });
+    const updated = updateTargetModel(targetId, model.model_id, { context_window: probe.contextWindow });
     const updatedModel =
       updated?.models?.find((entry) => entry.model_id === model.model_id) ?? {
         ...model,
-        context_window: contextWindow
+        context_window: probe.contextWindow
       };
-    reply.send({ model: updatedModel });
+    reply.send({ model: updatedModel, probe });
   });
 
   app.delete('/targets/:targetId', async (request, reply) => {
