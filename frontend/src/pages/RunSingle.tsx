@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { apiGet, apiPost } from '../services/api.js';
-import { RunTargetSelect } from '../components/RunTargetSelect.js';
-import { TargetErrors } from '../components/TargetErrors.js';
+import { RunInferenceServerSelect } from '../components/RunInferenceServerSelect.js';
+import { InferenceServerErrors } from '../components/InferenceServerErrors.js';
 import { ActiveTestRecord, deleteActiveTest, instantiateActiveTests, listActiveTests } from '../services/active-tests-api.js';
 import { TemplateRecord, listTemplates } from '../services/templates-api.js';
-import { TargetRecord } from '../services/targets-api.js';
+import { InferenceServerRecord } from '../services/inference-servers-api.js';
 
 const TEMPLATE_PLACEHOLDERS = new Set([
   'STREAM',
@@ -60,8 +60,8 @@ function inspectTemplateParams(template: TemplateRecord | undefined): ParamFlags
 }
 
 export function RunSingle() {
-  const [targetId, setTargetId] = useState('');
-  const [targets, setTargets] = useState<TargetRecord[]>([]);
+  const [inferenceServerId, setInferenceServerId] = useState('');
+  const [servers, setServers] = useState<InferenceServerRecord[]>([]);
   const [model, setModel] = useState('');
   const [templates, setTemplates] = useState<TemplateRecord[]>([]);
   const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
@@ -80,8 +80,8 @@ export function RunSingle() {
   const [topPOverride, setTopPOverride] = useState('');
   const [topKOverride, setTopKOverride] = useState('');
   const [maxCompletionOverride, setMaxCompletionOverride] = useState('');
-  const handleTargetsLoaded = useCallback((data: TargetRecord[]) => {
-    setTargets(data);
+  const handleServersLoaded = useCallback((data: InferenceServerRecord[]) => {
+    setServers(data);
   }, []);
   const formatPercent = (value: unknown) => {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -96,19 +96,19 @@ export function RunSingle() {
     return 'N/A';
   };
 
-  const selectedTarget = useMemo(
-    () => targets.find((target) => target.id === targetId) ?? null,
-    [targets, targetId]
+  const selectedServer = useMemo(
+    () => servers.find((server) => server.inference_server.server_id === inferenceServerId) ?? null,
+    [servers, inferenceServerId]
   );
-  const modelOptions = selectedTarget?.models ?? [];
-  const resolvedModel = model || selectedTarget?.default_model || '';
+  const modelOptions = selectedServer?.discovery.model_list.normalised ?? [];
+  const resolvedModel = model || '';
   const activeTestsForSelection = useMemo(
     () =>
       activeTests.filter(
         (activeTest) =>
-          activeTest.target_id === targetId && activeTest.model_name === resolvedModel
+          activeTest.inference_server_id === inferenceServerId && activeTest.model_name === resolvedModel
       ),
-    [activeTests, resolvedModel, targetId]
+    [activeTests, resolvedModel, inferenceServerId]
   );
   const paramFlags = useMemo(() => {
     return selectedTemplates.reduce<ParamFlags>((acc, templateId) => {
@@ -149,10 +149,12 @@ export function RunSingle() {
     topKOverride
   ]);
 
-  const canGenerate = Boolean(targetId && resolvedModel && selectedTemplates.length > 0 && !busy);
+  const canGenerate = Boolean(
+    inferenceServerId && resolvedModel && selectedTemplates.length > 0 && !busy
+  );
   const canRun = Boolean(
     activeTestsForSelection.length > 0 &&
-      targetId &&
+      inferenceServerId &&
       resolvedModel &&
       !busy &&
       !missingOverrides
@@ -222,7 +224,7 @@ export function RunSingle() {
     setRunResults(null);
     setLastRunId(null);
     setRunInProgress(false);
-  }, [targetId, resolvedModel]);
+  }, [inferenceServerId, resolvedModel]);
 
   useEffect(() => {
     setStreamOverride('unset');
@@ -239,8 +241,8 @@ export function RunSingle() {
 
   async function handleInstantiate() {
     setError(null);
-    if (!targetId || !resolvedModel) {
-      setError('Select a target and model before generating tests.');
+    if (!inferenceServerId || !resolvedModel) {
+      setError('Select an inference server and model before generating tests.');
       return;
     }
     if (selectedTemplates.length === 0) {
@@ -250,7 +252,7 @@ export function RunSingle() {
     setBusy(true);
     try {
       await instantiateActiveTests({
-        target_id: targetId,
+        inference_server_id: inferenceServerId,
         model_name: resolvedModel,
         template_ids: selectedTemplates,
         param_overrides: Object.keys(paramOverrides).length ? paramOverrides : undefined
@@ -282,8 +284,8 @@ export function RunSingle() {
 
   async function handleRun() {
     setError(null);
-    if (!targetId) {
-      setError('Select a target before running.');
+    if (!inferenceServerId) {
+      setError('Select an inference server before running.');
       return;
     }
     if (!resolvedModel) {
@@ -299,7 +301,7 @@ export function RunSingle() {
     const timeoutOverride =
       Number.isFinite(timeoutValue) && timeoutValue > 0 ? { request_timeout_sec: timeoutValue } : {};
     const basePayload = {
-      target_id: targetId,
+      inference_server_id: inferenceServerId,
       model: resolvedModel || undefined,
       profile_id: profileId || undefined,
       profile_version: profileVersion || undefined,
@@ -366,26 +368,26 @@ export function RunSingle() {
     <section className="page">
       <div className="page-header">
         <h2>Run Single Test</h2>
-        <p className="muted">Launch a one-off run against a selected target.</p>
+        <p className="muted">Launch a one-off run against a selected inference server.</p>
       </div>
-      <TargetErrors message={error} />
+      <InferenceServerErrors message={error} />
       <div className="card">
-        <RunTargetSelect
-          value={targetId}
-          onChange={setTargetId}
-          onTargetsLoaded={handleTargetsLoaded}
+        <RunInferenceServerSelect
+          value={inferenceServerId}
+          onChange={setInferenceServerId}
+          onServersLoaded={handleServersLoaded}
         />
         {modelOptions.length > 0 ? (
           <label>
             Model
             <select value={model} onChange={(event) => setModel(event.target.value)}>
-              <option value="">Use target default</option>
+              <option value="">Select a model</option>
               {modelOptions.map((entry) => (
                 <option
-                  key={`${entry.source ?? 'unknown'}-${entry.model_id ?? entry.api_model_name}`}
-                  value={entry.api_model_name ?? entry.model_id}
+                  key={entry.model_id}
+                  value={entry.model_id}
                 >
-                  {entry.model_id ?? entry.api_model_name}
+                  {entry.display_name ?? entry.model_id}
                 </option>
               ))}
             </select>
@@ -510,7 +512,7 @@ export function RunSingle() {
         <div className="field">
           <h3>Active Tests</h3>
           {activeTestsForSelection.length === 0 ? (
-            <p className="muted">No active tests generated for this target and model yet.</p>
+            <p className="muted">No active tests generated for this server and model yet.</p>
           ) : (
             <ul className="list">
               {activeTestsForSelection.map((activeTest) => {

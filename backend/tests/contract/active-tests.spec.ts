@@ -69,7 +69,7 @@ describe('active tests contract', () => {
       url: '/active-tests/instantiate',
       headers: AUTH_HEADERS,
       payload: {
-        target_id: 'target-1',
+        inference_server_id: 'server-1',
         model_name: 'gpt-4o-mini',
         template_ids: ['template-1']
       }
@@ -108,7 +108,7 @@ describe('active tests contract', () => {
       url: '/active-tests/instantiate',
       headers: AUTH_HEADERS,
       payload: {
-        target_id: 'target-1',
+        inference_server_id: 'server-1',
         model_name: 'gpt-4o-mini',
         template_ids: ['template-2']
       }

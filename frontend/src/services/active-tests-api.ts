@@ -4,7 +4,7 @@ export interface ActiveTestRecord {
   id: string;
   template_id: string;
   template_version: string;
-  target_id: string;
+  inference_server_id: string;
   model_name: string;
   status: string;
   created_at: string;
@@ -19,7 +19,7 @@ export async function listActiveTests(): Promise<ActiveTestRecord[]> {
 }
 
 export async function instantiateActiveTests(payload: {
-  target_id: string;
+  inference_server_id: string;
   model_name: string;
   template_ids: string[];
   param_overrides?: Record<string, unknown>;

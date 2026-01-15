@@ -94,6 +94,19 @@ export class ApiClient {
     return body as T;
   }
 
+  async patch<T>(path: string, payload: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers: this.jsonHeaders(),
+      body: JSON.stringify(payload)
+    });
+    const body = await this.parseBody(response);
+    if (!response.ok) {
+      throw new ApiError(`Request failed: ${response.status}`, response.status, path, body, this.baseUrl);
+    }
+    return body as T;
+  }
+
   async delete(path: string): Promise<void> {
     const response = await fetch(`${this.baseUrl}${path}`, {
       method: 'DELETE',

@@ -5,7 +5,7 @@ export interface ActiveTestRecord {
   id: string;
   template_id: string;
   template_version: string;
-  target_id: string;
+  inference_server_id: string;
   model_name: string;
   status: string;
   created_at: string;
@@ -22,14 +22,14 @@ export function createActiveTest(
   const createdAt = nowIso();
   db.prepare(
     `INSERT INTO active_tests (
-      id, template_id, template_version, target_id, model_name,
+      id, template_id, template_version, inference_server_id, model_name,
       status, created_at, deleted_at, version, command_preview, python_ready
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.id,
     input.template_id,
     input.template_version,
-    input.target_id,
+    input.inference_server_id,
     input.model_name,
     input.status,
     createdAt,

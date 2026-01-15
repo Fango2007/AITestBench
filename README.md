@@ -19,12 +19,15 @@ single tests, suites, and parameter sweeps with reusable profiles.
 - `cli/`: TypeScript CLI for automation
 - `frontend/`: React dashboard (Vite)
 
-## Dashboard: Target Management
+## Dashboard: Inference Server Management
 
-The dashboard includes a Targets area to create, update, delete, and archive
-targets. New and updated targets run an automatic connectivity check and fetch
-available models; failed checks remain visible with a retry action. Archived
-targets are listed separately and are hidden from run selection by default.
+The dashboard includes an Inference Servers area to create, update, archive,
+and refresh runtime/discovery metadata. Model discovery is cached with TTL and
+can be refreshed on demand. Archived servers are listed separately and are
+hidden from run selection by default.
+
+The Settings menu (bottom-left) lets you clear all DB tables and edit the
+repo-root `.env` file. Env changes apply after restarting the backend.
 
 ## Prerequisites
 
@@ -46,7 +49,6 @@ Create a local `.env` file at the repo root:
 - `AITESTBENCH_DB_PATH` (optional): override DB file path.
 - `AITESTBENCH_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
-- `CONNECTIVITY_POLL_INTERVAL_MS` (optional): interval for target connectivity checks in ms (default: 30000).
 - `AITESTBENCH_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
 - `AITESTBENCH_CONTEXT_PROBE_TIMEOUT_MS` (optional): context window probe timeout in ms (default: 600000).
 - `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
@@ -79,29 +81,35 @@ PORT=9090 npm run dev  # don't forget to update the VITE_AITESTBENCH_API_BASE_UR
 ## CLI usage (reference)
 
 ```bash
-# target management
-npm run cli -- target add \
+# inference server management
+npm run cli -- server add \
   --name "local-ollama" \
   --base-url "http://localhost:11434" \
-  --type "ollama"
+  --schema-family "ollama"
 
-# list targets
-npm run cli -- target list
+# multi-schema server (comma-separated)
+npm run cli -- server add \
+  --name "local-multi" \
+  --base-url "http://localhost:11434" \
+  --schema-family "openai-compatible,ollama"
 
-# delete target
-npm run cli -- target delete --id "<target-id>"
+# list inference servers
+npm run cli -- server list
 
-# update target
-npm run cli -- target update --id "<target-id>" --name "new-name" --base-url "http://localhost:11434"
+# archive inference server
+npm run cli -- server archive --id "<server-id>"
+
+# update inference server
+npm run cli -- server update --id "<server-id>" --name "new-name" --base-url "http://localhost:11434"
 
 # single test
-npm run cli -- test run --id "chat-basic" --target "local-ollama"
+npm run cli -- test run --id "chat-basic" --server "<server-id>"
 
 # suite run
-npm run cli -- suite run --id "default" --target "local-ollama"
+npm run cli -- suite run --id "default" --server "<server-id>"
 
 # profile selection on runs
-npm run cli -- test run --id "chat-basic" --target "local-ollama" \
+npm run cli -- test run --id "chat-basic" --server "<server-id>" \
   --profile-id "perf-default" --profile-version "1.0.0"
 
 # create profile
@@ -129,11 +137,15 @@ Base URL: `http://localhost:8080`
 
 Core:
 - `GET /health`: health check
-- `GET /targets`: list targets
-- `POST /targets`: create target
-- `GET /targets/{targetId}`: get target
-- `PUT /targets/{targetId}`: update target
-- `DELETE /targets/{targetId}`: delete target
+- `GET /inference-servers`: list inference servers
+- `POST /inference-servers`: create inference server
+- `GET /inference-servers/{serverId}`: get inference server
+- `PATCH /inference-servers/{serverId}`: update inference server
+- `DELETE /inference-servers/{serverId}`: delete inference server (fails if runs exist)
+- `POST /inference-servers/{serverId}/archive`: archive inference server
+- `POST /inference-servers/{serverId}/unarchive`: unarchive inference server
+- `POST /inference-servers/{serverId}/refresh-runtime`: refresh runtime metadata
+- `POST /inference-servers/{serverId}/refresh-discovery`: refresh model discovery
 
 Tests:
 - `GET /tests`: list tests (built-in + discovered)
@@ -151,49 +163,63 @@ Suites/Profiles/Models:
 - `GET /profiles`, `POST /profiles`
 - `GET /models`
 
+System:
+- `POST /system/clear-db`: delete all rows in all tables
+- `GET /system/env`: list `.env` entries
+- `POST /system/env`: upsert/remove `.env` entries
+
 ## API payload samples
 
-### Create target
+### Create inference server
 
 Request:
 ```json
 {
-  "name": "local-ollama",
-  "base_url": "http://localhost:11434",
-  "auth_type": "none",
-  "auth_token_ref": "OLLAMA_API_TOKEN",
-  "default_model": "llama3",
-  "default_params": {
-    "temperature": 0.2
+  "inference_server": {
+    "display_name": "local-ollama"
   },
-  "timeouts": {
-    "request_timeout_sec": 30
+  "endpoints": {
+    "base_url": "http://localhost:11434"
   },
-  "concurrency_limit": 2
+  "runtime": {
+    "api": {
+      "schema_family": ["ollama"],
+      "api_version": null
+    }
+  },
+  "auth": {
+    "type": "none",
+    "header_name": "Authorization",
+    "token_env": "OLLAMA_API_TOKEN"
+  }
 }
 ```
 
-`auth_token_ref` points to an environment variable name that stores the bearer
-token used for the target (e.g., `export OLLAMA_API_TOKEN="..."`).
+`auth.token_env` points to an environment variable name that stores the token
+used for the inference server (e.g., `export OLLAMA_API_TOKEN="..."`).
 
 Response (201):
 ```json
 {
-  "id": "b5a6b1a9f59f4e0e9b7e",
-  "name": "local-ollama",
-  "base_url": "http://localhost:11434",
-  "auth_type": "none",
-  "auth_token_ref": "OLLAMA_API_TOKEN",
-  "default_model": "llama3",
-  "default_params": {
-    "temperature": 0.2
+  "inference_server": {
+    "server_id": "b5a6b1a9f59f4e0e9b7e",
+    "display_name": "local-ollama",
+    "active": true,
+    "archived": false,
+    "created_at": "2026-01-06T21:30:00.000Z",
+    "updated_at": "2026-01-06T21:30:00.000Z",
+    "archived_at": null
   },
-  "timeouts": {
-    "request_timeout_sec": 30
+  "endpoints": {
+    "base_url": "http://localhost:11434",
+    "health_url": null,
+    "https": false
   },
-  "concurrency_limit": 2,
-  "created_at": "2026-01-06T21:30:00.000Z",
-  "updated_at": "2026-01-06T21:30:00.000Z"
+  "auth": {
+    "type": "none",
+    "header_name": "Authorization",
+    "token_env": "OLLAMA_API_TOKEN"
+  }
 }
 ```
 
@@ -202,7 +228,7 @@ Response (201):
 Request:
 ```json
 {
-  "target_id": "b5a6b1a9f59f4e0e9b7e",
+  "inference_server_id": "b5a6b1a9f59f4e0e9b7e",
   "test_id": "chat-basic",
   "profile_id": "perf-default",
   "profile_version": "1.0.0"
@@ -213,7 +239,7 @@ Response (201):
 ```json
 {
   "id": "9b2e9f79a1c54290d91b",
-  "target_id": "b5a6b1a9f59f4e0e9b7e",
+  "inference_server_id": "b5a6b1a9f59f4e0e9b7e",
   "suite_id": null,
   "test_id": "chat-basic",
   "profile_id": "perf-default",
@@ -235,7 +261,7 @@ Response (201):
 Request:
 ```json
 {
-  "target_id": "b5a6b1a9f59f4e0e9b7e",
+  "inference_server_id": "b5a6b1a9f59f4e0e9b7e",
   "suite_id": "default",
   "profile_id": "perf-default",
   "profile_version": "1.0.0"
@@ -246,7 +272,7 @@ Response (201):
 ```json
 {
   "id": "e74b7b0a3a5b4c1fa312",
-  "target_id": "b5a6b1a9f59f4e0e9b7e",
+  "inference_server_id": "b5a6b1a9f59f4e0e9b7e",
   "suite_id": "default",
   "test_id": null,
   "profile_id": "perf-default",
@@ -270,7 +296,7 @@ Response (200):
 [
   {
     "id": "9b2e9f79a1c54290d91b",
-    "target_id": "b5a6b1a9f59f4e0e9b7e",
+    "inference_server_id": "b5a6b1a9f59f4e0e9b7e",
     "suite_id": null,
     "test_id": "chat-basic",
     "profile_id": "perf-default",
@@ -495,7 +521,7 @@ TEST_META = {
 }
 
 def run(ctx):
-    # ctx provides target config, HTTP client, timers, redaction, artefact recorder
+    # ctx provides inference server config, HTTP client, timers, redaction, artefact recorder
     response = ctx.http.post("/v1/chat/completions", json={
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": "ping"}]
@@ -511,7 +537,7 @@ def run(ctx):
 
 ## Data model (overview)
 
-- Target: endpoint config + defaults
+- InferenceServer: endpoint config + runtime/auth/capabilities/discovery
 - TestDefinition: versioned test spec (JSON or Python)
 - Suite: ordered test collection
 - Profile: reusable parameters + context strategy + test selection
@@ -549,6 +575,6 @@ is controlled by `RETENTION_DAYS` (default: 30 days).
 ## Troubleshooting
 
 - `401 Unauthorized`: confirm `AITESTBENCH_API_TOKEN` matches in CLI + backend env.
-- `409 Conflict` with `"Target has existing runs"` : Targets with existing runs cannot be deleted. Delete runs first or use a separate cleanup workflow.
+- `409 Conflict` with `"Inference server has existing runs"` : Servers with existing runs must be archived instead of deleted.
 - `no such table`: delete `./data/harness.sqlite` or ensure schema load on startup.
 - `python3 not found`: install Python 3.10+ and ensure it is on PATH.

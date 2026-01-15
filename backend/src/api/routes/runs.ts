@@ -6,7 +6,7 @@ import { createSingleRun, getRun, listRunResults } from '../../services/run-serv
 export function registerRunsRoutes(app: FastifyInstance): void {
   app.post('/runs', async (request, reply) => {
     const payload = request.body as {
-      target_id: string;
+      inference_server_id: string;
       test_id?: string;
       suite_id?: string;
       profile_id?: string;

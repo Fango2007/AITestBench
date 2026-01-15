@@ -40,7 +40,7 @@ test('creates, updates, and deletes templates from the dashboard', async ({ page
   await page.getByRole('button', { name: 'Templates' }).click();
 
   await page.getByLabel('Template ID').fill(templateId);
-  await page.getByLabel('Name').fill(templateName);
+  await page.getByLabel('Name', { exact: true }).fill(templateName);
   await page.getByLabel('Version').fill(version);
   await page.getByLabel('Content').fill(jsonContent);
   await page.getByRole('button', { name: 'Save' }).click();
@@ -49,7 +49,7 @@ test('creates, updates, and deletes templates from the dashboard', async ({ page
   await expect(listCard.getByText(templateName)).toBeVisible();
 
   await listCard.getByRole('button', { name: 'Edit' }).first().click();
-  await page.getByLabel('Name').fill(updatedName);
+  await page.getByLabel('Name', { exact: true }).fill(updatedName);
   await page.getByLabel('Version').fill(updatedVersion);
   await page.getByLabel('Content').fill(updatedContent);
   await page.getByRole('button', { name: 'Save' }).click();

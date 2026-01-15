@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import { createServer } from '../../src/api/server.js';
-import { createTargetRecord } from '../../src/services/target-service.js';
+import { createInferenceServerRecord } from '../../src/services/inference-servers-repository.js';
 import { upsertTestDefinition } from '../../src/models/test-definition.js';
 
 describe('runs API', () => {
   it('creates a single run', async () => {
     process.env.AITESTBENCH_API_TOKEN = 'test-token';
     const app = createServer();
-    const target = createTargetRecord({
-      name: `local-${Date.now()}`,
-      base_url: 'http://localhost:11434'
+    const server = createInferenceServerRecord({
+      inference_server: { display_name: `local-${Date.now()}` },
+      endpoints: { base_url: 'http://localhost:11434' },
+      runtime: { api: { schema_family: ['openai-compatible'], api_version: null } }
     });
     upsertTestDefinition({
       id: 'test-1',
@@ -30,7 +31,7 @@ describe('runs API', () => {
       method: 'POST',
       url: '/runs',
       headers: { 'x-api-token': 'test-token' },
-      payload: { target_id: target.id, test_id: 'test-1' }
+      payload: { inference_server_id: server.inference_server.server_id, test_id: 'test-1' }
     });
 
     expect(response.statusCode).toBe(201);

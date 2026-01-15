@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { loadEnv } from 'vite';
 
-import { createTarget, deleteTarget } from './helpers.js';
+import { archiveInferenceServer, createInferenceServer } from './helpers.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, '../../..');
@@ -32,8 +32,10 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
   );
 }
 
-test('instantiates templates in Run Single', async ({ page, request }) => {
-  const target = await createTarget(request, { name: `E2E Template Target ${Date.now()}` });
+test('instantiates templates in Run', async ({ page, request }) => {
+  const server = await createInferenceServer(request, {
+    display_name: `E2E Template Server ${Date.now()}`
+  });
   const templateId = `e2e-template-${Date.now()}`;
   const templateName = 'E2E Template Run';
 
@@ -50,9 +52,9 @@ test('instantiates templates in Run Single', async ({ page, request }) => {
   expect(templateResponse.ok()).toBeTruthy();
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Run Single' }).click();
+  await page.getByRole('button', { name: 'Run' }).click();
 
-  await page.getByLabel('Target').selectOption(target.id);
+  await page.getByLabel('Inference server').selectOption(server.inference_server.server_id);
   await page.getByLabel('Model').fill('gpt-4o-mini');
   await page.getByLabel('Templates').selectOption(templateId);
   await page.getByRole('button', { name: 'Generate Active Tests' }).click();
@@ -70,5 +72,5 @@ test('instantiates templates in Run Single', async ({ page, request }) => {
   }
 
   await request.delete(`${API_BASE_URL}/templates/${templateId}`, { headers: authHeaders });
-  await deleteTarget(request, target.id);
+  await archiveInferenceServer(request, server.inference_server.server_id);
 });

@@ -9,7 +9,7 @@ import { registerAuth } from './middleware/auth.js';
 import { registerResultsRoutes } from './routes/results.js';
 import { registerRunsRoutes } from './routes/runs.js';
 import { registerSuitesRoutes } from './routes/suites.js';
-import { registerTargetsRoutes } from './routes/targets.js';
+import { registerInferenceServersRoutes } from './routes/inference-servers.js';
 import { registerTestsRoutes } from './routes/tests.js';
 import { registerProfilesRoutes } from './routes/profiles.js';
 import { registerModelsRoutes } from './routes/models.js';
@@ -33,7 +33,7 @@ export function createServer() {
     const origin = request.headers.origin ?? '*';
     const reqHeaders = request.headers['access-control-request-headers'];
     reply.header('Access-Control-Allow-Origin', origin);
-    reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     reply.header(
       'Access-Control-Allow-Headers',
       typeof reqHeaders === 'string' && reqHeaders.length > 0
@@ -56,7 +56,7 @@ export function createServer() {
   app.get('/health', async () => ({ status: 'ok' }));
 
   registerSystemRoutes(app);
-  registerTargetsRoutes(app);
+  registerInferenceServersRoutes(app);
   registerTestsRoutes(app);
   registerRunsRoutes(app);
   registerSuitesRoutes(app);
