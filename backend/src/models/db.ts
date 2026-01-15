@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 
-const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'harness.sqlite');
+const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'aitestbench.sqlite');
 
 let dbInstance: Database.Database | null = null;
 
