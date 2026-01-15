@@ -1,5 +1,5 @@
 {
-  "name": "llm-server-test-harness",
+  "name": "aitestbench",
   "private": true,
   "workspaces": [
     "backend",

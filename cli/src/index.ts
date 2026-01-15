@@ -15,11 +15,11 @@ if (fs.existsSync(envPath)) {
 }
 
 import { ApiClient, ApiError } from './lib/api-client.js';
-import { addTarget, deleteTarget, updateTarget } from './commands/target.js';
+import { addInferenceServer, archiveInferenceServer, updateInferenceServer } from './commands/inference-server.js';
 import { runTest } from './commands/test.js';
 import { createSuite, runSuite } from './commands/suite.js';
 import { exportResults } from './commands/export.js';
-import { listTargets } from './commands/targets-list.js';
+import { listInferenceServers } from './commands/inference-servers-list.js';
 import { listTests } from './commands/tests-list.js';
 import { listSuites } from './commands/suites-list.js';
 import { reloadTests } from './commands/tests.js';
@@ -32,10 +32,12 @@ function printHelp(): void {
   const message = `LLM Test Harness CLI
 
 Commands:
-  target add --name <name> --base-url <url> [--type <auth>]
-  target list
-  test run --id <testId> --target <targetId> [--profile-id <id>] [--profile-version <ver>]
-  suite run --id <suiteId> --target <targetId> [--profile-id <id>] [--profile-version <ver>]
+  server add --name <name> --base-url <url> [--schema-family <family[,family...]>] [--auth-type <type>] [--auth-header <name>] [--token-env <env>]
+  server list
+  server archive --id <serverId>
+  server update --id <serverId> [--name <name>] [--base-url <url>] [--schema-family <family[,family...]>] [--auth-type <type>] [--auth-header <name>] [--token-env <env>] [--active <true|false>]
+  test run --id <testId> --server <serverId> [--profile-id <id>] [--profile-version <ver>]
+  suite run --id <suiteId> --server <serverId> [--profile-id <id>] [--profile-version <ver>]
   tests reload
   profiles list
   models list
@@ -93,6 +95,17 @@ function ensureRequiredFlags(args: string[], requiredFlags: string[]): void {
   }
 }
 
+function parseSchemaFamilies(value: string | undefined): string[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const families = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (families.length === 0) {
+    throw new CliUsageError('schema-family must include at least one value');
+  }
+  return families;
+}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.length === 0) {
@@ -103,49 +116,49 @@ async function main(): Promise<void> {
   const client = new ApiClient();
   const [command, subcommand] = args;
 
-  if (command === 'target' && subcommand === 'add') {
+  if (command === 'server' && subcommand === 'add') {
     ensureKnownFlags(args, { '--base_url': '--base-url', '--baseUrl': '--base-url' });
-    ensureAllowedFlags(args, ['--name', '--base-url', '--type']);
-    ensureFlagValues(args, ['--name', '--base-url', '--type']);
+    ensureAllowedFlags(args, ['--name', '--base-url', '--schema-family', '--auth-type', '--auth-header', '--token-env']);
+    ensureFlagValues(args, ['--name', '--base-url', '--schema-family', '--auth-type', '--auth-header', '--token-env']);
     ensureRequiredFlags(args, ['--name', '--base-url']);
     const name = getArg('--name', args)!;
     const baseUrl = getArg('--base-url', args)!;
-    const authType = getArg('--type', args);
-    const result = await addTarget(client, { name, base_url: baseUrl, auth_type: authType ?? 'none' });
+    const schemaFamily = parseSchemaFamilies(getArg('--schema-family', args)) ?? ['openai-compatible'];
+    const authType = getArg('--auth-type', args) ?? 'none';
+    const authHeader = getArg('--auth-header', args) ?? 'Authorization';
+    const tokenEnv = getArg('--token-env', args) ?? null;
+    const result = await addInferenceServer(client, {
+      inference_server: { display_name: name },
+      endpoints: { base_url: baseUrl },
+      runtime: { api: { schema_family: schemaFamily, api_version: null } },
+      auth: { type: authType, header_name: authHeader, token_env: tokenEnv }
+    });
     process.stdout.write(JSON.stringify(result, null, 2));
     return;
   }
 
-  if (command === 'target' && subcommand === 'list') {
+  if (command === 'server' && subcommand === 'list') {
     ensureAllowedFlags(args, []);
-    const result = await listTargets(client);
+    const result = await listInferenceServers(client);
     process.stdout.write(JSON.stringify(result, null, 2));
     return;
   }
 
-  if (command === 'target' && subcommand === 'delete') {
+  if (command === 'server' && subcommand === 'archive') {
     ensureAllowedFlags(args, ['--id']);
     ensureFlagValues(args, ['--id']);
     const id = getArg('--id', args);
     if (!id) {
       throw new CliUsageError('Missing required --id');
     }
-    const result = await deleteTarget(client, id);
-    if (!result.ok) {
-      process.stdout.write(JSON.stringify({
-        deleted: false,
-        status: result.status,
-        error: result.body ?? { message: 'Delete failed' }
-      }, null, 2));
-      return;
-    }
-    process.stdout.write(JSON.stringify({ deleted: id }, null, 2));
+    const result = await archiveInferenceServer(client, id);
+    process.stdout.write(JSON.stringify(result, null, 2));
     return;
   }
 
-  if (command === 'target' && subcommand === 'update') {
-    ensureAllowedFlags(args, ['--id', '--name', '--base-url', '--type']);
-    ensureFlagValues(args, ['--id', '--name', '--base-url', '--type']);
+  if (command === 'server' && subcommand === 'update') {
+    ensureAllowedFlags(args, ['--id', '--name', '--base-url', '--schema-family', '--auth-type', '--auth-header', '--token-env', '--active']);
+    ensureFlagValues(args, ['--id', '--name', '--base-url', '--schema-family', '--auth-type', '--auth-header', '--token-env', '--active']);
     const id = getArg('--id', args);
     if (!id) {
       throw new CliUsageError('Missing required --id');
@@ -153,30 +166,49 @@ async function main(): Promise<void> {
     ensureKnownFlags(args, { '--base_url': '--base-url', '--baseUrl': '--base-url' });
     const name = getArg('--name', args);
     const baseUrl = getArg('--base-url', args);
-    const authType = getArg('--type', args);
-    if (!name && !baseUrl && !authType) {
-      throw new CliUsageError('Missing update fields (--name, --base-url, or --type)');
+    const schemaFamily = parseSchemaFamilies(getArg('--schema-family', args));
+    const authType = getArg('--auth-type', args);
+    const authHeader = getArg('--auth-header', args);
+    const tokenEnv = getArg('--token-env', args);
+    const active = getArg('--active', args);
+    if (!name && !baseUrl && !schemaFamily && !authType && !authHeader && !tokenEnv && !active) {
+      throw new CliUsageError('Missing update fields (--name, --base-url, --schema-family, --auth-type, --auth-header, --token-env, or --active)');
     }
     const payload: Record<string, unknown> = {};
-    if (name) payload.name = name;
-    if (baseUrl) payload.base_url = baseUrl;
-    if (authType) payload.auth_type = authType;
-    const result = await updateTarget(client, id, payload);
+    if (name || active !== undefined) {
+      payload.inference_server = {};
+      if (name) payload.inference_server.display_name = name;
+      if (active !== undefined) payload.inference_server.active = active === 'true';
+    }
+    if (baseUrl) {
+      payload.endpoints = { base_url: baseUrl };
+    }
+    if (schemaFamily) {
+      payload.runtime = { api: { schema_family: schemaFamily } };
+    }
+    if (authType || authHeader || tokenEnv) {
+      payload.auth = {
+        ...(authType ? { type: authType } : {}),
+        ...(authHeader ? { header_name: authHeader } : {}),
+        ...(tokenEnv ? { token_env: tokenEnv } : {})
+      };
+    }
+    const result = await updateInferenceServer(client, id, payload);
     process.stdout.write(JSON.stringify(result, null, 2));
     return;
   }
 
   if (command === 'test' && subcommand === 'run') {
-    ensureAllowedFlags(args, ['--id', '--target', '--profile-id', '--profile-version']);
-    ensureFlagValues(args, ['--id', '--target', '--profile-id', '--profile-version']);
-    ensureRequiredFlags(args, ['--id', '--target']);
+    ensureAllowedFlags(args, ['--id', '--server', '--profile-id', '--profile-version']);
+    ensureFlagValues(args, ['--id', '--server', '--profile-id', '--profile-version']);
+    ensureRequiredFlags(args, ['--id', '--server']);
     const testId = getArg('--id', args)!;
-    const targetId = getArg('--target', args)!;
+    const serverId = getArg('--server', args)!;
     const profileId = getArg('--profile-id', args);
     const profileVersion = getArg('--profile-version', args);
     const result = await runTest(client, {
       test_id: testId,
-      target_id: targetId,
+      inference_server_id: serverId,
       profile_id: profileId,
       profile_version: profileVersion
     });
@@ -185,16 +217,16 @@ async function main(): Promise<void> {
   }
 
   if (command === 'suite' && subcommand === 'run') {
-    ensureAllowedFlags(args, ['--id', '--target', '--profile-id', '--profile-version']);
-    ensureFlagValues(args, ['--id', '--target', '--profile-id', '--profile-version']);
-    ensureRequiredFlags(args, ['--id', '--target']);
+    ensureAllowedFlags(args, ['--id', '--server', '--profile-id', '--profile-version']);
+    ensureFlagValues(args, ['--id', '--server', '--profile-id', '--profile-version']);
+    ensureRequiredFlags(args, ['--id', '--server']);
     const suiteId = getArg('--id', args)!;
-    const targetId = getArg('--target', args)!;
+    const serverId = getArg('--server', args)!;
     const profileId = getArg('--profile-id', args);
     const profileVersion = getArg('--profile-version', args);
     const result = await runSuite(client, {
       suite_id: suiteId,
-      target_id: targetId,
+      inference_server_id: serverId,
       profile_id: profileId,
       profile_version: profileVersion
     });

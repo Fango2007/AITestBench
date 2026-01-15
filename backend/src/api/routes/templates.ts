@@ -97,7 +97,7 @@ export function registerTemplatesRoutes(app: FastifyInstance): void {
 
   app.post('/active-tests/instantiate', async (request, reply) => {
     const payload = request.body as {
-      target_id: string;
+      inference_server_id: string;
       model_name: string;
       template_ids: string[];
       param_overrides?: Record<string, unknown>;

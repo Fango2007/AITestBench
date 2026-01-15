@@ -1,0 +1,66 @@
+{
+   "inference_server_schema_version": "1.0.0",
+  
+    "inference_server": {
+    "server_id": "string",
+    "display_name": "string",
+    "active": true,
+    "archived": false,
+    "created_at": "RFC3339 timestamp",
+    "updated_at": "RFC3339 timestamp",
+    "archived_at": "RFC3339 timestamp"
+  },
+
+  "runtime": {
+    "retrieved_at": "RFC3339 timestamp",
+    "source": "server|client|mixed",
+    "server_software": { "name": "string", "version": "string|null", "build": "string|null" },
+    "api": { "schema_family": ["openai-compatible", "ollama", "custom"], "api_version": "string|null" },
+    "platform": {
+      "os": { "name": "macos|linux|windows|unknown", "version": "string|null", "arch": "arm64|x86_64|unknown" },
+      "container": { "type": "docker|podman|none|unknown", "image": "string|null" }
+    },
+    "hardware": {
+      "cpu": { "model": "string|null", "cores": "number|null" },
+      "gpu": [{ "vendor": "nvidia|amd|apple|intel|unknown", "model": "string|null", "vram_mb": "number|null" }],
+      "ram_mb": "number|null"
+    }
+  },
+
+  "endpoints": {
+    "base_url": "string",
+    "health_url": "string|null",
+    "https": false
+  },
+
+  "auth": {
+    "type": "none|bearer|basic|oauth|custom",
+    "header_name": "Authorization",
+    "token_env": "ENV_VAR_NAME|null"
+  },
+
+  "capabilities": {
+    "server": { "streaming": true, "models_endpoint": true },
+    "generation": { "text": true, "json_schema_output": false, "tools": true, "embeddings": false },
+    "multimodal": {
+      "vision": { "input_images": false, "output_images": false },
+      "audio": { "input_audio": false, "output_audio": false }
+    },
+    "reasoning": { "exposed": false, "token_budget_configurable": false },
+    "concurrency": { "parallel_requests": true, "parallel_tool_calls": false, "max_concurrent_requests": null },
+    "enforcement": "server"
+  },
+
+  "discovery": {
+    "retrieved_at": "RFC3339 timestamp",
+    "ttl_seconds": 300,
+    "model_list": {
+      "raw": {},
+      "normalised": [
+        { "model_id": "string", "display_name": "string|null", "context_window_tokens": "number|null", "quantisation": "string|null" }
+      ]
+    }
+  },
+
+  "raw": { "any_vendor_specific_payload": {} }
+}

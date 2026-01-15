@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { loadEnv } from 'vite';
 
-import { createTarget, deleteTarget } from './helpers.js';
+import { archiveInferenceServer, createInferenceServer } from './helpers.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, '../../..');
@@ -33,7 +33,9 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
 }
 
 test('supports JSON and Python template types', async ({ page, request }) => {
-  const target = await createTarget(request, { name: `E2E Template Type Target ${Date.now()}` });
+  const server = await createInferenceServer(request, {
+    display_name: `E2E Template Type Server ${Date.now()}`
+  });
   const jsonTemplateId = `e2e-json-${Date.now()}`;
   const pythonTemplateId = `e2e-python-${Date.now()}`;
 
@@ -60,9 +62,10 @@ test('supports JSON and Python template types', async ({ page, request }) => {
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Run Single' }).click();
+  await page.getByRole('button', { name: 'Run' }).click();
+  await expect(page.getByRole('heading', { name: 'Run Single Test' })).toBeVisible();
 
-  await page.getByLabel('Target').selectOption(target.id);
+  await page.getByLabel('Inference server', { exact: true }).selectOption(server.inference_server.server_id);
   await page.getByLabel('Model').fill('gpt-4o-mini');
   await page.getByLabel('Templates').selectOption([jsonTemplateId, pythonTemplateId]);
   await page.getByRole('button', { name: 'Generate Active Tests' }).click();
@@ -82,5 +85,5 @@ test('supports JSON and Python template types', async ({ page, request }) => {
 
   await request.delete(`${API_BASE_URL}/templates/${jsonTemplateId}`, { headers: authHeaders });
   await request.delete(`${API_BASE_URL}/templates/${pythonTemplateId}`, { headers: authHeaders });
-  await deleteTarget(request, target.id);
+  await archiveInferenceServer(request, server.inference_server.server_id);
 });

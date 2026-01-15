@@ -1,31 +1,31 @@
-import { TargetRecord } from '../services/targets-api.js';
+import { InferenceServerRecord } from '../services/inference-servers-api.js';
 
-interface TargetListProps {
-  targets: TargetRecord[];
+interface InferenceServerListProps {
+  servers: InferenceServerRecord[];
   title: string;
-  onEdit: (target: TargetRecord) => void;
-  onArchive: (target: TargetRecord) => void;
-  onDelete: (target: TargetRecord) => void;
-  onRetry: (target: TargetRecord) => void;
+  onEdit: (server: InferenceServerRecord) => void;
+  onArchive: (server: InferenceServerRecord) => void;
+  onUnarchive: (server: InferenceServerRecord) => void;
+  onDelete: (server: InferenceServerRecord) => void;
   selectedId?: string | null;
-  onInspect: (target: TargetRecord) => void;
+  onInspect: (server: InferenceServerRecord) => void;
 }
 
-export function TargetList({
-  targets,
+export function InferenceServerList({
+  servers,
   title,
   onEdit,
   onArchive,
+  onUnarchive,
   onDelete,
-  onRetry,
   selectedId,
   onInspect
-}: TargetListProps) {
-  if (!targets.length) {
+}: InferenceServerListProps) {
+  if (!servers.length) {
     return (
       <div className="card">
         <h2>{title}</h2>
-        <p className="muted">No targets found.</p>
+        <p className="muted">No inference servers found.</p>
       </div>
     );
   }
@@ -34,31 +34,22 @@ export function TargetList({
     <div className="card">
       <h4>{title}</h4>
       <ul className="list">
-        {targets.map((target) => (
+        {servers.map((server) => {
+          return (
           <li
-            key={target.id}
-            className={`list-item server-card ${selectedId === target.id ? 'selected' : ''}`}
+            key={server.inference_server.server_id}
+            className={`list-item server-card ${
+              selectedId === server.inference_server.server_id ? 'selected' : ''
+            }`}
           >
             <div>
-              <strong>{target.name}</strong>
-              <div className="muted">{target.base_url}</div>
-              <div className="meta">
-                Status:{' '}
-                <span className={`status-text ${target.connectivity_status}`}>
-                  {target.connectivity_status === 'ok'
-                    ? 'Online'
-                    : target.connectivity_status === 'failed'
-                      ? 'Offline'
-                      : 'Pending'}
-                </span>
-                {target.last_error ? ` • ${target.last_error}` : ''}
-              </div>
+              <strong>{server.inference_server.display_name}</strong>
             </div>
             <div className="actions icon-actions">
               <button
                 type="button"
                 className="icon-button"
-                onClick={() => onInspect(target)}
+                onClick={() => onInspect(server)}
                 aria-label="Inspect"
                 title="Inspect"
               >
@@ -75,7 +66,7 @@ export function TargetList({
               <button
                 type="button"
                 className="icon-button"
-                onClick={() => onEdit(target)}
+                onClick={() => onEdit(server)}
                 aria-label="Edit"
                 title="Edit"
               >
@@ -89,31 +80,11 @@ export function TargetList({
                   />
                 </svg>
               </button>
-              {target.connectivity_status === 'failed' && (
+              {!server.inference_server.archived ? (
                 <button
                   type="button"
                   className="icon-button"
-                  onClick={() => onRetry(target)}
-                  aria-label="Retry"
-                  title="Retry"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M4 12a8 8 0 1 0 2.3-5.7M4 4v4h4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-              )}
-              {target.status === 'active' ? (
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => onArchive(target)}
+                  onClick={() => onArchive(server)}
                   aria-label="Archive"
                   title="Archive"
                 >
@@ -128,17 +99,36 @@ export function TargetList({
                     />
                   </svg>
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className="icon-button"
+                  onClick={() => onUnarchive(server)}
+                  aria-label="Unarchive"
+                  title="Unarchive"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M4 8h16M7 8l1-3h8l1 3M12 12v6M9 15l3 3 3-3"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              )}
               <button
                 type="button"
-                className="icon-button danger"
-                onClick={() => onDelete(target)}
+                className="icon-button"
+                onClick={() => onDelete(server)}
                 aria-label="Delete"
                 title="Delete"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path
-                    d="M5 7h14M9 7V5h6v2M9 10v7M15 10v7M7 7l1 12h8l1-12"
+                    d="M4 7h16M9 7V5h6v2m-7 3v8m4-8v8m4-8v8M7 7l1 12h8l1-12"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.5"
@@ -149,7 +139,8 @@ export function TargetList({
               </button>
             </div>
           </li>
-        ))}
+        );
+        })}
       </ul>
     </div>
   );

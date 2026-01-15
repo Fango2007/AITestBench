@@ -1,6 +1,6 @@
 import { performance } from 'perf_hooks';
 
-import { getTargetById } from '../models/target.js';
+import { InferenceServerRecord, getInferenceServerById } from '../models/inference-server.js';
 import { getSuiteById } from '../models/suite.js';
 import { getLatestTestDefinition } from '../models/test-definition.js';
 import { computeMetrics } from './metrics.js';
@@ -12,7 +12,7 @@ export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancele
 
 export interface RunExecutionRequest {
   run_id: string;
-  target_id: string;
+  inference_server_id: string;
   test_id?: string | null;
   suite_id?: string | null;
   profile_id?: string | null;
@@ -44,6 +44,29 @@ interface Assertion {
   type: string;
   target?: string;
   expected?: unknown;
+}
+
+function buildAuthHeaders(server: InferenceServerRecord): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (server.auth.type === 'none') {
+    return headers;
+  }
+  const tokenEnv = server.auth.token_env;
+  const token = tokenEnv ? process.env[tokenEnv] : null;
+  if (!token) {
+    return headers;
+  }
+  const headerName = server.auth.header_name || 'Authorization';
+  if (server.auth.type === 'bearer' || server.auth.type === 'oauth') {
+    headers[headerName] = `Bearer ${token}`;
+    return headers;
+  }
+  if (server.auth.type === 'basic') {
+    headers[headerName] = `Basic ${token}`;
+    return headers;
+  }
+  headers[headerName] = token;
+  return headers;
 }
 
 function replacePlaceholders(value: unknown, replacements: Record<string, string>): unknown {
@@ -172,7 +195,7 @@ async function executeHttpTest(
   requestTemplate: Record<string, unknown> | null,
   assertions: Assertion[],
   effectiveConfig: Record<string, unknown> | null,
-  authToken: string | null
+  authHeaders: Record<string, string>
 ): Promise<Omit<TestExecutionResult, 'test_id'>> {
   const startedAtIso = new Date().toISOString();
   const requestStarted = performance.now();
@@ -182,11 +205,9 @@ async function executeHttpTest(
   const bodyTemplate = (template.body_template as Record<string, unknown>) ?? {};
   const headers: Record<string, string> = {
     'content-type': 'application/json',
-    ...(template.headers as Record<string, string> | undefined)
+    ...(template.headers as Record<string, string> | undefined),
+    ...authHeaders
   };
-  if (authToken) {
-    headers.authorization = `Bearer ${authToken}`;
-  }
 
   const mergedBody = {
     ...bodyTemplate,
@@ -304,7 +325,7 @@ async function executeProxyPerplexityTest(
   requestTemplate: Record<string, unknown> | null,
   assertions: Assertion[],
   effectiveConfig: Record<string, unknown> | null,
-  authToken: string | null
+  authHeaders: Record<string, string>
 ): Promise<Omit<TestExecutionResult, 'test_id'>> {
   const startedAtIso = new Date().toISOString();
   const datasetPath = process.env.AITESTBENCH_PROXY_PERPLEXITY_DATASET;
@@ -362,7 +383,7 @@ async function executeProxyPerplexityTest(
       replacedTemplate,
       replacedAssertions,
       effectiveConfig,
-      authToken
+      authHeaders
     );
     if (result.verdict === 'pass') {
       correct += 1;
@@ -399,13 +420,13 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
   const startedAt = new Date().toISOString();
   const dryRun = process.env.AITESTBENCH_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
 
-  const target = getTargetById(request.target_id);
-  if (!target) {
+  const server = getInferenceServerById(request.inference_server_id);
+  if (!server) {
     return {
       status: 'failed',
       started_at: startedAt,
       ended_at: new Date().toISOString(),
-      failure_reason: 'Target not found',
+      failure_reason: 'Inference server not found',
       results: []
     };
   }
@@ -471,33 +492,27 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
 
     logEvent({
       level: 'info',
-      message: 'Executing test against target',
+      message: 'Executing test against inference server',
       run_id: request.run_id,
       test_id: testId
     });
 
-    const tokenRef = target.auth_token_ref ? process.env[target.auth_token_ref] : null;
-    if (!(definition.request_template && 'model' in definition.request_template) && target.default_model) {
-      definition.request_template = {
-        ...(definition.request_template ?? {}),
-        model: target.default_model
-      };
-    }
+    const authHeaders = buildAuthHeaders(server);
     const usesProxyPerplexity = definition.protocols?.includes('proxy_perplexity');
     const result = usesProxyPerplexity
       ? await executeProxyPerplexityTest(
-          target.base_url,
+          server.endpoints.base_url,
           definition.request_template,
           definition.assertions as Assertion[],
           request.effective_config ?? null,
-          tokenRef
+          authHeaders
         )
       : await executeHttpTest(
-          target.base_url,
+          server.endpoints.base_url,
           definition.request_template,
           definition.assertions as Assertion[],
           request.effective_config ?? null,
-          tokenRef
+          authHeaders
         );
 
     results.push({

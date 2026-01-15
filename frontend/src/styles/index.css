@@ -28,8 +28,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 32px;
-  border-bottom: 1px solid #d4cbbf;
+  padding: 10px 20px;
+  border-bottom: 2px solid #d4cbbf;
   background: linear-gradient(120deg, rgba(255, 249, 241, 0.9), rgba(240, 233, 223, 0.9));
   box-shadow: 0 12px 30px rgba(24, 22, 18, 0.08);
 }
@@ -51,6 +51,12 @@ body {
   gap: 12px;
 }
 
+.header-servers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .header-status {
   display: flex;
   flex-direction: column;
@@ -61,7 +67,7 @@ body {
   background: rgba(255, 253, 248, 0.92);
   border: 1px solid #dacfc0;
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   min-width: 220px;
   box-shadow: 0 12px 24px rgba(27, 26, 23, 0.08);
 }
@@ -80,8 +86,8 @@ body {
 
 .param-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 8px 12px;
   align-items: start;
 }
 
@@ -231,7 +237,7 @@ body {
 
 .app-main {
   flex: 1;
-  padding: 24px 0 48px;
+  padding: 2px 0 48px;
 }
 
 .app-body {
@@ -246,12 +252,27 @@ body {
   gap: 10px;
   padding: 24px 12px;
   align-items: center;
+  justify-content: space-between;
+}
+
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.nav-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
 }
 
 .app-nav button {
   text-align: center;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid #d8d1c4;
   color: #1b1a17;
   border-radius: 14px;
   padding: 10px;
@@ -259,11 +280,19 @@ body {
   height: 44px;
   display: grid;
   place-items: center;
+  box-shadow: 0 8px 16px rgba(27, 26, 23, 0.14);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .app-nav button.active {
   border-color: #c8bfb2;
   background: #fff4e6;
+  box-shadow: inset 0 2px 4px rgba(27, 26, 23, 0.18), 0 4px 10px rgba(27, 26, 23, 0.12);
+}
+
+.app-nav button:active {
+  transform: translateY(2px);
+  box-shadow: inset 0 3px 6px rgba(27, 26, 23, 0.22), 0 2px 6px rgba(27, 26, 23, 0.12);
 }
 
 .app-nav svg {
@@ -275,7 +304,7 @@ body {
 .page {
   max-width: 960px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 3px 24px 64px;
 }
 
 .targets-page {
@@ -302,6 +331,12 @@ label {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 12px;
+}
+
+label.checkbox-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
 
 input {
@@ -395,7 +430,7 @@ button.is-pending::after {
 
 .targets-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
   gap: 20px;
 }
 
@@ -412,6 +447,38 @@ button.is-pending::after {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.models-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.models-server-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.models-server-card {
+  background: #f9f6ef;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.list-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  text-align: left;
+  padding: 0;
 }
 
 .panel-header {
@@ -567,6 +634,36 @@ button.is-pending::after {
   color: #766f66;
 }
 
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 20px;
+}
+
+.details-span {
+  grid-column: 1 / -1;
+}
+
+.details-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.details-tabs button {
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: #f9f6ef;
+  border: 1px solid #e1d8cb;
+}
+
+.details-tabs button.active {
+  border-color: #b59862;
+  background: #fff1d6;
+}
+
 .details-collapsible {
   margin-top: 12px;
 }
@@ -576,6 +673,7 @@ button.is-pending::after {
   font-weight: 600;
   margin-bottom: 8px;
 }
+
 
 .modal-overlay {
   position: fixed;
@@ -595,6 +693,10 @@ button.is-pending::after {
   padding: 16px;
   width: min(560px, 100%);
   box-shadow: 0 20px 40px rgba(27, 26, 23, 0.2);
+}
+
+.settings-card {
+  width: min(720px, 100%);
 }
 
 .modal-header {
@@ -631,12 +733,55 @@ button.is-pending::after {
   margin-top: 8px;
 }
 
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.env-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.env-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(160px, 2fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.env-key {
+  font-weight: 600;
+  font-size: 13px;
+  color: #2b2821;
+}
+
+.env-add {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(160px, 2fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
 pre {
   background: #171615;
   color: #f9f6ef;
   padding: 16px;
   border-radius: 12px;
   overflow: auto;
+}
+
+pre.code-block {
+  background: #f6f1e6;
+  color: #1b1a17;
+  border: 1px solid #e1d8cb;
+  padding: 12px;
+  white-space: pre-wrap;
+  max-height: 240px;
 }
 
 .health-indicator {
@@ -669,6 +814,21 @@ pre {
   box-shadow: 0 0 0 4px rgba(201, 42, 42, 0.2);
 }
 
+.health-indicator.ok .health-dot {
+  background: #2f9e44;
+  box-shadow: 0 0 0 4px rgba(47, 158, 68, 0.2);
+}
+
+.health-indicator.failed .health-dot {
+  background: #c92a2a;
+  box-shadow: 0 0 0 4px rgba(201, 42, 42, 0.2);
+}
+
+.health-indicator.pending .health-dot {
+  background: #b3aca2;
+  box-shadow: 0 0 0 4px rgba(179, 172, 162, 0.2);
+}
+
 @media (max-width: 900px) {
   .app-header {
     flex-direction: column;
@@ -694,11 +854,28 @@ pre {
     justify-content: flex-start;
   }
 
+  .nav-section {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .nav-footer {
+    margin-left: auto;
+  }
+
   .targets-grid {
     grid-template-columns: 1fr;
   }
 
   .targets-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .models-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .details-grid {
     grid-template-columns: 1fr;
   }
 
@@ -740,5 +917,10 @@ pre {
 
   .status-rail-tab {
     display: none;
+  }
+
+  .env-row,
+  .env-add {
+    grid-template-columns: 1fr;
   }
 }

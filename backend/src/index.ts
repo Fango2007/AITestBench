@@ -17,18 +17,10 @@ if (fs.existsSync(envPath)) {
 }
 
 import { createServer } from './api/server.js';
-import { startConnectivityMonitor } from './services/connectivity-runner.js';
-import { migrateBuiltinTemplates } from './services/template-migration.js';
 
-const migration = migrateBuiltinTemplates();
-if (!migration.sourceMissing && migration.copied > 0) {
-  console.log(`Migrated ${migration.copied} template(s) into templates directory.`);
-}
 
 const app = createServer();
 const port = Number(process.env.PORT || 8080);
-
-startConnectivityMonitor();
 
 app.listen({ port, host: '0.0.0.0' }).catch((err: unknown) => {
   app.log.error(err, 'Failed to start server');

@@ -1,14 +1,14 @@
 import crypto from 'crypto';
 
 import { getDb } from '../models/db.js';
-import { getTargetById } from '../models/target.js';
+import { getInferenceServerById } from '../models/inference-server.js';
 import { nowIso, parseJson } from '../models/repositories.js';
 import { getRetentionDays } from './retention.js';
 import { executeRun, RunExecutionResult } from './run-executor.js';
 
 export interface RunRecord {
   id: string;
-  target_id: string;
+  inference_server_id: string;
   suite_id: string | null;
   test_id: string | null;
   profile_id: string | null;
@@ -35,27 +35,25 @@ export interface RunResultRecord {
 }
 
 export interface CreateRunInput {
-  target_id: string;
+  inference_server_id: string;
   test_id?: string | null;
   suite_id?: string | null;
   profile_id?: string | null;
   profile_version?: string | null;
   test_overrides?: Record<string, unknown> | null;
   profile_defaults?: Record<string, unknown> | null;
-  target_defaults?: Record<string, unknown> | null;
   model_metadata?: Record<string, unknown> | null;
   environment_snapshot?: Record<string, unknown> | null;
 }
 
 export function resolveOverrides(input: CreateRunInput): Record<string, unknown> {
   return {
-    ...(input.target_defaults ?? {}),
     ...(input.profile_defaults ?? {}),
     ...(input.test_overrides ?? {})
   };
 }
 function buildRunId(input: CreateRunInput): string {
-  const key = `${input.target_id}:${input.test_id ?? input.suite_id}:${Date.now()}`;
+  const key = `${input.inference_server_id}:${input.test_id ?? input.suite_id}:${Date.now()}`;
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 20);
 }
 
@@ -70,12 +68,12 @@ function insertRunRecord(
   const db = getDb();
   db.prepare(
     `INSERT INTO runs (
-      id, target_id, suite_id, test_id, profile_id, profile_version,
+      id, inference_server_id, suite_id, test_id, profile_id, profile_version,
       status, started_at, ended_at, environment_snapshot, retention_days
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
-    input.target_id,
+    input.inference_server_id,
     input.suite_id ?? null,
     input.test_id ?? null,
     input.profile_id ?? null,
@@ -120,9 +118,11 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
   const now = nowIso();
   const retentionDays = getRetentionDays();
   const id = buildRunId(input);
-  const target = getTargetById(input.target_id);
-  const targetDefaults = input.target_defaults ?? target?.default_params ?? null;
-  const effectiveConfig = resolveOverrides({ ...input, target_defaults: targetDefaults });
+  const server = getInferenceServerById(input.inference_server_id);
+  if (!server) {
+    throw new Error(`Inference server not found: ${input.inference_server_id}`);
+  }
+  const effectiveConfig = resolveOverrides({ ...input });
   const environmentSnapshot = {
     ...input.environment_snapshot,
     effective_config: effectiveConfig,
@@ -133,7 +133,7 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
 
   const execution = await executeRun({
     run_id: id,
-    target_id: input.target_id,
+    inference_server_id: input.inference_server_id,
     test_id: input.test_id ?? null,
     suite_id: input.suite_id ?? null,
     profile_id: input.profile_id ?? null,
@@ -149,7 +149,7 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
 
   return {
     id,
-    target_id: input.target_id,
+    inference_server_id: input.inference_server_id,
     suite_id: input.suite_id ?? null,
     test_id: input.test_id ?? null,
     profile_id: input.profile_id ?? null,

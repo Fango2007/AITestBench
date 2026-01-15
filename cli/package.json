@@ -1,5 +1,5 @@
 {
-  "name": "@llm-harness/cli",
+  "name": "@aitestbench/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",

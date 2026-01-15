@@ -1,0 +1,14 @@
+{
+  "id": "e2e-json-1768424937712",
+  "version": "1.0.0",
+  "name": "JSON Template",
+  "description": "Template description",
+  "protocols": [],
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "body_template": {}
+  },
+  "assertions": [],
+  "metrics": {}
+}

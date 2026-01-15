@@ -11,7 +11,7 @@ import {
 import { validateTemplateContent } from './template-validation.js';
 import { createActiveTest, listActiveTests as listActiveTestRecords, deleteActiveTest } from '../models/active-test.js';
 import { upsertTestDefinition } from '../models/test-definition.js';
-import { getTargetById } from '../models/target.js';
+import { getInferenceServerById } from '../models/inference-server.js';
 
 export interface TemplateInput {
   id: string;
@@ -189,7 +189,7 @@ function applyParamOverrides(
 function buildCommandPreview(
   template: TemplateFile,
   modelName: string,
-  targetId: string,
+  inferenceServerId: string,
   paramOverrides?: Record<string, unknown> | null
 ): string | null {
   if (template.type !== 'json') {
@@ -208,10 +208,17 @@ function buildCommandPreview(
     bodyTemplate.model = modelName;
   }
 
-  const target = getTargetById(targetId);
-  const baseUrl = target?.base_url ?? 'http://localhost:8080';
-  if (target?.auth_token_ref) {
-    headers.authorization = `Bearer $${target.auth_token_ref}`;
+  const server = getInferenceServerById(inferenceServerId);
+  const baseUrl = server?.endpoints.base_url ?? 'http://localhost:8080';
+  if (server?.auth.token_env) {
+    const headerName = server.auth.header_name || 'Authorization';
+    if (server.auth.type === 'bearer' || server.auth.type === 'oauth') {
+      headers[headerName] = `Bearer $${server.auth.token_env}`;
+    } else if (server.auth.type === 'basic') {
+      headers[headerName] = `Basic $${server.auth.token_env}`;
+    } else if (server.auth.type === 'custom') {
+      headers[headerName] = `$${server.auth.token_env}`;
+    }
   }
 
   const url = new URL(path, baseUrl).toString();
@@ -229,14 +236,14 @@ function buildCommandPreview(
 }
 
 export function instantiateActiveTests(input: {
-  target_id: string;
+  inference_server_id: string;
   model_name: string;
   template_ids: string[];
   param_overrides?: Record<string, unknown>;
 }) {
-  if (!input.target_id || !input.model_name) {
+  if (!input.inference_server_id || !input.model_name) {
     throw new TemplateContentError([
-      { message: 'target_id and model_name are required for instantiation.' }
+      { message: 'inference_server_id and model_name are required for instantiation.' }
     ]);
   }
   if (!Array.isArray(input.template_ids) || input.template_ids.length === 0) {
@@ -275,14 +282,14 @@ export function instantiateActiveTests(input: {
       id: activeTestId,
       template_id: template.id,
       template_version: template.version,
-      target_id: input.target_id,
+      inference_server_id: input.inference_server_id,
       model_name: input.model_name,
       status: 'ready',
       version: template.version,
       command_preview: buildCommandPreview(
         template,
         input.model_name,
-        input.target_id,
+        input.inference_server_id,
         input.param_overrides
       ),
       python_ready: template.type === 'python'

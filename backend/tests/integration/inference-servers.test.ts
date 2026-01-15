@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createServer } from '../../src/api/server.js';
 
-describe('targets API', () => {
-  it('lists targets', async () => {
+describe('inference servers API', () => {
+  it('lists inference servers', async () => {
     process.env.AITESTBENCH_API_TOKEN = 'test-token';
     const app = createServer();
     const response = await app.inject({
       method: 'GET',
-      url: '/targets',
+      url: '/inference-servers',
       headers: { 'x-api-token': 'test-token' }
     });
     expect(response.statusCode).toBe(200);
