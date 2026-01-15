@@ -9,6 +9,21 @@ coverage/
 frontend/test-results/
 frontend/playwright-report/
 frontend/.cache/
+/frontend/playwright.config.ts
+
+# Vitest
+vitest-report/
+backend/test-results/
+backend/vitest-report/
+backend/.cache/
+/backend/vitest.config.ts
+/backend/tests/
+/cli/tests/
+
+#ESLint
+.eslintcache
+.eslint*
+
 
 # Environment
 .env*
@@ -21,6 +36,14 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Database
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Specs files
+specs
+
+# Coding assistant
+.copilot/
+AGENTS.md

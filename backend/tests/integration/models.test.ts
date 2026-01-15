@@ -6,6 +6,7 @@ import { createServer } from '../../src/api/server.js';
 describe('models API', () => {
   it('lists models', async () => {
     process.env.AITESTBENCH_API_TOKEN = 'test-token';
+    process.env.AITESTBENCH_DB_PATH = ':memory:';
     const app = createServer();
     const response = await app.inject({
       method: 'GET',
