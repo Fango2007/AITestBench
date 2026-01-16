@@ -9,6 +9,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
     "tsx": "^4.15.0",
     "vitest": "^4.0.16"
   },

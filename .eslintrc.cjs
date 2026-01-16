@@ -39,5 +39,16 @@ module.exports = {
   ignorePatterns: [
     "dist/",
     "build/"
+  ],
+  overrides: [
+    {
+      files: [
+        "frontend/src/**/*.{js,jsx,ts,tsx}",
+        "frontend/tests/**/*.{js,jsx,ts,tsx}"
+      ],
+      env: {
+        browser: true
+      }
+    }
   ]
 };
