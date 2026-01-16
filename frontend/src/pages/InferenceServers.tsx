@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { InferenceServerCreateForm } from '../components/InferenceServerCreateForm.js';
 import { InferenceServerDetails } from '../components/InferenceServerDetails.js';
@@ -26,6 +26,7 @@ export function InferenceServers() {
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const discoveryPollingRef = useRef(false);
 
   function notifyServersUpdated() {
     window.dispatchEvent(new CustomEvent('inference-servers:updated'));
@@ -64,6 +65,37 @@ export function InferenceServers() {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!inspectingId) {
+      return;
+    }
+    let isActive = true;
+    const pollDiscovery = async () => {
+      if (discoveryPollingRef.current) {
+        return;
+      }
+      discoveryPollingRef.current = true;
+      try {
+        await refreshInferenceServerDiscovery(inspectingId);
+        if (isActive) {
+          await refreshServers();
+        }
+      } catch {
+        // Ignore polling failures.
+      } finally {
+        discoveryPollingRef.current = false;
+      }
+    };
+
+    pollDiscovery();
+    const intervalId = window.setInterval(pollDiscovery, 30000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [inspectingId]);
 
   async function handleCreate(input: InferenceServerInput) {
     setError(null);

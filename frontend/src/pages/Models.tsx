@@ -120,26 +120,20 @@ export function Models() {
             {models.length === 0 ? (
               <p className="muted">No models discovered yet.</p>
             ) : (
-              <ul className="list">
-                {models.map((model) => (
-                  <li
-                    key={model.model_id}
-                    className={`list-item ${model.model_id === selectedId ? 'selected' : ''}`}
-                  >
-                    <button
-                      type="button"
-                      className="list-button"
-                      onClick={() => setSelectedId(model.model_id)}
-                    >
-                      <div>
-                        <strong>{model.display_name}</strong>
-                        <div className="muted">{model.model_id}</div>
-                      </div>
-                      <span className="muted">{model.servers.length} servers</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="field">
+                <label htmlFor="model-select">Model</label>
+                <select
+                  id="model-select"
+                  value={selectedId ?? ''}
+                  onChange={(event) => setSelectedId(event.target.value)}
+                >
+                  {models.map((model) => (
+                    <option key={model.model_id} value={model.model_id}>
+                      {model.display_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
         </div>

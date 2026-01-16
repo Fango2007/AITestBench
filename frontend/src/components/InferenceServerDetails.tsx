@@ -138,7 +138,7 @@ export function InferenceServerDetails({
             <strong>{`${discovery.ttl_seconds}s`}</strong>
           </div>
           <div className="detail-row">
-            <span>Models cached</span>
+            <span>Models served</span>
             <strong>{discovery.model_list.normalised.length}</strong>
           </div>
           <div className="detail-row details-span">
