@@ -1,8 +1,10 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { getInferenceServerById } from '../models/inference-server.js';
 import {
   MODEL_SCHEMA_VERSION,
   ModelArchitecture,
-  ModelArchitectureType,
   ModelCapabilities,
   ModelConfiguration,
   ModelDiscovery,
@@ -11,11 +13,7 @@ import {
   ModelLimits,
   ModelModalities,
   ModelPerformance,
-  ModelPrecision,
   ModelProvider,
-  ModelQuantisationMethod,
-  ContextStrategyType,
-  DiscoverySource,
   ModelRecord,
   createModel,
   getModelById,
@@ -23,6 +21,7 @@ import {
   updateModel
 } from '../models/model.js';
 import { nowIso } from '../models/repositories.js';
+import { validateWithSchema } from './schema-validator.js';
 
 export interface ModelInput {
   model?: Partial<ModelInfo>;
@@ -44,25 +43,9 @@ export class InvalidModelError extends Error {
   }
 }
 
-const providers: ModelProvider[] = ['openai', 'meta', 'mistral', 'qwen', 'google', 'custom', 'unknown'];
-const architectureTypes: ModelArchitectureType[] = ['decoder-only', 'encoder-decoder', 'other', 'unknown'];
-const precisions: ModelPrecision[] = ['fp32', 'fp16', 'bf16', 'int8', 'int4', 'mixed', 'unknown'];
-const quantisationMethods: ModelQuantisationMethod[] = ['gguf', 'gptq', 'awq', 'mlx', 'none', 'unknown'];
-const contextStrategies: ContextStrategyType[] = ['truncate', 'sliding', 'summarise', 'custom'];
-const discoverySources: DiscoverySource[] = ['server', 'manual', 'test'];
-
-function validateEnum<T extends string>(value: string, allowed: readonly T[], label: string): asserts value is T {
-  if (!allowed.includes(value as T)) {
-    throw new InvalidModelError(`Invalid ${label}: ${value}`);
-  }
-}
-
-function isRfc3339(value: string | null | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const parsed = Date.parse(value);
-  return !Number.isNaN(parsed);
+function resolveSchemaPath(): string {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(moduleDir, '../../../specs/003-model-schema/model-schema.json');
 }
 
 function defaultIdentity(): ModelIdentity {
@@ -230,44 +213,14 @@ function mergeDiscovery(
 }
 
 function validateModelRecord(record: ModelRecord): void {
-  const identity = record.model;
-  if (!identity.model_id.trim()) {
-    throw new InvalidModelError('model.model_id is required');
+  const schemaResult = validateWithSchema(resolveSchemaPath(), record);
+  if (schemaResult.ok) {
+    return;
   }
-  if (!identity.server_id.trim()) {
-    throw new InvalidModelError('model.server_id is required');
-  }
-  if (!identity.display_name.trim()) {
-    throw new InvalidModelError('model.display_name must be non-empty');
-  }
-  if (identity.active && identity.archived) {
-    throw new InvalidModelError('active and archived cannot both be true');
-  }
-  if (!isRfc3339(identity.created_at) || !isRfc3339(identity.updated_at)) {
-    throw new InvalidModelError('created_at and updated_at must be RFC3339 timestamps');
-  }
-  if (identity.archived_at && !isRfc3339(identity.archived_at)) {
-    throw new InvalidModelError('archived_at must be RFC3339 timestamp');
-  }
-  validateEnum(record.identity.provider, providers, 'identity.provider');
-  validateEnum(record.architecture.type, architectureTypes, 'architecture.type');
-  validateEnum(record.architecture.precision, precisions, 'architecture.precision');
-  validateEnum(record.architecture.quantisation.method, quantisationMethods, 'architecture.quantisation.method');
-  validateEnum(record.configuration.context_strategy.type, contextStrategies, 'configuration.context_strategy.type');
-  validateEnum(record.discovery.source, discoverySources, 'discovery.source');
-
-  if (!isRfc3339(record.discovery.retrieved_at)) {
-    throw new InvalidModelError('discovery.retrieved_at must be RFC3339 timestamp');
-  }
-  if (record.performance.observed.measured_at && !isRfc3339(record.performance.observed.measured_at)) {
-    throw new InvalidModelError('performance.observed.measured_at must be RFC3339 timestamp');
-  }
-  if (!record.modalities.input.every((entry) => typeof entry === 'string')) {
-    throw new InvalidModelError('modalities.input must be a string array');
-  }
-  if (!record.modalities.output.every((entry) => typeof entry === 'string')) {
-    throw new InvalidModelError('modalities.output must be a string array');
-  }
+  const detail = schemaResult.issues
+    .map((issue) => (issue.path ? `${issue.path}: ${issue.message}` : issue.message))
+    .join('; ');
+  throw new InvalidModelError(`Schema validation failed: ${detail}`);
 }
 
 export function fetchModels(filters?: {
@@ -318,9 +271,6 @@ export function createModelRecord(input: ModelInput): ModelRecord {
     throw new InvalidModelError(`inference server not found: ${serverId}`);
   }
   const displayName = modelInfo.display_name?.trim() || modelId;
-  if (!displayName) {
-    throw new InvalidModelError('model.display_name is required');
-  }
   if (getModelById(serverId, modelId)) {
     throw new InvalidModelError(`model already exists: ${serverId}/${modelId}`);
   }

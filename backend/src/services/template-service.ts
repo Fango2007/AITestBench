@@ -196,16 +196,26 @@ function buildCommandPreview(
     return null;
   }
   const parsed = JSON.parse(template.content) as Record<string, unknown>;
-  const request = (parsed.request as Record<string, unknown>) ?? {};
+  const steps = Array.isArray(parsed.steps) ? parsed.steps : null;
+  const step = steps && steps.length > 0 ? (steps[0] as Record<string, unknown>) : null;
+  const stepRequest = (step?.request as Record<string, unknown>) ?? null;
+  const defaults = (parsed.defaults as Record<string, unknown>) ?? {};
+  const defaultHeaders = (defaults.headers as Record<string, string>) ?? {};
+
+  const request = stepRequest ?? ((parsed.request as Record<string, unknown>) ?? {});
   const method = String(request.method ?? 'POST').toUpperCase();
+  const requestUrl = request.url ? String(request.url) : '';
   const path = String(request.path ?? '/v1/chat/completions');
-  const bodyTemplate = (request.body_template as Record<string, unknown>) ?? {};
+  const bodyTemplate = request.body_template ?? request.body ?? {};
   const headers: Record<string, string> = {
     'content-type': 'application/json',
+    ...defaultHeaders,
     ...(request.headers as Record<string, string> | undefined)
   };
   if (modelName) {
-    bodyTemplate.model = modelName;
+    if (bodyTemplate && typeof bodyTemplate === 'object' && !Array.isArray(bodyTemplate)) {
+      (bodyTemplate as Record<string, unknown>).model = modelName;
+    }
   }
 
   const server = getInferenceServerById(inferenceServerId);
@@ -221,12 +231,15 @@ function buildCommandPreview(
     }
   }
 
-  const url = new URL(path, baseUrl).toString();
+  const url = new URL(requestUrl || path, baseUrl).toString();
   const headerLines = Object.entries(headers).map(
     ([key, value]) => `  -H \"${key}: ${value}\" \\`
   );
-  const mergedBody = applyParamOverrides(bodyTemplate, paramOverrides);
-  const body = JSON.stringify(mergedBody);
+  const mergedBody =
+    bodyTemplate && typeof bodyTemplate === 'object' && !Array.isArray(bodyTemplate)
+      ? applyParamOverrides(bodyTemplate as Record<string, unknown>, paramOverrides)
+      : bodyTemplate;
+  const body = typeof mergedBody === 'string' ? mergedBody : JSON.stringify(mergedBody);
   const lines = [
     `curl -X ${method} \"${url}\" \\`,
     ...headerLines,
@@ -262,6 +275,9 @@ export function instantiateActiveTests(input: {
     const activeTestId = buildActiveTestId(template.id, input.model_name);
     if (template.type === 'json') {
       const parsed = JSON.parse(template.content) as Record<string, unknown>;
+      const steps = Array.isArray(parsed.steps) ? parsed.steps : null;
+      const firstStep = steps && steps.length > 0 ? (steps[0] as Record<string, unknown>) : null;
+      const request = (firstStep?.request as Record<string, unknown>) ?? (parsed.request as Record<string, unknown>) ?? null;
       upsertTestDefinition({
         id: activeTestId,
         version: template.version,
@@ -272,7 +288,7 @@ export function instantiateActiveTests(input: {
         protocols: (parsed.protocols as string[]) ?? [],
         spec_path: template.filePath,
         runner_type: template.type,
-        request_template: (parsed.request as Record<string, unknown>) ?? null,
+        request_template: request ? ({ ...request, path: (request as Record<string, unknown>).url ?? (request as Record<string, unknown>).path } as Record<string, unknown>) : null,
         assertions: (parsed.assertions as Record<string, unknown>[]) ?? [],
         metric_rules: (parsed.metrics as Record<string, unknown>) ?? null
       });

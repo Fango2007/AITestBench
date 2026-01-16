@@ -21,10 +21,16 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
       version,
       name,
       description: 'Template description',
-      protocols: [],
-      request: { method: 'POST', path: '/v1/chat/completions', body_template: {} },
-      assertions: [],
-      metrics: {}
+      steps: [
+        {
+          id: 'step-1',
+          request: {
+            method: 'POST',
+            url: '/v1/chat/completions',
+            body_template: {}
+          }
+        }
+      ]
     },
     null,
     2

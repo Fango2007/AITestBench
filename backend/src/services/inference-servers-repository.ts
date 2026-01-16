@@ -1,26 +1,26 @@
 import crypto from 'crypto';
 import os from 'os';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { getDb } from '../models/db.js';
 import {
   ApiSchemaFamily,
   AuthInfo,
-  AuthType,
   CapabilitiesInfo,
   DiscoveryInfo,
   EndpointsInfo,
-  GpuVendor,
   InferenceServerRecord,
   OsArch,
   OsName,
   RuntimeInfo,
-  RuntimeSource,
   createInferenceServer,
   getInferenceServerById,
   listInferenceServers,
   updateInferenceServer
 } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
+import { validateWithSchema } from './schema-validator.js';
 
 export interface InferenceServerInput {
   inference_server?: Partial<InferenceServerRecord['inference_server']>;
@@ -53,20 +53,7 @@ export class InferenceServerNotFoundError extends Error {
   }
 }
 
-const runtimeSources: RuntimeSource[] = ['server', 'client', 'mixed'];
 const schemaFamilies: ApiSchemaFamily[] = ['openai-compatible', 'ollama', 'custom'];
-const osNames: OsName[] = ['macos', 'linux', 'windows', 'unknown'];
-const osArchs: OsArch[] = ['arm64', 'x86_64', 'unknown'];
-const containerTypes = ['docker', 'podman', 'none', 'unknown'] as const;
-const gpuVendors: GpuVendor[] = ['nvidia', 'amd', 'apple', 'intel', 'unknown'];
-const authTypes: AuthType[] = ['none', 'bearer', 'basic', 'oauth', 'custom'];
-const enforcementValues = ['server'] as const;
-
-function validateEnum<T extends string>(value: string, allowed: readonly T[], label: string): asserts value is T {
-  if (!allowed.includes(value as T)) {
-    throw new InvalidInferenceServerError(`Invalid ${label}: ${value}`);
-  }
-}
 
 function normalizeSchemaFamilies(input: unknown): ApiSchemaFamily[] {
   if (!input) {
@@ -78,9 +65,8 @@ function normalizeSchemaFamilies(input: unknown): ApiSchemaFamily[] {
     if (typeof entry !== 'string') {
       throw new InvalidInferenceServerError('runtime.api.schema_family must be a string array');
     }
-    validateEnum(entry, schemaFamilies, 'runtime.api.schema_family');
-    if (!normalized.includes(entry)) {
-      normalized.push(entry);
+    if (!normalized.includes(entry as ApiSchemaFamily)) {
+      normalized.push(entry as ApiSchemaFamily);
     }
   }
   return normalized;
@@ -173,53 +159,20 @@ function defaultDiscovery(): DiscoveryInfo {
   };
 }
 
-function isRfc3339(value: string | null | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-  const parsed = Date.parse(value);
-  return !Number.isNaN(parsed);
+function resolveSchemaPath(): string {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(moduleDir, '../../../specs/002-inferencer-server-schema/inferencer-server-schema.json');
 }
 
 function validateRecord(record: InferenceServerRecord): void {
-  const identity = record.inference_server;
-  if (!identity.display_name.trim()) {
-    throw new InvalidInferenceServerError('display_name must be non-empty');
+  const schemaResult = validateWithSchema(resolveSchemaPath(), record);
+  if (schemaResult.ok) {
+    return;
   }
-  if (identity.active && identity.archived) {
-    throw new InvalidInferenceServerError('active and archived cannot both be true');
-  }
-  if (!isRfc3339(identity.created_at) || !isRfc3339(identity.updated_at)) {
-    throw new InvalidInferenceServerError('created_at and updated_at must be RFC3339 timestamps');
-  }
-  if (identity.archived_at && !isRfc3339(identity.archived_at)) {
-    throw new InvalidInferenceServerError('archived_at must be RFC3339 timestamp');
-  }
-  validateEnum(record.runtime.source, runtimeSources, 'runtime.source');
-  const schemaFamilyList = normalizeSchemaFamilies(record.runtime.api.schema_family);
-  if (schemaFamilyList.length === 0) {
-    throw new InvalidInferenceServerError('runtime.api.schema_family must include at least one value');
-  }
-  record.runtime.api.schema_family = schemaFamilyList;
-  validateEnum(record.runtime.platform.os.name, osNames, 'runtime.platform.os.name');
-  validateEnum(record.runtime.platform.os.arch, osArchs, 'runtime.platform.os.arch');
-  validateEnum(record.runtime.platform.container.type, containerTypes, 'runtime.platform.container.type');
-  for (const gpu of record.runtime.hardware.gpu) {
-    validateEnum(gpu.vendor, gpuVendors, 'runtime.hardware.gpu.vendor');
-  }
-  validateEnum(record.auth.type, authTypes, 'auth.type');
-  validateEnum(record.capabilities.enforcement, enforcementValues, 'capabilities.enforcement');
-
-  const { normalized, https } = validateBaseUrl(record.endpoints.base_url);
-  record.endpoints.base_url = normalized;
-  record.endpoints.https = https;
-
-  if (!isRfc3339(record.runtime.retrieved_at)) {
-    throw new InvalidInferenceServerError('runtime.retrieved_at must be RFC3339 timestamp');
-  }
-  if (!isRfc3339(record.discovery.retrieved_at)) {
-    throw new InvalidInferenceServerError('discovery.retrieved_at must be RFC3339 timestamp');
-  }
+  const detail = schemaResult.issues
+    .map((issue) => (issue.path ? `${issue.path}: ${issue.message}` : issue.message))
+    .join('; ');
+  throw new InvalidInferenceServerError(`Schema validation failed: ${detail}`);
 }
 
 function mergeRuntime(
@@ -327,13 +280,7 @@ export function fetchInferenceServer(id: string): InferenceServerRecord | null {
 
 export function createInferenceServerRecord(input: InferenceServerInput): InferenceServerRecord {
   const displayName = input.inference_server?.display_name?.trim() ?? '';
-  if (!displayName) {
-    throw new InvalidInferenceServerError('display_name is required');
-  }
   const schemaFamilyList = normalizeSchemaFamilies(input.runtime?.api?.schema_family);
-  if (schemaFamilyList.length === 0) {
-    throw new InvalidInferenceServerError('runtime.api.schema_family is required');
-  }
   const endpointsInput = input.endpoints?.base_url ? input.endpoints : null;
   if (!endpointsInput?.base_url) {
     throw new InvalidInferenceServerError('endpoints.base_url is required');
@@ -388,8 +335,10 @@ export function updateInferenceServerRecord(
   const schemaFamilyList = normalizeSchemaFamilies(
     updates.runtime?.api?.schema_family ?? existing.runtime.api.schema_family
   );
-  if (schemaFamilyList.length === 0) {
-    throw new InvalidInferenceServerError('runtime.api.schema_family is required');
+  if (updates.endpoints?.base_url) {
+    const { normalized, https } = validateBaseUrl(updates.endpoints.base_url);
+    updates.endpoints.base_url = normalized;
+    updates.endpoints.https = https;
   }
   const updated: InferenceServerRecord = {
     ...existing,
