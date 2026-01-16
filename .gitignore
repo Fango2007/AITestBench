@@ -3,26 +3,26 @@ node_modules/
 dist/
 build/
 coverage/
+.tsbuildinfo
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Playwright
-frontend/test-results/
-frontend/playwright-report/
-frontend/.cache/
-/frontend/playwright.config.ts
+**/test-results/
+**/playwright-report/
 
 # Vitest
-vitest-report/
-backend/test-results/
-backend/vitest-report/
-backend/.cache/
-/backend/vitest.config.ts
-/backend/tests/
-/cli/tests/
+**/vitest-report/
 
-#ESLint
+# Vite / caches
+**/.cache/
+**/.vite/
+
+# ESLint
 .eslintcache
-.eslint*
+
 
 
 # Environment
@@ -41,9 +41,7 @@ Thumbs.db
 *.sqlite-shm
 *.sqlite-wal
 
-# Specs files
-specs
-
 # Coding assistant
 .copilot/
-AGENTS.md
+
+/specs
