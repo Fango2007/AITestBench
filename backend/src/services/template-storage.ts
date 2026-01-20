@@ -72,6 +72,19 @@ function readJsonTemplate(filePath: string): TemplateFile | null {
 
   const stats = fs.statSync(filePath);
 
+  if (parsed && parsed.kind === 'python_test') {
+    return {
+      id: String(parsed.id ?? path.basename(filePath, '.json')),
+      name: String(parsed.name ?? path.basename(filePath, '.json')),
+      type: 'python',
+      content: JSON.stringify(parsed, null, 2),
+      version: String(parsed.version ?? '0.0.0'),
+      created_at: stats.birthtime.toISOString(),
+      updated_at: stats.mtime.toISOString(),
+      filePath
+    };
+  }
+
   if (parsed && typeof parsed.type === 'string' && 'content' in parsed) {
     const type = parsed.type === 'python' ? 'python' : 'json';
     const content = type === 'python' ? String(parsed.content ?? '') : JSON.stringify(parsed.content ?? {}, null, 2);
@@ -171,19 +184,9 @@ export function writeTemplateFile(
   const dir = getTemplatesDir();
   const now = new Date().toISOString();
   if (input.type === 'python') {
-    const filePath = path.join(dir, `${input.id}.py`);
+    const filePath = path.join(dir, `${input.id}.pytest.json`);
     try {
       fs.writeFileSync(filePath, input.content, 'utf8');
-      const metaPath = `${filePath}.meta.json`;
-      fs.writeFileSync(
-        metaPath,
-        JSON.stringify(
-          { id: input.id, name: input.name, type: 'python', version: input.version },
-          null,
-          2
-        ),
-        'utf8'
-      );
       return {
         ...input,
         created_at: now,

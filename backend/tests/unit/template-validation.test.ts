@@ -17,9 +17,34 @@ const validJsonTemplate = JSON.stringify(
   2
 );
 
+const validPythonTemplate = JSON.stringify(
+  {
+    kind: 'python_test',
+    schema_version: 'v1',
+    id: 'python-template-1',
+    name: 'Python Template 1',
+    version: '1.0.0',
+    lifecycle: { status: 'active' },
+    python: { module: 'tests.python.sample_test', entrypoint: 'entrypoint' },
+    contracts: { requires: [], provides: [] },
+    defaults: {},
+    outputs: {
+      result_schema: 'scenario_result.v1',
+      normalised_response: 'response_normalisation.v1'
+    }
+  },
+  null,
+  2
+);
+
 describe('template validation', () => {
   it('accepts valid JSON templates', () => {
     const issues = validateTemplateContent('json', validJsonTemplate);
+    expect(issues).toHaveLength(0);
+  });
+
+  it('accepts valid Python templates', () => {
+    const issues = validateTemplateContent('python', validPythonTemplate);
     expect(issues).toHaveLength(0);
   });
 
@@ -28,8 +53,8 @@ describe('template validation', () => {
     expect(issues.length).toBeGreaterThan(0);
   });
 
-  it('rejects empty Python templates', () => {
-    const issues = validateTemplateContent('python', '   ');
+  it('rejects invalid Python templates', () => {
+    const issues = validateTemplateContent('python', '{"kind":"python_test"}');
     expect(issues.length).toBeGreaterThan(0);
   });
 });

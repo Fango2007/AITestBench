@@ -99,6 +99,16 @@ function validateContent(input: TemplateInput): TemplateInput {
       content: JSON.stringify(parsed, null, 2)
     };
   }
+  if (input.type === 'python') {
+    const parsed = JSON.parse(input.content) as Record<string, unknown>;
+    parsed.id = input.id;
+    parsed.name = input.name;
+    parsed.version = input.version;
+    return {
+      ...input,
+      content: JSON.stringify(parsed, null, 2)
+    };
+  }
   return input;
 }
 

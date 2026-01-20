@@ -27,6 +27,26 @@ const DEFAULT_JSON = `{
   "metrics": {}
 }`;
 
+const DEFAULT_PYTHON_TEMPLATE = `{
+  "kind": "python_test",
+  "schema_version": "v1",
+  "id": "template-id",
+  "name": "Python Template",
+  "version": "1.0.0",
+  "lifecycle": { "status": "active" },
+  "python": {
+    "module": "tests.python.sample_test",
+    "entrypoint": "entrypoint",
+    "requirements": { "pip": [] }
+  },
+  "contracts": { "requires": [], "provides": [] },
+  "defaults": { "timeout_ms": 60000, "retries": { "max": 0, "backoff_ms": 0 } },
+  "outputs": {
+    "result_schema": "scenario_result.v1",
+    "normalised_response": "response_normalisation.v1"
+  }
+}`;
+
 export function TemplateEditor({ template, onSave, error, busy }: TemplateEditorProps) {
   const [id, setId] = useState('');
   const [name, setName] = useState('');
@@ -51,6 +71,12 @@ export function TemplateEditor({ template, onSave, error, busy }: TemplateEditor
   }, [template]);
 
   const isUpdate = Boolean(template);
+
+  useEffect(() => {
+    if (!isUpdate) {
+      setContent(type === 'python' ? DEFAULT_PYTHON_TEMPLATE : DEFAULT_JSON);
+    }
+  }, [isUpdate, type]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,7 +144,7 @@ export function TemplateEditor({ template, onSave, error, busy }: TemplateEditor
           onChange={(event) => setContent(event.target.value)}
           rows={16}
           disabled={busy}
-          placeholder={type === 'json' ? DEFAULT_JSON : '# Write your Python test here'}
+          placeholder={type === 'json' ? DEFAULT_JSON : DEFAULT_PYTHON_TEMPLATE}
         />
       </label>
       <button type="submit" disabled={busy}>
