@@ -32,6 +32,28 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
   );
 }
 
+function buildPythonTemplateContent(id: string, name: string, version = '1.0.0') {
+  return JSON.stringify(
+    {
+      kind: 'python_test',
+      schema_version: 'v1',
+      id,
+      name,
+      version,
+      lifecycle: { status: 'active' },
+      python: { module: 'tests.python.sample_test', entrypoint: 'entrypoint' },
+      contracts: { requires: [], provides: [] },
+      defaults: {},
+      outputs: {
+        result_schema: 'scenario_result.v1',
+        normalised_response: 'response_normalisation.v1'
+      }
+    },
+    null,
+    2
+  );
+}
+
 test('supports JSON and Python template types', async ({ page, request }) => {
   const server = await createInferenceServer(request, {
     display_name: `E2E Template Type Server ${Date.now()}`
@@ -57,7 +79,7 @@ test('supports JSON and Python template types', async ({ page, request }) => {
       name: 'Python Template',
       type: 'python',
       version: '1.0.0',
-      content: 'print(\"hello\")'
+      content: buildPythonTemplateContent(pythonTemplateId, 'Python Template')
     }
   });
 
