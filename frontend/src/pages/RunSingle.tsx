@@ -71,7 +71,10 @@ export function RunSingle() {
   const [requestTimeoutSec, setRequestTimeoutSec] = useState('30');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [runResults, setRunResults] = useState<Record<string, unknown>[] | null>(null);
+  const [assistantMessage, setAssistantMessage] = useState<string | null>(null);
+  const [showAssistantMessage, setShowAssistantMessage] = useState(false);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [runStatusMessage, setRunStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [runInProgress, setRunInProgress] = useState(false);
@@ -94,6 +97,126 @@ export function RunSingle() {
       return `${value.toFixed(2)} ms`;
     }
     return 'N/A';
+  };
+  const formatStructuredAssistantOutput = (payload: { text: string[]; toolCalls: Record<string, unknown>[] }): string | null => {
+    const sections: string[] = [];
+    const text = payload.text.join('');
+    if (text.trim()) {
+      sections.push(text.trim());
+    }
+    if (payload.toolCalls.length > 0) {
+      sections.push(JSON.stringify(payload.toolCalls, null, 2));
+    }
+    return sections.length ? sections.join('\n') : null;
+  };
+
+  const collectFromRecord = (
+    record: Record<string, unknown>,
+    payload: { text: string[]; toolCalls: Record<string, unknown>[] }
+  ) => {
+    const pushToolCalls = (toolCalls: unknown) => {
+      if (!Array.isArray(toolCalls) || toolCalls.length === 0) {
+        return;
+      }
+      for (const call of toolCalls) {
+        if (!call || typeof call !== 'object') {
+          continue;
+        }
+        payload.toolCalls.push(call as Record<string, unknown>);
+      }
+    };
+
+    const choices = Array.isArray(record.choices) ? record.choices : [];
+    if (choices.length > 0) {
+      for (const choice of choices) {
+        if (!choice || typeof choice !== 'object') {
+          continue;
+        }
+        const choiceRecord = choice as Record<string, unknown>;
+        const delta = choiceRecord.delta as Record<string, unknown> | undefined;
+        if (delta && typeof delta.content === 'string') {
+          payload.text.push(delta.content);
+        }
+        if (delta && delta.tool_calls) {
+          pushToolCalls(delta.tool_calls);
+        }
+        const message = choiceRecord.message as Record<string, unknown> | undefined;
+        if (message && typeof message.content === 'string') {
+          payload.text.push(message.content);
+        }
+        if (message && message.tool_calls) {
+          pushToolCalls(message.tool_calls);
+        }
+        if (typeof choiceRecord.text === 'string') {
+          payload.text.push(choiceRecord.text);
+        }
+      }
+      return;
+    }
+    const message = record.message as Record<string, unknown> | undefined;
+    if (message && typeof message.content === 'string') {
+      payload.text.push(message.content);
+    }
+    if (message && message.tool_calls) {
+      pushToolCalls(message.tool_calls);
+    }
+    if (typeof record.content === 'string') {
+      payload.text.push(record.content);
+    }
+  };
+
+  const buildAssistantMessage = (events: unknown[] | null): string | null => {
+    if (!events || events.length === 0) {
+      return null;
+    }
+    const payload = { text: [] as string[], toolCalls: [] as Record<string, unknown>[] };
+    for (const event of events) {
+      if (typeof event === 'string') {
+        if (event === '[DONE]') {
+          continue;
+        }
+        payload.text.push(event);
+        continue;
+      }
+      if (!event || typeof event !== 'object') {
+        continue;
+      }
+      const record = event as Record<string, unknown>;
+      if (typeof record.raw === 'string') {
+        if (record.raw === '[DONE]') {
+          continue;
+        }
+        payload.text.push(record.raw);
+        continue;
+      }
+      collectFromRecord(record, payload);
+    }
+    return formatStructuredAssistantOutput(payload);
+  };
+
+  const buildAssistantMessageFromPreview = (preview: string): string | null => {
+    const payload = { text: [] as string[], toolCalls: [] as Record<string, unknown>[] };
+    const lines = preview.split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        continue;
+      }
+      const payloadLine = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+      if (!payloadLine || payloadLine === '[DONE]') {
+        continue;
+      }
+      if (!payloadLine.startsWith('{') && !payloadLine.startsWith('[')) {
+        continue;
+      }
+      try {
+        const record = JSON.parse(payloadLine) as Record<string, unknown>;
+        collectFromRecord(record, payload);
+      } catch {
+        // Ignore non-JSON fragments to avoid polluting the assistant message.
+      }
+    }
+    return formatStructuredAssistantOutput(payload);
   };
 
   const selectedServer = useMemo(
@@ -123,6 +246,30 @@ export function RunSingle() {
       };
     }, defaultParamFlags());
   }, [selectedTemplates, templates]);
+  const assistantMessageForRun = useMemo(() => {
+    if (!runResults || runResults.length === 0) {
+      return null;
+    }
+    for (const result of runResults) {
+      const events = (result.raw_events as unknown[] | null) ?? null;
+      const fromEvents = buildAssistantMessage(events);
+      if (fromEvents) {
+        return fromEvents;
+      }
+      const artefacts = result.artefacts as Record<string, unknown> | null;
+      const responseBody = artefacts?.response_body;
+      if (typeof responseBody === 'string' && responseBody.trim()) {
+        const parsed = buildAssistantMessageFromPreview(responseBody);
+        return parsed ?? responseBody;
+      }
+      const preview = artefacts?.response_preview;
+      if (typeof preview === 'string' && preview.trim()) {
+        const parsed = buildAssistantMessageFromPreview(preview);
+        return parsed ?? preview;
+      }
+    }
+    return null;
+  }, [runResults]);
   const showParamOverrides =
     paramFlags.stream ||
     paramFlags.temperature ||
@@ -161,6 +308,12 @@ export function RunSingle() {
   );
   const runCompleted = Boolean(result && typeof result.status === 'string' && result.status !== 'running');
   const canViewResults = Boolean(lastRunId && runCompleted && !busy);
+  const hasTimeoutResult = Boolean(
+    runResults?.some((result) => {
+      const reason = typeof result.failure_reason === 'string' ? result.failure_reason.toLowerCase() : '';
+      return reason.includes('timeout');
+    })
+  );
   const paramOverrides = useMemo(() => {
     const overrides: Record<string, unknown> = {};
     if (paramFlags.stream && streamOverride !== 'unset') {
@@ -314,6 +467,7 @@ export function RunSingle() {
       setBusy(true);
       setRunResults(null);
       setRunInProgress(true);
+      setRunStatusMessage(null);
       if (activeTestsForSelection.length === 1) {
         const run = await apiPost('/runs', {
           ...basePayload,
@@ -359,6 +513,50 @@ export function RunSingle() {
       setRunResults(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load results.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    let isActive = true;
+    if (!lastRunId || !runCompleted || runResults) {
+      return;
+    }
+    setBusy(true);
+    apiGet<Record<string, unknown>[]>(`/runs/${lastRunId}/results`)
+      .then((data) => {
+        if (isActive) {
+          setRunResults(data);
+        }
+      })
+      .catch((err) => {
+        if (isActive) {
+          setError(err instanceof Error ? err.message : 'Unable to load results.');
+        }
+      })
+      .finally(() => {
+        if (isActive) {
+          setBusy(false);
+        }
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [lastRunId, runCompleted, runResults]);
+
+  async function handleStopRun() {
+    if (!lastRunId) {
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    try {
+      await apiPost(`/runs/${lastRunId}/cancel`, {});
+      setRunInProgress(false);
+      setRunStatusMessage('Canceled');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to stop run.');
     } finally {
       setBusy(false);
     }
@@ -499,15 +697,29 @@ export function RunSingle() {
           <button type="button" onClick={handleRun} disabled={!canRun}>
             Run
           </button>
+          <button type="button" onClick={handleStopRun} disabled={!runInProgress || busy}>
+            Stop
+          </button>
           <button
             type="button"
             onClick={handleResults}
             disabled={!canViewResults}
             className={runInProgress && !runCompleted ? 'is-pending' : undefined}
           >
-            {runInProgress && !runCompleted ? 'Running…' : 'Results'}
+            {runInProgress && !runCompleted ? 'Running…' : hasTimeoutResult ? 'Results · Timeout' : 'Results'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAssistantMessage(assistantMessageForRun);
+              setShowAssistantMessage(true);
+            }}
+            disabled={!assistantMessageForRun}
+          >
+            Assistant message
           </button>
         </div>
+        {runStatusMessage ? <p className="muted">{runStatusMessage}</p> : null}
         <div className="divider" />
         <div className="field">
           <h3>Active Tests</h3>
@@ -600,6 +812,28 @@ export function RunSingle() {
             </p>
           ) : null}
           <pre>{JSON.stringify(runResults, null, 2)}</pre>
+        </div>
+      ) : null}
+      {showAssistantMessage ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3>Assistant message</h3>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setShowAssistantMessage(false)}
+                aria-label="Close"
+              >
+                <span aria-hidden="true">x</span>
+              </button>
+            </div>
+            {assistantMessage ? (
+              <pre className="code-block">{assistantMessage}</pre>
+            ) : (
+              <p className="muted">No assistant message chunks found.</p>
+            )}
+          </div>
         </div>
       ) : null}
     </section>

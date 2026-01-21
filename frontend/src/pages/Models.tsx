@@ -536,22 +536,19 @@ export function Models() {
       {loading ? <p className="muted">Loading models…</p> : null}
       <div className="filters-row">
         <div className="field">
-          <label htmlFor="model-filter">Model</label>
+          <label htmlFor="provider-filter">Provider</label>
           <select
-            id="model-filter"
-            value={selectedId ?? ''}
-            onChange={(event) => setSelectedId(event.target.value || null)}
-            disabled={filteredModels.length === 0}
+            id="provider-filter"
+            value={selectedProvider}
+            onChange={(event) => setSelectedProvider(event.target.value as ModelProvider | 'all')}
+            disabled={providers.length === 0}
           >
-            {filteredModels.length === 0 ? (
-              <option value="">No models</option>
-            ) : (
-              filteredModels.map((model) => (
-                <option key={model.model_id} value={model.model_id}>
-                  {model.display_name}
-                </option>
-              ))
-            )}
+            <option value="all">All providers</option>
+            {providers.map((provider) => (
+              <option key={provider} value={provider}>
+                {formatProviderLabel(provider)}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field">
@@ -571,19 +568,22 @@ export function Models() {
           </select>
         </div>
         <div className="field">
-          <label htmlFor="provider-filter">Provider</label>
+          <label htmlFor="model-filter">Model</label>
           <select
-            id="provider-filter"
-            value={selectedProvider}
-            onChange={(event) => setSelectedProvider(event.target.value as ModelProvider | 'all')}
-            disabled={providers.length === 0}
+            id="model-filter"
+            value={selectedId ?? ''}
+            onChange={(event) => setSelectedId(event.target.value || null)}
+            disabled={filteredModels.length === 0}
           >
-            <option value="all">All providers</option>
-            {providers.map((provider) => (
-              <option key={provider} value={provider}>
-                {formatProviderLabel(provider)}
-              </option>
-            ))}
+            {filteredModels.length === 0 ? (
+              <option value="">No models</option>
+            ) : (
+              filteredModels.map((model) => (
+                <option key={model.model_id} value={model.model_id}>
+                  {model.display_name}
+                </option>
+              ))
+            )}
           </select>
         </div>
       </div>
