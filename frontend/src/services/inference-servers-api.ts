@@ -67,7 +67,17 @@ export interface InferenceServerRecord {
         model_id: string;
         display_name: string | null;
         context_window_tokens: number | null;
-        quantisation: string | null;
+        quantisation:
+          | {
+              method: string;
+              bits: number | null;
+              group_size: number | null;
+              scheme?: string | null;
+              variant?: string | null;
+              weight_format?: string | null;
+            }
+          | string
+          | null;
       }>;
     };
   };

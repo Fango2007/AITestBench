@@ -4,7 +4,7 @@ import { InferenceServerCreateForm } from '../components/InferenceServerCreateFo
 import { InferenceServerDetails } from '../components/InferenceServerDetails.js';
 import { InferenceServerEditForm } from '../components/InferenceServerEditForm.js';
 import { InferenceServerErrors } from '../components/InferenceServerErrors.js';
-import { InferenceServerList } from '../components/InferenceServerList.js';
+import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from '../services/connectivity-api.js';
 import {
   InferenceServerInput,
   InferenceServerRecord,
@@ -26,6 +26,7 @@ export function InferenceServers() {
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [connectivity, setConnectivity] = useState<Record<string, InferenceServerHealth>>({});
   const discoveryPollingRef = useRef(false);
 
   function notifyServersUpdated() {
@@ -65,6 +66,55 @@ export function InferenceServers() {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    let intervalId: number | null = null;
+
+    const fetchHealth = async () => {
+      try {
+        const results = await getInferenceServerHealth();
+        if (!isActive) {
+          return;
+        }
+        const nextMap: Record<string, InferenceServerHealth> = {};
+        for (const entry of results) {
+          nextMap[entry.server_id] = entry;
+        }
+        setConnectivity(nextMap);
+      } catch {
+        if (isActive) {
+          setConnectivity({});
+        }
+      }
+    };
+
+    const setup = async () => {
+      try {
+        const config = await getConnectivityConfig();
+        const interval = Math.max(1000, config.poll_interval_ms);
+        await fetchHealth();
+        intervalId = window.setInterval(fetchHealth, interval);
+      } catch {
+        await fetchHealth();
+        intervalId = window.setInterval(fetchHealth, 30000);
+      }
+    };
+
+    setup();
+    return () => {
+      isActive = false;
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (servers.length === 0) {
+      setShowCreateModal(false);
+    }
+  }, [servers.length]);
 
   useEffect(() => {
     if (!inspectingId) {
@@ -197,51 +247,29 @@ export function InferenceServers() {
     }
   }
 
-  const activeServers = servers.filter((server) => !server.inference_server.archived);
-  const archivedServers = servers.filter((server) => server.inference_server.archived);
   const inspecting =
     servers.find((server) => server.inference_server.server_id === inspectingId) ?? null;
+  const hasServers = servers.length > 0;
+  const refreshEnabled = inspectingId ? Boolean(connectivity[inspectingId]?.ok) : false;
   return (
     <section className="page targets-page">
-      <div className="page-header" />
+      <div className="page-header servers-header">
+        <h2>Inference servers</h2>
+        {hasServers ? (
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            aria-label="Add inference server"
+            title="Add server"
+          >
+            Add inference server
+          </button>
+        ) : null}
+      </div>
       <InferenceServerErrors message={error} />
       {loading ? <p className="muted">Loading inference servers…</p> : null}
-      <div className="targets-grid">
-        <div className="targets-panel">
-          <div className="panel-header">
-            <h3>Inference Servers</h3>
-            <button
-              type="button"
-              className="icon-button"
-              onClick={() => setShowCreateModal(true)}
-              aria-label="Add inference server"
-              title="Add server"
-            >
-              <span aria-hidden="true">+</span>
-            </button>
-          </div>
-          <InferenceServerList
-            title="Active"
-            servers={activeServers}
-            onEdit={(server) => setEditing(server)}
-            onArchive={handleArchive}
-            onUnarchive={handleUnarchive}
-            onDelete={handleDelete}
-            onInspect={(server) => setInspectingId(server.inference_server.server_id)}
-            selectedId={inspecting?.inference_server.server_id ?? null}
-          />
-          <InferenceServerList
-            title="Archived"
-            servers={archivedServers}
-            onEdit={(server) => setEditing(server)}
-            onArchive={handleArchive}
-            onUnarchive={handleUnarchive}
-            onDelete={handleDelete}
-            onInspect={(server) => setInspectingId(server.inference_server.server_id)}
-            selectedId={inspecting?.inference_server.server_id ?? null}
-          />
-        </div>
-        <div className="details-panel">
+      <div className="details-panel">
+        {hasServers ? (
           <InferenceServerDetails
             servers={servers}
             selectedId={inspectingId}
@@ -249,9 +277,25 @@ export function InferenceServers() {
             server={inspecting}
             onRefreshRuntime={handleRefreshRuntime}
             onRefreshDiscovery={handleRefreshDiscovery}
+            onEdit={(server) => setEditing(server)}
+            onArchive={(server) =>
+              server.inference_server.archived ? handleUnarchive(server) : handleArchive(server)
+            }
+            onDelete={handleDelete}
+            refreshEnabled={refreshEnabled}
             busy={refreshing}
           />
-        </div>
+        ) : (
+          <div className="card">
+            <div className="panel-header">
+              <h3>Add inference server</h3>
+            </div>
+            <InferenceServerCreateForm
+              onCreate={handleCreate}
+              disabled={loading}
+            />
+          </div>
+        )}
       </div>
       {showCreateModal ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">

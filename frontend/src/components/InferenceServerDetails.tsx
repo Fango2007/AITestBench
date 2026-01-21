@@ -7,6 +7,10 @@ interface InferenceServerDetailsProps {
   server: InferenceServerRecord | null;
   onRefreshRuntime: () => void;
   onRefreshDiscovery: () => void;
+  onEdit: (server: InferenceServerRecord) => void;
+  onArchive: (server: InferenceServerRecord) => void;
+  onDelete: (server: InferenceServerRecord) => void;
+  refreshEnabled: boolean;
   busy?: boolean;
 }
 
@@ -17,9 +21,12 @@ export function InferenceServerDetails({
   server,
   onRefreshRuntime,
   onRefreshDiscovery,
+  onEdit,
+  onArchive,
+  onDelete,
+  refreshEnabled,
   busy
 }: InferenceServerDetailsProps) {
-  const selectedLabel = server?.inference_server.display_name ?? 'No server selected';
   const renderDetails = () => {
     if (!server) {
       return null;
@@ -144,11 +151,20 @@ export function InferenceServerDetails({
           <div className="detail-row details-span">
             <span>Refresh</span>
             <div className="actions">
-              <button type="button" onClick={onRefreshRuntime} disabled={busy}>
+              <button type="button" onClick={onRefreshRuntime} disabled={busy || !refreshEnabled}>
                 Refresh runtime
               </button>
-              <button type="button" onClick={onRefreshDiscovery} disabled={busy}>
+              <button type="button" onClick={onRefreshDiscovery} disabled={busy || !refreshEnabled}>
                 Refresh discovery
+              </button>
+              <button type="button" onClick={() => onEdit(server)} disabled={busy}>
+                Update
+              </button>
+              <button type="button" onClick={() => onDelete(server)} disabled={busy}>
+                Delete
+              </button>
+              <button type="button" onClick={() => onArchive(server)} disabled={busy}>
+                {server.inference_server.archived ? 'Unarchive' : 'Archive'}
               </button>
             </div>
           </div>
@@ -200,8 +216,6 @@ export function InferenceServerDetails({
   return (
     <div className="card">
       <div className="panel-header">
-        <h3>Server details</h3>
-        <span className="muted">{selectedLabel}</span>
       </div>
       {servers.length ? (
         <div className="details-tabs">
@@ -212,8 +226,10 @@ export function InferenceServerDetails({
               className={entry.inference_server.server_id === selectedId ? 'active' : undefined}
               onClick={() => onSelect(entry.inference_server.server_id)}
             >
-              {entry.inference_server.display_name}
-              {entry.inference_server.archived ? ' (archived)' : ''}
+              <span className="details-tab-name">{entry.inference_server.display_name}</span>
+              {entry.inference_server.archived ? (
+                <span className="details-tab-status">Archived</span>
+              ) : null}
             </button>
           ))}
         </div>

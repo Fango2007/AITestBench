@@ -79,8 +79,6 @@ export function App() {
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'up' | 'down'>('unknown');
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const [metricsError, setMetricsError] = useState(false);
-  const [railPinned, setRailPinned] = useState(true);
-  const [railVisible, setRailVisible] = useState(true);
   const [paramOverrides, setParamOverrides] = useState<Record<string, unknown> | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [settingsEntries, setSettingsEntries] = useState<EnvEntry[]>([]);
@@ -250,22 +248,6 @@ export function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (railPinned) {
-      setRailVisible(true);
-      return;
-    }
-    if (!railVisible) {
-      return;
-    }
-    const timeoutId = window.setTimeout(() => {
-      setRailVisible(false);
-    }, 4000);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [railPinned, railVisible]);
-
   const cpuValue =
     systemMetrics?.cpu.usage_percent != null ? `${systemMetrics.cpu.usage_percent.toFixed(1)}%` : 'N/A';
   const memoryValue = systemMetrics
@@ -358,7 +340,7 @@ export function App() {
   }
 
   return (
-    <div className={`app-shell ${railVisible ? 'rail-visible' : 'rail-hidden'}`}>
+    <div className="app-shell">
       <header className="app-header">
         <div>
           <div className="brand-row">
@@ -596,44 +578,6 @@ export function App() {
           )}
         </main>
       </div>
-      <aside className={`status-rail ${railVisible ? 'is-visible' : 'is-hidden'}`}>
-        <div className="status-rail-header">
-          <button
-            type="button"
-            className="rail-toggle"
-            onClick={() => {
-              setRailPinned((prev) => !prev);
-              setRailVisible(true);
-            }}
-            aria-label={railPinned ? 'Unpin status rail' : 'Pin status rail'}
-            title={railPinned ? 'Unpin' : 'Pin'}
-          >
-            {railPinned ? (
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M8 3h8l1 3-3 4v6l-2 2-2-2v-6l-3-4 1-3zM12 18v3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M8 3h8l1 3-3 4v2l-2 2-2-2v-2l-3-4 1-3zM5 19l14-14M12 16v5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-          </button>
-        </div>
-      </aside>
       {showSettings ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal-card settings-card">
@@ -712,15 +656,6 @@ export function App() {
             </div>
           </div>
         </div>
-      ) : null}
-      {!railVisible ? (
-        <button
-          type="button"
-          className="status-rail-tab"
-          onClick={() => setRailVisible(true)}
-        >
-          System Rail
-        </button>
       ) : null}
     </div>
   );

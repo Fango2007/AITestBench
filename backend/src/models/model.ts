@@ -3,7 +3,19 @@ import { nowIso, parseJson, serializeJson } from './repositories.js';
 
 export const MODEL_SCHEMA_VERSION = '1.0.0';
 
-export type ModelProvider = 'openai' | 'meta' | 'mistral' | 'qwen' | 'google' | 'custom' | 'unknown';
+export type ModelProvider =
+  | 'openai'
+  | 'meta'
+  | 'mistral'
+  | 'qwen'
+  | 'google'
+  | 'cohere'
+  | 'deepseek'
+  | 'anthropic'
+  | 'nvidia'
+  | 'zai'
+  | 'custom'
+  | 'unknown';
 export type ModelArchitectureType = 'decoder-only' | 'encoder-decoder' | 'other' | 'unknown';
 export type ModelPrecision = 'fp32' | 'fp16' | 'bf16' | 'int8' | 'int4' | 'mixed' | 'unknown';
 export type ModelQuantisationMethod = 'gguf' | 'gptq' | 'awq' | 'mlx' | 'none' | 'unknown';
@@ -37,6 +49,9 @@ export interface ModelArchitecture {
     method: ModelQuantisationMethod;
     bits: number | null;
     group_size: number | null;
+    scheme?: 'k-quant' | 'legacy' | 'tensorwise' | 'unknown' | null;
+    variant?: 'S' | 'M' | 'L' | null;
+    weight_format?: string | null;
   };
 }
 
@@ -134,7 +149,10 @@ function defaultArchitecture(): ModelArchitecture {
     quantisation: {
       method: 'unknown',
       bits: null,
-      group_size: null
+      group_size: null,
+      scheme: null,
+      variant: null,
+      weight_format: null
     }
   };
 }

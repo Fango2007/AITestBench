@@ -3,6 +3,7 @@ import os from 'os';
 import { InferenceServerRecord } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
 import { updateInferenceServerRecord } from './inference-servers-repository.js';
+import { extractQuantisationLabel, normaliseQuantisationFromLabel } from './quantisation-normalizer.js';
 
 export class InferenceServerRefreshError extends Error {
   details: {
@@ -98,12 +99,16 @@ export function refreshRuntime(server: InferenceServerRecord): InferenceServerRe
 function normalizeOpenAiModels(payload: Record<string, unknown>) {
   const entries = Array.isArray(payload.data) ? payload.data : [];
   return entries
-    .map((entry) => ({
-      model_id: typeof entry.id === 'string' ? entry.id : '',
-      display_name: typeof entry.id === 'string' ? entry.id : null,
-      context_window_tokens: null,
-      quantisation: null
-    }))
+    .map((entry) => {
+      const modelId = typeof entry.id === 'string' ? entry.id : '';
+      const label = modelId ? extractQuantisationLabel(modelId) : null;
+      return {
+        model_id: modelId,
+        display_name: modelId || null,
+        context_window_tokens: null,
+        quantisation: label ? normaliseQuantisationFromLabel(label) : null
+      };
+    })
     .filter((entry) => entry.model_id);
 }
 
@@ -113,12 +118,18 @@ function normalizeOllamaModels(payload: Record<string, unknown>) {
     .map((entry) => {
       const name = typeof entry.name === 'string' ? entry.name : '';
       const details = (entry.details as Record<string, unknown>) ?? {};
+      const label =
+        typeof details.quantization === 'string'
+          ? details.quantization
+          : name
+            ? extractQuantisationLabel(name)
+            : null;
       return {
         model_id: name,
         display_name: name || null,
         context_window_tokens:
           typeof details.context_length === 'number' ? details.context_length : null,
-        quantisation: typeof details.quantization === 'string' ? details.quantization : null
+        quantisation: label ? normaliseQuantisationFromLabel(label) : null
       };
     })
     .filter((entry) => entry.model_id);
@@ -140,7 +151,22 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
 
   const authHeaders = buildAuthHeaders(server);
   const rawPayloads: Record<string, unknown> = {};
-  const modelMap = new Map<string, { model_id: string; display_name: string | null; context_window_tokens: number | null; quantisation: string | null }>();
+  const modelMap = new Map<
+    string,
+    {
+      model_id: string;
+      display_name: string | null;
+      context_window_tokens: number | null;
+      quantisation: {
+        method: string;
+        bits: number | null;
+        group_size: number | null;
+        scheme?: string | null;
+        variant?: string | null;
+        weight_format?: string | null;
+      } | null;
+    }
+  >();
   const errors: string[] = [];
 
   for (const schemaFamily of supportedFamilies) {
