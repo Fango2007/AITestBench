@@ -18,13 +18,13 @@ export function registerModelsRoutes(app: FastifyInstance): void {
       active?: string;
       archived?: string;
       server_id?: string;
-      provider?: 'openai' | 'meta' | 'mistral' | 'qwen' | 'google' | 'custom' | 'unknown';
+      provider?: 'openai' | 'meta' | 'mistral' | 'qwen' | 'google' | 'cohere' | 'deepseek' | 'anthropic' | 'nvidia' | 'zai' | 'custom' | 'unknown';
     };
     const filters: {
       active?: boolean;
       archived?: boolean;
       server_id?: string;
-      provider?: 'openai' | 'meta' | 'mistral' | 'qwen' | 'google' | 'custom' | 'unknown';
+      provider?: 'openai' | 'meta' | 'mistral' | 'qwen' | 'google' | 'cohere' | 'deepseek' | 'anthropic' | 'nvidia' | 'zai' | 'custom' | 'unknown';
     } = {};
     if (query.active !== undefined) {
       filters.active = query.active === 'true';

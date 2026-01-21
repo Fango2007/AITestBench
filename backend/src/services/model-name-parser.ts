@@ -17,6 +17,11 @@ const providerHints: Array<{ provider: ModelProvider; patterns: RegExp[] }> = [
   { provider: 'mistral', patterns: [/mistral/i, /devstral/i] },
   { provider: 'qwen', patterns: [/qwen/i] },
   { provider: 'google', patterns: [/google/i, /gemini/i] },
+  { provider: 'cohere', patterns: [/cohere/i, /command/i] },
+  { provider: 'deepseek', patterns: [/deepseek/i] },
+  { provider: 'anthropic', patterns: [/anthropic/i, /claude/i] },
+  { provider: 'nvidia', patterns: [/nvidia/i, /nemotron/i] },
+  { provider: 'zai', patterns: [/zai/i, /01\.ai/i, /01ai/i, /\byi\b/i] },
   { provider: 'custom', patterns: [/custom/i] }
 ];
 
@@ -65,6 +70,11 @@ function parseParameterCount(text: string): { count: number; label: string } | n
 }
 
 function parseQuantisationBits(text: string): number | null {
+  const labelMatch = text.match(/\bq(\d+)(?:_k_[sml]|_[0-3])\b/i);
+  if (labelMatch) {
+    const bits = parseFloat(labelMatch[1]);
+    return Number.isFinite(bits) ? bits : null;
+  }
   const bitMatch = text.match(/(\d+(?:\.\d+)?)\s*bit/i);
   if (bitMatch) {
     const bits = parseFloat(bitMatch[1]);
