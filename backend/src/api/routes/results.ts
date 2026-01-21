@@ -11,6 +11,10 @@ export function registerResultsRoutes(app: FastifyInstance): void {
       | Record<string, unknown>
       | undefined;
 
+    const documentRow = db
+      .prepare('SELECT document FROM test_result_documents WHERE test_result_id = ?')
+      .get(resultId) as { document: string } | undefined;
+
     if (!row) {
       reply.code(404).send({ error: 'Result not found' });
       return;
@@ -21,7 +25,8 @@ export function registerResultsRoutes(app: FastifyInstance): void {
       metrics: parseJson(row.metrics as string),
       artefacts: parseJson(row.artefacts as string),
       raw_events: parseJson(row.raw_events as string),
-      repetition_stats: parseJson(row.repetition_stats as string)
+      repetition_stats: parseJson(row.repetition_stats as string),
+      document: documentRow ? parseJson(documentRow.document) : null
     });
   });
 }

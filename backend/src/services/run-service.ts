@@ -1,11 +1,17 @@
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { getDb } from '../models/db.js';
 import { getInferenceServerById } from '../models/inference-server.js';
+import { getProfileById } from '../models/profile.js';
+import { getLatestTestDefinition } from '../models/test-definition.js';
 import { nowIso, parseJson } from '../models/repositories.js';
 import { getRetentionDays } from './retention.js';
-import { executeRun, RunExecutionResult } from './run-executor.js';
+import { AssertionOutcomeDraft, executeRun, RunExecutionResult, StepResultSnapshot } from './run-executor.js';
 import { cancelRun, clearRunAbortController, registerRunAbortController } from './run-cancel.js';
+import { logEvent } from './observability.js';
+import { validateWithSchema } from './schema-validator.js';
 
 export interface RunRecord {
   id: string;
@@ -45,6 +51,205 @@ export interface CreateRunInput {
   profile_defaults?: Record<string, unknown> | null;
   model_metadata?: Record<string, unknown> | null;
   environment_snapshot?: Record<string, unknown> | null;
+}
+
+const RESULT_SCHEMA_VERSION = '1.0.0';
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const RESULT_SCHEMA_PATH = path.resolve(
+  moduleDir,
+  '../../../specs/007-test-result-schema/test-run-result.schema.json'
+);
+
+function toNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function toInteger(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
+}
+
+function toString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function toBoolean(value: unknown): boolean | null {
+  return typeof value === 'boolean' ? value : null;
+}
+
+function toTransportFormat(value: unknown): 'sse' | 'jsonl' | 'chunked' | 'unknown' | null {
+  if (value === 'sse' || value === 'jsonl' || value === 'chunked' || value === 'unknown') {
+    return value;
+  }
+  return null;
+}
+
+function buildEffectiveSettings(effectiveConfig: Record<string, unknown> | null): Record<string, unknown> {
+  const config = effectiveConfig ?? {};
+  return {
+    generation: {
+      temperature: toNumber(config.temperature),
+      top_p: toNumber(config.top_p),
+      max_tokens: toInteger(config.max_tokens ?? config.max_completion_tokens),
+      tool: toString(config.tool),
+      tool_choice: toString(config.tool_choice),
+      parallel_tool_calls: toBoolean(config.parallel_tool_calls)
+    },
+    context: {
+      context_window_tokens: toInteger(config.context_window_tokens),
+      max_input_tokens: toInteger(config.max_input_tokens),
+      truncation_strategy: toString(config.truncation_strategy),
+      system_prompt_strategy: toString(config.system_prompt_strategy)
+    },
+    transport: {
+      stream: toBoolean(config.stream),
+      format: toTransportFormat(config.stream_format)
+    }
+  };
+}
+
+function assignAssertionIds(stepId: string, assertions: AssertionOutcomeDraft[]): Array<Record<string, unknown>> {
+  return assertions.map((assertion, index) => ({
+    id: crypto.createHash('sha256').update(`${stepId}:assertion:${index}`).digest('hex').slice(0, 20),
+    ...assertion
+  }));
+}
+
+interface PersistedStepResult {
+  index: number;
+  id: string;
+  name: string | null;
+  status: string;
+  attempts: number;
+  request: StepResultSnapshot['request'];
+  response: StepResultSnapshot['response'];
+  extract: Array<Record<string, unknown>>;
+  vars_delta: Record<string, unknown>;
+  assertions: Array<Record<string, unknown>>;
+  metrics: StepResultSnapshot['metrics'];
+  timing: StepResultSnapshot['timing'];
+  error: StepResultSnapshot['error'];
+  notes: string | null;
+}
+
+function buildStepResults(
+  runId: string,
+  testId: string,
+  steps: StepResultSnapshot[]
+): PersistedStepResult[] {
+  return steps.map((step, index) => {
+    const stepIndex = Number.isInteger(step.index) ? step.index : index;
+    const stepId = crypto
+      .createHash('sha256')
+      .update(`${runId}:${testId}:step:${stepIndex}`)
+      .digest('hex')
+      .slice(0, 20);
+
+    return {
+      index: stepIndex,
+      id: stepId,
+      name: step.name,
+      status: step.status,
+      attempts: step.attempts,
+      request: step.request,
+      response: step.response,
+      extract: step.extract ?? [],
+      vars_delta: step.vars_delta ?? {},
+      assertions: assignAssertionIds(stepId, step.assertions),
+      metrics: step.metrics,
+      timing: step.timing,
+      error: step.error,
+      notes: step.notes ?? null
+    };
+  });
+}
+
+function buildResultDocument(
+  runId: string,
+  result: RunExecutionResult['results'][number],
+  server: ReturnType<typeof getInferenceServerById>,
+  effectiveConfig: Record<string, unknown> | null,
+  profileId: string | null,
+  profileVersion: string | null,
+  modelMetadata: Record<string, unknown> | null
+): Record<string, unknown> {
+  const now = nowIso();
+  const testDefinition = getLatestTestDefinition(result.test_id);
+  const profile = profileId && profileVersion ? getProfileById(profileId, profileVersion) : null;
+
+  const steps = buildStepResults(runId, result.test_id, result.step_results);
+  const stepErrors = steps
+    .map((step) => ({
+      step_index: step.index as number,
+      error: step.error as Record<string, unknown> | null
+    }))
+    .filter((entry) => entry.error);
+
+  const hasErrorStep = steps.some((step) => step.status === 'error');
+  const status = hasErrorStep
+    ? 'error'
+    : result.verdict === 'skip'
+      ? 'skipped'
+      : result.verdict === 'fail'
+        ? 'fail'
+        : 'pass';
+
+  const selectedModelId = toString(effectiveConfig?.model);
+
+  return {
+    schema_version: RESULT_SCHEMA_VERSION,
+    run_id: runId,
+    status,
+    started_at: result.started_at,
+    ended_at: result.ended_at,
+    duration_ms: new Date(result.ended_at).getTime() - new Date(result.started_at).getTime(),
+    test: {
+      id: result.test_id,
+      version: testDefinition?.version ?? null,
+      type: testDefinition?.runner_type === 'python' ? 'scenario-python' : 'scenario-json',
+      definition_ref: testDefinition?.spec_path ?? null,
+      definition_sha256: null,
+      archived: false,
+      tags: testDefinition?.tags ?? []
+    },
+    profile: {
+      id: profile?.id ?? profileId ?? 'ad-hoc',
+      version: profile?.version ?? profileVersion ?? null,
+      definition_ref: null,
+      definition_sha256: null
+    },
+    server_instance: {
+      cache_key: server ? `${server.inference_server.server_id}:${server.endpoints.base_url}` : 'unknown',
+      base_url: server?.endpoints.base_url ?? '',
+      retrieved_at: server?.runtime.retrieved_at ?? now,
+      ttl_ms: server?.discovery.ttl_seconds != null ? server.discovery.ttl_seconds * 1000 : 300000,
+      capabilities_snapshot: server?.capabilities ?? null,
+      runtime_snapshot: server?.runtime ?? null,
+      models_snapshot: server?.discovery.model_list.normalised ?? null,
+      hardware_snapshot: server?.runtime.hardware ?? null
+    },
+    selected_model: selectedModelId
+      ? {
+          id: selectedModelId,
+          alias: null,
+          metadata: modelMetadata ?? null,
+          retrieved_at: now
+        }
+      : null,
+    effective_settings: buildEffectiveSettings(effectiveConfig),
+    steps,
+    final_assert: [],
+    summary: {
+      passed_steps: steps.filter((step) => step.status === 'pass').length,
+      failed_steps: steps.filter((step) => step.status === 'fail' || step.status === 'error').length,
+      errors: stepErrors.map((entry) => ({
+        code: (entry.error?.code as string) ?? 'unknown',
+        message: (entry.error?.message as string) ?? 'Step error',
+        step_index: entry.step_index,
+        details: (entry.error?.details as Record<string, unknown> | null) ?? null
+      })),
+      warnings: []
+    }
+  };
 }
 
 export function resolveOverrides(input: CreateRunInput): Record<string, unknown> {
@@ -92,7 +297,7 @@ function updateRunStatus(id: string, status: string, endedAt: string): void {
   db.prepare('UPDATE runs SET status = ?, ended_at = ? WHERE id = ?').run(status, endedAt, id);
 }
 
-function insertTestResult(runId: string, result: RunExecutionResult['results'][number]): void {
+function insertTestResult(runId: string, result: RunExecutionResult['results'][number]): string {
   const db = getDb();
   const id = crypto.createHash('sha256').update(`${runId}:${result.test_id}:${Date.now()}`).digest('hex').slice(0, 20);
   db.prepare(
@@ -112,6 +317,39 @@ function insertTestResult(runId: string, result: RunExecutionResult['results'][n
     JSON.stringify({ repetitions: 1 }),
     result.started_at,
     result.ended_at
+  );
+  return id;
+}
+
+function insertResultDocument(
+  testResultId: string,
+  runId: string,
+  testId: string,
+  document: Record<string, unknown>
+): void {
+  const schemaResult = validateWithSchema(RESULT_SCHEMA_PATH, document);
+  if (!schemaResult.ok) {
+    const detail = schemaResult.issues.map((issue) => `${issue.path ?? 'root'}: ${issue.message}`).join('; ');
+    logEvent({
+      level: 'warn',
+      message: 'Run result document failed schema validation',
+      run_id: runId,
+      test_id: testId,
+      meta: { issues: schemaResult.issues, detail }
+    });
+  }
+  const db = getDb();
+  db.prepare(
+    `INSERT INTO test_result_documents (
+      test_result_id, run_id, test_id, schema_version, document, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    testResultId,
+    runId,
+    testId,
+    RESULT_SCHEMA_VERSION,
+    JSON.stringify(document),
+    nowIso()
   );
 }
 
@@ -146,7 +384,17 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
   clearRunAbortController(id);
 
   for (const result of execution.results) {
-    insertTestResult(id, result);
+    const resultId = insertTestResult(id, result);
+    const document = buildResultDocument(
+      id,
+      result,
+      server,
+      effectiveConfig,
+      input.profile_id ?? null,
+      input.profile_version ?? null,
+      input.model_metadata ?? null
+    );
+    insertResultDocument(resultId, id, result.test_id, document);
   }
 
   updateRunStatus(id, execution.status, execution.ended_at);
