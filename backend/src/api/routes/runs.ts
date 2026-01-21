@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 
 import { getDb } from '../../models/db.js';
-import { createSingleRun, getRun, listRunResults } from '../../services/run-service.js';
+import { createSingleRun, getRun, listRunResults, requestCancelRun } from '../../services/run-service.js';
 
 export function registerRunsRoutes(app: FastifyInstance): void {
   app.post('/runs', async (request, reply) => {
@@ -33,6 +33,16 @@ export function registerRunsRoutes(app: FastifyInstance): void {
   app.get('/runs/:runId', async (request, reply) => {
     const { runId } = request.params as { runId: string };
     const run = getRun(runId);
+    if (!run) {
+      reply.code(404).send({ error: 'Run not found' });
+      return;
+    }
+    reply.send(run);
+  });
+
+  app.post('/runs/:runId/cancel', async (request, reply) => {
+    const { runId } = request.params as { runId: string };
+    const run = requestCancelRun(runId);
     if (!run) {
       reply.code(404).send({ error: 'Run not found' });
       return;

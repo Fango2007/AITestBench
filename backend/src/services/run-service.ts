@@ -5,6 +5,7 @@ import { getInferenceServerById } from '../models/inference-server.js';
 import { nowIso, parseJson } from '../models/repositories.js';
 import { getRetentionDays } from './retention.js';
 import { executeRun, RunExecutionResult } from './run-executor.js';
+import { cancelRun, clearRunAbortController, registerRunAbortController } from './run-cancel.js';
 
 export interface RunRecord {
   id: string;
@@ -131,6 +132,7 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
 
   insertRunRecord(input, 'running', now, environmentSnapshot, retentionDays, id);
 
+  const abortSignal = registerRunAbortController(id);
   const execution = await executeRun({
     run_id: id,
     inference_server_id: input.inference_server_id,
@@ -138,8 +140,10 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
     suite_id: input.suite_id ?? null,
     profile_id: input.profile_id ?? null,
     profile_version: input.profile_version ?? null,
-    effective_config: effectiveConfig
+    effective_config: effectiveConfig,
+    abort_signal: abortSignal
   });
+  clearRunAbortController(id);
 
   for (const result of execution.results) {
     insertTestResult(id, result);
@@ -160,6 +164,16 @@ export async function createSingleRun(input: CreateRunInput): Promise<RunRecord>
     environment_snapshot: environmentSnapshot,
     retention_days: retentionDays
   };
+}
+
+export function requestCancelRun(id: string): RunRecord | null {
+  const run = getRun(id);
+  if (!run) {
+    return null;
+  }
+  cancelRun(id);
+  updateRunStatus(id, 'canceled', nowIso());
+  return getRun(id);
 }
 
 export function getRun(id: string): RunRecord | null {

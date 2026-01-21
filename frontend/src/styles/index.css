@@ -230,9 +230,14 @@ h2 {
 
 .filters-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(180px, 220px));
+  gap: 4px;
+  justify-content: start;
   margin-bottom: 16px;
+}
+
+.filters-row .field {
+  margin-bottom: 0;
 }
 
 .servers-header {

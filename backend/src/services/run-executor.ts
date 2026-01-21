@@ -19,6 +19,7 @@ export interface RunExecutionRequest {
   profile_version?: string | null;
   max_retries?: number;
   effective_config?: Record<string, unknown> | null;
+  abort_signal?: AbortSignal;
 }
 
 export interface TestExecutionResult {
@@ -195,7 +196,8 @@ async function executeHttpTest(
   requestTemplate: Record<string, unknown> | null,
   assertions: Assertion[],
   effectiveConfig: Record<string, unknown> | null,
-  authHeaders: Record<string, string>
+  authHeaders: Record<string, string>,
+  abortSignal?: AbortSignal
 ): Promise<Omit<TestExecutionResult, 'test_id'>> {
   const startedAtIso = new Date().toISOString();
   const requestStarted = performance.now();
@@ -221,6 +223,14 @@ async function executeHttpTest(
   const controller = new AbortController();
   const timeoutMs = Number((effectiveConfig?.request_timeout_sec as number | undefined) ?? 30) * 1000;
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const abortHandler = () => controller.abort();
+  if (abortSignal) {
+    if (abortSignal.aborted) {
+      controller.abort();
+    } else {
+      abortSignal.addEventListener('abort', abortHandler, { once: true });
+    }
+  }
 
   let responseText = '';
   let responseBody: unknown = null;
@@ -298,14 +308,28 @@ async function executeHttpTest(
       artefacts: {
         status: response.status,
         headers: Object.fromEntries(response.headers.entries()),
-        response_preview: responseText.slice(0, 500)
+        response_preview: responseText.slice(0, 500),
+        response_body: responseText
       },
       raw_events: events.length > 0 ? events : null,
       started_at: startedAtIso,
       ended_at: new Date().toISOString()
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Request failed';
+    if (abortSignal?.aborted) {
+      return {
+        verdict: 'skip',
+        failure_reason: 'Canceled',
+        metrics: null,
+        artefacts: null,
+        raw_events: null,
+        started_at: startedAtIso,
+        ended_at: new Date().toISOString()
+      };
+    }
+    const isTimeout =
+      error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'));
+    const message = isTimeout ? 'Timeout' : error instanceof Error ? error.message : 'Request failed';
     return {
       verdict: 'fail',
       failure_reason: message,
@@ -317,6 +341,9 @@ async function executeHttpTest(
     };
   } finally {
     clearTimeout(timeout);
+    if (abortSignal) {
+      abortSignal.removeEventListener('abort', abortHandler);
+    }
   }
 }
 
@@ -325,9 +352,21 @@ async function executeProxyPerplexityTest(
   requestTemplate: Record<string, unknown> | null,
   assertions: Assertion[],
   effectiveConfig: Record<string, unknown> | null,
-  authHeaders: Record<string, string>
+  authHeaders: Record<string, string>,
+  abortSignal?: AbortSignal
 ): Promise<Omit<TestExecutionResult, 'test_id'>> {
   const startedAtIso = new Date().toISOString();
+  if (abortSignal?.aborted) {
+    return {
+      verdict: 'skip',
+      failure_reason: 'Canceled',
+      metrics: null,
+      artefacts: null,
+      raw_events: null,
+      started_at: startedAtIso,
+      ended_at: new Date().toISOString()
+    };
+  }
   const datasetPath = process.env.AITESTBENCH_PROXY_PERPLEXITY_DATASET;
   if (!datasetPath) {
     return {
@@ -372,6 +411,17 @@ async function executeProxyPerplexityTest(
   const failures: string[] = [];
 
   for (const item of items) {
+    if (abortSignal?.aborted) {
+      return {
+        verdict: 'skip',
+        failure_reason: 'Canceled',
+        metrics: null,
+        artefacts: null,
+        raw_events: null,
+        started_at: startedAtIso,
+        ended_at: new Date().toISOString()
+      };
+    }
     const replacements = {
       prompt: item.prompt,
       correct: item.correct
@@ -383,7 +433,8 @@ async function executeProxyPerplexityTest(
       replacedTemplate,
       replacedAssertions,
       effectiveConfig,
-      authHeaders
+      authHeaders,
+      abortSignal
     );
     if (result.verdict === 'pass') {
       correct += 1;
@@ -419,6 +470,7 @@ async function executeProxyPerplexityTest(
 export async function executeRun(request: RunExecutionRequest): Promise<RunExecutionResult> {
   const startedAt = new Date().toISOString();
   const dryRun = process.env.AITESTBENCH_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
+  const abortSignal = request.abort_signal;
 
   const server = getInferenceServerById(request.inference_server_id);
   if (!server) {
@@ -461,6 +513,15 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
   const results: TestExecutionResult[] = [];
 
   for (const testId of testIds) {
+    if (abortSignal?.aborted) {
+      return {
+        status: 'canceled',
+        started_at: startedAt,
+        ended_at: new Date().toISOString(),
+        failure_reason: 'Canceled',
+        results
+      };
+    }
     const definition = getLatestTestDefinition(testId);
     if (!definition) {
       results.push({
@@ -505,14 +566,16 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
           definition.request_template,
           definition.assertions as Assertion[],
           request.effective_config ?? null,
-          authHeaders
+          authHeaders,
+          abortSignal
         )
       : await executeHttpTest(
           server.endpoints.base_url,
           definition.request_template,
           definition.assertions as Assertion[],
           request.effective_config ?? null,
-          authHeaders
+          authHeaders,
+          abortSignal
         );
 
     results.push({
@@ -522,9 +585,10 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
   }
 
   const status = results.some((result) => result.verdict === 'fail') ? 'failed' : 'completed';
+  const finalStatus = abortSignal?.aborted ? 'canceled' : status;
 
   return {
-    status,
+    status: finalStatus,
     started_at: startedAt,
     ended_at: new Date().toISOString(),
     results
