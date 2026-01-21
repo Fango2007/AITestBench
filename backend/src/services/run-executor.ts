@@ -1,9 +1,10 @@
+import crypto from 'crypto';
 import { performance } from 'perf_hooks';
 
 import { InferenceServerRecord, getInferenceServerById } from '../models/inference-server.js';
 import { getSuiteById } from '../models/suite.js';
 import { getLatestTestDefinition } from '../models/test-definition.js';
-import { computeMetrics } from './metrics.js';
+import { computeMetrics, MetricResult } from './metrics.js';
 import { loadPerplexityDataset } from './perplexity.js';
 import { parseSseEvents } from './sse-parser.js';
 import { logEvent } from './observability.js';
@@ -31,6 +32,7 @@ export interface TestExecutionResult {
   raw_events: Record<string, unknown>[] | null;
   started_at: string;
   ended_at: string;
+  step_results: StepResultSnapshot[];
 }
 
 export interface RunExecutionResult {
@@ -39,6 +41,81 @@ export interface RunExecutionResult {
   ended_at: string;
   failure_reason?: string;
   results: TestExecutionResult[];
+}
+
+export type StepStatus = 'pass' | 'fail' | 'error' | 'skipped';
+
+export interface RequestSnapshot {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  url: string;
+  headers: Record<string, string>;
+  query: Record<string, string> | null;
+  body: unknown;
+  body_sha256: string | null;
+  transport: { stream: boolean; format: 'sse' | 'jsonl' | 'chunked' | 'unknown' | null } | null;
+  timeout_ms: number | null;
+}
+
+export interface StreamEventSnapshot {
+  raw: string;
+  json: Record<string, unknown> | unknown[] | null;
+  done: boolean;
+  seq: number | null;
+}
+
+export interface MetricsSnapshot {
+  ttfb_ms: number;
+  total_ms: number;
+  bytes_in: number | null;
+  bytes_out: number | null;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  tok_s: number | null;
+}
+
+export interface NormalisedResponseSnapshot {
+  status: number;
+  headers: Record<string, string>;
+  body: Record<string, unknown> | unknown[] | null;
+  text: string | null;
+  body_sha256: string | null;
+  stream: { format: 'sse' | 'jsonl' | 'chunked' | 'unknown'; events: StreamEventSnapshot[]; done: boolean } | null;
+  metrics: MetricsSnapshot;
+}
+
+export interface AssertionOutcomeDraft {
+  type: string | null;
+  target: 'status' | 'headers' | 'body' | 'text' | 'stream' | 'metrics' | 'vars';
+  selector: string | null;
+  op: string;
+  expected: unknown;
+  actual: unknown;
+  severity: 'error' | 'warn';
+  when: string | null;
+  passed: boolean;
+  message: string | null;
+}
+
+export interface StepErrorSnapshot {
+  code: 'timeout' | 'connection_error' | 'http_error' | 'templating_error' | 'assertion_failed' | 'schema_error' | 'unknown';
+  message: string;
+  details: Record<string, unknown> | null;
+}
+
+export interface StepResultSnapshot {
+  index: number;
+  name: string | null;
+  status: StepStatus;
+  attempts: number;
+  request: RequestSnapshot;
+  response: NormalisedResponseSnapshot;
+  extract: Array<Record<string, unknown>>;
+  vars_delta: Record<string, unknown> | null;
+  assertions: AssertionOutcomeDraft[];
+  metrics: MetricsSnapshot;
+  timing: { started_at: string | null; ended_at: string | null };
+  error: StepErrorSnapshot | null;
+  notes: string | null;
 }
 
 interface Assertion {
@@ -151,43 +228,116 @@ function evaluateAssertions(
     status: number;
     body: unknown;
     text: string;
-    events: Array<Record<string, unknown>>;
+    events: Array<Record<string, unknown>> | StreamEventSnapshot[];
   }
-): { verdict: 'pass' | 'fail'; failures: string[] } {
+): { verdict: 'pass' | 'fail'; failures: string[]; outcomes: AssertionOutcomeDraft[] } {
   const failures: string[] = [];
+  const outcomes: AssertionOutcomeDraft[] = [];
 
-  for (const assertion of assertions) {
+  for (const [index, assertion] of assertions.entries()) {
     const type = assertion.type;
+    const outcome: AssertionOutcomeDraft = {
+      type,
+      target: 'text',
+      selector: null,
+      op: type,
+      expected: assertion.expected ?? null,
+      actual: null,
+      severity: 'error',
+      when: null,
+      passed: true,
+      message: null
+    };
+
     if (type === 'json_path_exists') {
-      const value = getJsonPath(response.body, String(assertion.expected));
+      outcome.target = 'body';
+      outcome.op = 'exists';
+      outcome.selector = String(assertion.expected ?? '');
+      const value = getJsonPath(response.body, outcome.selector);
+      outcome.actual = value ?? null;
       if (value === undefined) {
-        failures.push(`Missing json path: ${assertion.expected}`);
+        outcome.passed = false;
+        outcome.message = `Missing json path: ${outcome.selector}`;
+        failures.push(outcome.message);
       }
+      outcomes.push(outcome);
       continue;
     }
 
     if (type === 'contains') {
+      outcome.target = 'text';
+      outcome.op = 'contains';
       const expected = String(assertion.expected ?? '');
+      outcome.expected = expected;
+      outcome.actual = response.text;
       if (!response.text.includes(expected)) {
-        failures.push(`Missing text: ${expected}`);
+        outcome.passed = false;
+        outcome.message = `Missing text: ${expected}`;
+        failures.push(outcome.message);
       }
+      outcomes.push(outcome);
       continue;
     }
 
     if (type === 'status_code_in') {
+      outcome.target = 'status';
+      outcome.op = 'in';
       const list = Array.isArray(assertion.expected) ? assertion.expected : [];
+      outcome.expected = list;
+      outcome.actual = response.status;
       if (!list.includes(response.status)) {
-        failures.push(`Unexpected status: ${response.status}`);
+        outcome.passed = false;
+        outcome.message = `Unexpected status: ${response.status}`;
+        failures.push(outcome.message);
       }
+      outcomes.push(outcome);
       continue;
     }
 
-    failures.push(`Unsupported assertion: ${type}`);
+    outcome.passed = false;
+    outcome.message = `Unsupported assertion: ${type}`;
+    failures.push(outcome.message);
+    outcomes.push(outcome);
   }
 
   return {
     verdict: failures.length > 0 ? 'fail' : 'pass',
-    failures
+    failures,
+    outcomes
+  };
+}
+
+function hashSha256(input: string): string {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}
+
+function buildQuerySnapshot(url: URL): Record<string, string> | null {
+  if (url.searchParams.size === 0) {
+    return null;
+  }
+  const entries = Array.from(url.searchParams.entries());
+  return Object.fromEntries(entries);
+}
+
+function buildMetricsSnapshot(
+  metrics: MetricResult,
+  requestBodyText: string,
+  responseText: string
+): MetricsSnapshot {
+  const totalMs = typeof metrics.total_ms === 'number' ? metrics.total_ms : 0;
+  const ttfbMs =
+    typeof metrics.ttfb_ms === 'number' ? metrics.ttfb_ms : totalMs > 0 ? totalMs : 0;
+  const bytesOut = requestBodyText ? Buffer.byteLength(requestBodyText) : 0;
+  const bytesIn = responseText ? Buffer.byteLength(responseText) : 0;
+
+  return {
+    ttfb_ms: ttfbMs,
+    total_ms: totalMs,
+    bytes_in: bytesIn,
+    bytes_out: bytesOut,
+    tokens_in: metrics.prompt_tokens ?? null,
+    tokens_out: metrics.completion_tokens ?? null,
+    tok_s: metrics.tokens_per_sec ?? null
   };
 }
 
@@ -232,10 +382,37 @@ async function executeHttpTest(
     }
   }
 
+  const requestBodyText = JSON.stringify(mergedBody);
+  const templateTransport = template.transport as { format?: string } | undefined;
+  const transportFormat = templateTransport?.format;
+  const normalisedFormat =
+    transportFormat === 'sse' || transportFormat === 'jsonl' || transportFormat === 'chunked' || transportFormat === 'unknown'
+      ? transportFormat
+      : transportFormat
+        ? 'unknown'
+        : null;
+  const requestSnapshot: RequestSnapshot = {
+    method: method.toUpperCase() as RequestSnapshot['method'],
+    url: url.toString(),
+    headers,
+    query: buildQuerySnapshot(url),
+    body: mergedBody,
+    body_sha256: hashSha256(requestBodyText),
+    transport: {
+      stream: Boolean(mergedBody.stream ?? false),
+      format: normalisedFormat
+    },
+    timeout_ms: timeoutMs
+  };
+
   let responseText = '';
-  let responseBody: unknown = null;
+  let responseBody: Record<string, unknown> | unknown[] | null = null;
+  let responseStatus = 0;
+  let responseHeaders: Record<string, string> = {};
   let firstTokenAt: number | null = null;
-  let events: Array<Record<string, unknown>> = [];
+  let streamEvents: StreamEventSnapshot[] = [];
+  let streamDone = false;
+  let stepError: StepErrorSnapshot | null = null;
 
   try {
     const response = await fetch(url.toString(), {
@@ -245,6 +422,8 @@ async function executeHttpTest(
       signal: controller.signal
     });
 
+    responseStatus = response.status;
+    responseHeaders = Object.fromEntries(response.headers.entries());
     const contentType = response.headers.get('content-type') ?? '';
     if (response.body) {
       const reader = response.body.getReader();
@@ -266,25 +445,30 @@ async function executeHttpTest(
 
     if (contentType.includes('application/json')) {
       try {
-        responseBody = JSON.parse(responseText);
+        responseBody = JSON.parse(responseText) as Record<string, unknown> | unknown[];
       } catch {
-        responseBody = responseText;
+        responseBody = null;
       }
-    } else {
-      responseBody = responseText;
     }
 
     if (contentType.includes('text/event-stream')) {
       const parsed = parseSseEvents(responseText);
-      events = parsed
-        .filter((event) => event.type === 'data')
-        .map((event) => {
+      streamEvents = parsed.map((event, index) => {
+        if (event.type === 'done') {
+          streamDone = true;
+          return { raw: '[DONE]', json: null, done: true, seq: index };
+        }
+        const raw = event.payload ?? '';
+        let parsedJson: Record<string, unknown> | unknown[] | null = null;
+        if (raw) {
           try {
-            return JSON.parse(event.payload ?? '{}') as Record<string, unknown>;
+            parsedJson = JSON.parse(raw) as Record<string, unknown> | unknown[];
           } catch {
-            return { raw: event.payload } as Record<string, unknown>;
+            parsedJson = null;
           }
-        });
+        }
+        return { raw, json: parsedJson, done: false, seq: index };
+      });
     }
 
     const completedAt = performance.now();
@@ -293,30 +477,96 @@ async function executeHttpTest(
       first_token_at: firstTokenAt ?? undefined,
       completed_at: completedAt
     });
+    const schemaMetrics = buildMetricsSnapshot(metrics, requestBodyText, responseText);
 
     const assertionResult = evaluateAssertions(assertions, {
-      status: response.status,
+      status: responseStatus,
       body: responseBody,
       text: responseText,
-      events
+      events: streamEvents
     });
+
+    const responseSnapshot: NormalisedResponseSnapshot = {
+      status: responseStatus,
+      headers: responseHeaders,
+      body: responseBody,
+      text: responseBody ? null : responseText,
+      body_sha256: responseText ? hashSha256(responseText) : null,
+      stream: contentType.includes('text/event-stream')
+        ? { format: 'sse', events: streamEvents, done: streamDone }
+        : null,
+      metrics: schemaMetrics
+    };
+
+    const stepStatus: StepStatus = assertionResult.verdict === 'pass' ? 'pass' : 'fail';
+    const step: StepResultSnapshot = {
+      index: 0,
+      name: null,
+      status: stepStatus,
+      attempts: 1,
+      request: requestSnapshot,
+      response: responseSnapshot,
+      extract: [],
+      vars_delta: null,
+      assertions: assertionResult.outcomes,
+      metrics: schemaMetrics,
+      timing: { started_at: startedAtIso, ended_at: new Date().toISOString() },
+      error: null,
+      notes: null
+    };
 
     return {
       verdict: assertionResult.verdict,
       failure_reason: assertionResult.failures.length ? assertionResult.failures.join('; ') : null,
       metrics,
       artefacts: {
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
+        status: responseStatus,
+        headers: responseHeaders,
         response_preview: responseText.slice(0, 500),
         response_body: responseText
       },
-      raw_events: events.length > 0 ? events : null,
+      raw_events:
+        streamEvents.length > 0
+          ? (streamEvents.map((event) => ({ ...event })) as Record<string, unknown>[])
+          : null,
       started_at: startedAtIso,
-      ended_at: new Date().toISOString()
+      ended_at: new Date().toISOString(),
+      step_results: [step]
     };
   } catch (error) {
+    const completedAt = performance.now();
+    const metrics = computeMetrics({
+      request_started_at: requestStarted,
+      first_token_at: firstTokenAt ?? undefined,
+      completed_at: completedAt
+    });
+    const schemaMetrics = buildMetricsSnapshot(metrics, requestBodyText, responseText);
+    const endedAtIso = new Date().toISOString();
     if (abortSignal?.aborted) {
+      const responseSnapshot: NormalisedResponseSnapshot = {
+        status: responseStatus,
+        headers: responseHeaders,
+        body: responseBody,
+        text: responseText || null,
+        body_sha256: responseText ? hashSha256(responseText) : null,
+        stream: null,
+        metrics: schemaMetrics
+      };
+      const step: StepResultSnapshot = {
+        index: 0,
+        name: null,
+        status: 'skipped',
+        attempts: 1,
+        request: requestSnapshot,
+        response: responseSnapshot,
+        extract: [],
+        vars_delta: null,
+        assertions: [],
+        metrics: schemaMetrics,
+        timing: { started_at: startedAtIso, ended_at: endedAtIso },
+        error: { code: 'unknown', message: 'Canceled', details: null },
+        notes: null
+      };
       return {
         verdict: 'skip',
         failure_reason: 'Canceled',
@@ -324,12 +574,42 @@ async function executeHttpTest(
         artefacts: null,
         raw_events: null,
         started_at: startedAtIso,
-        ended_at: new Date().toISOString()
+        ended_at: endedAtIso,
+        step_results: [step]
       };
     }
     const isTimeout =
       error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'));
     const message = isTimeout ? 'Timeout' : error instanceof Error ? error.message : 'Request failed';
+    stepError = {
+      code: isTimeout ? 'timeout' : 'connection_error',
+      message,
+      details: error instanceof Error ? { name: error.name } : null
+    };
+    const responseSnapshot: NormalisedResponseSnapshot = {
+      status: responseStatus,
+      headers: responseHeaders,
+      body: responseBody,
+      text: responseText || null,
+      body_sha256: responseText ? hashSha256(responseText) : null,
+      stream: null,
+      metrics: schemaMetrics
+    };
+    const step: StepResultSnapshot = {
+      index: 0,
+      name: null,
+      status: 'error',
+      attempts: 1,
+      request: requestSnapshot,
+      response: responseSnapshot,
+      extract: [],
+      vars_delta: null,
+      assertions: [],
+      metrics: schemaMetrics,
+      timing: { started_at: startedAtIso, ended_at: endedAtIso },
+      error: stepError,
+      notes: null
+    };
     return {
       verdict: 'fail',
       failure_reason: message,
@@ -337,7 +617,8 @@ async function executeHttpTest(
       artefacts: null,
       raw_events: null,
       started_at: startedAtIso,
-      ended_at: new Date().toISOString()
+      ended_at: endedAtIso,
+      step_results: [step]
     };
   } finally {
     clearTimeout(timeout);
@@ -356,6 +637,7 @@ async function executeProxyPerplexityTest(
   abortSignal?: AbortSignal
 ): Promise<Omit<TestExecutionResult, 'test_id'>> {
   const startedAtIso = new Date().toISOString();
+  const stepResults: StepResultSnapshot[] = [];
   if (abortSignal?.aborted) {
     return {
       verdict: 'skip',
@@ -364,7 +646,8 @@ async function executeProxyPerplexityTest(
       artefacts: null,
       raw_events: null,
       started_at: startedAtIso,
-      ended_at: new Date().toISOString()
+      ended_at: new Date().toISOString(),
+      step_results: []
     };
   }
   const datasetPath = process.env.AITESTBENCH_PROXY_PERPLEXITY_DATASET;
@@ -376,7 +659,8 @@ async function executeProxyPerplexityTest(
       artefacts: null,
       raw_events: null,
       started_at: startedAtIso,
-      ended_at: new Date().toISOString()
+      ended_at: new Date().toISOString(),
+      step_results: []
     };
   }
 
@@ -391,7 +675,8 @@ async function executeProxyPerplexityTest(
       artefacts: null,
       raw_events: null,
       started_at: startedAtIso,
-      ended_at: new Date().toISOString()
+      ended_at: new Date().toISOString(),
+      step_results: []
     };
   }
 
@@ -403,7 +688,8 @@ async function executeProxyPerplexityTest(
       artefacts: null,
       raw_events: null,
       started_at: startedAtIso,
-      ended_at: new Date().toISOString()
+      ended_at: new Date().toISOString(),
+      step_results: []
     };
   }
 
@@ -419,7 +705,8 @@ async function executeProxyPerplexityTest(
         artefacts: null,
         raw_events: null,
         started_at: startedAtIso,
-        ended_at: new Date().toISOString()
+        ended_at: new Date().toISOString(),
+        step_results: stepResults
       };
     }
     const replacements = {
@@ -436,6 +723,12 @@ async function executeProxyPerplexityTest(
       authHeaders,
       abortSignal
     );
+    for (const step of result.step_results) {
+      stepResults.push({
+        ...step,
+        index: stepResults.length
+      });
+    }
     if (result.verdict === 'pass') {
       correct += 1;
     } else if (result.failure_reason) {
@@ -463,7 +756,8 @@ async function executeProxyPerplexityTest(
     },
     raw_events: null,
     started_at: startedAtIso,
-    ended_at: new Date().toISOString()
+    ended_at: new Date().toISOString(),
+    step_results: stepResults
   };
 }
 
@@ -532,7 +826,8 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
         artefacts: null,
         raw_events: null,
         started_at: new Date().toISOString(),
-        ended_at: new Date().toISOString()
+        ended_at: new Date().toISOString(),
+        step_results: []
       });
       continue;
     }
@@ -546,7 +841,8 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
         artefacts: null,
         raw_events: null,
         started_at: new Date().toISOString(),
-        ended_at: new Date().toISOString()
+        ended_at: new Date().toISOString(),
+        step_results: []
       });
       continue;
     }

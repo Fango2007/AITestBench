@@ -44,4 +44,6 @@ Thumbs.db
 # Coding assistant
 .copilot/
 
+# Others files
 /specs
+/.cli

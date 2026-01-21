@@ -105,6 +105,7 @@ export function clearDatabase(): void {
   const db = getDb();
   const tables = [
     'metric_samples',
+    'test_result_documents',
     'test_results',
     'runs',
     'active_tests',
