@@ -23,8 +23,6 @@ yarn-error.log*
 # ESLint
 .eslintcache
 
-
-
 # Environment
 .env*
 !.env.example
@@ -48,5 +46,5 @@ Thumbs.db
 # Others files
 /specs
 /.cli
-/UI_design 
+/UI_design
 
