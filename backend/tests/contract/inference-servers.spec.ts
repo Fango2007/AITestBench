@@ -133,7 +133,17 @@ describe('inference servers contract', () => {
     });
     const created = createResponse.json();
     const payload = { data: [{ id: 'gpt-test' }] };
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => payload })) as any);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            headers: { get: () => 'application/json' },
+            json: async () => payload
+          }) as any
+      )
+    );
 
     const refreshResponse = await app.inject({
       method: 'POST',

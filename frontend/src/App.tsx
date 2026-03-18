@@ -5,12 +5,13 @@ import { Models } from './pages/Models.js';
 import { RunSingle } from './pages/RunSingle.js';
 import { Templates } from './pages/Templates.js';
 import { InferenceServers } from './pages/InferenceServers.js';
+import { ResultsDashboard } from './pages/ResultsDashboard.js';
 import { apiGet } from './services/api.js';
 import { InferenceServerRecord, listInferenceServers } from './services/inference-servers-api.js';
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from './services/connectivity-api.js';
 import { EnvEntry, clearDatabase, listEnvEntries, setEnvEntry } from './services/system-api.js';
 
-type View = 'servers' | 'run-single' | 'templates' | 'models' | 'compare';
+type View = 'servers' | 'run-single' | 'templates' | 'models' | 'compare' | 'results-dashboard';
 
 type SystemMetrics = {
   cpu: {
@@ -536,6 +537,17 @@ export function App() {
                 <path d="M5 7h14M5 12h10M5 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
+            <button
+              type="button"
+              className={view === 'results-dashboard' ? 'active' : undefined}
+              onClick={() => setView('results-dashboard')}
+              aria-label="Results dashboard"
+              title="Results dashboard"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 18h16M7 14l3-3 2 2 4-5" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+            </button>
           </div>
           <div className="nav-footer">
             <button
@@ -573,6 +585,8 @@ export function App() {
             <Templates />
           ) : view === 'models' ? (
             <Models />
+          ) : view === 'results-dashboard' ? (
+            <ResultsDashboard />
           ) : (
             <CompareRuns />
           )}

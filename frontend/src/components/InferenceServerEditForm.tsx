@@ -16,6 +16,7 @@ interface InferenceServerEditFormProps {
 export function InferenceServerEditForm({ server, onSave, onCancel }: InferenceServerEditFormProps) {
   const [displayName, setDisplayName] = useState(server.inference_server.display_name);
   const [baseUrl, setBaseUrl] = useState(server.endpoints.base_url);
+  const [softwareVersion, setSoftwareVersion] = useState(server.runtime.server_software.version ?? '');
   const [schemaFamilies, setSchemaFamilies] = useState<ApiSchemaFamily[]>(
     Array.isArray(server.runtime.api.schema_family)
       ? server.runtime.api.schema_family
@@ -54,6 +55,9 @@ export function InferenceServerEditForm({ server, onSave, onCancel }: InferenceS
           base_url: baseUrl
         },
         runtime: {
+          server_software: {
+            version: softwareVersion.trim() || null
+          },
           api: {
             schema_family: schemaFamilies
           }
@@ -83,6 +87,14 @@ export function InferenceServerEditForm({ server, onSave, onCancel }: InferenceS
           value={baseUrl}
           onChange={(event) => setBaseUrl(event.target.value)}
           required
+        />
+      </label>
+      <label>
+        Software version
+        <input
+          value={softwareVersion}
+          onChange={(event) => setSoftwareVersion(event.target.value)}
+          placeholder="e.g. 0.8.5"
         />
       </label>
       <div>

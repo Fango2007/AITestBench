@@ -4,7 +4,6 @@ Local-first harness for running automated LLM tests against OpenAI-compatible
 or Ollama inference servers. It provides:
 
 - A local HTTP API for triggering runs and fetching results
-- A CLI for automation and scripting
 - A lightweight dashboard for browsing runs, profiles, and comparisons
 
 ## Purpose
@@ -16,7 +15,6 @@ single tests, suites, and parameter sweeps with reusable profiles.
 ## Components
 
 - `backend/`: Fastify API + SQLite persistence
-- `cli/`: TypeScript CLI for automation
 - `frontend/`: React dashboard (Vite)
 
 ## Dashboard: Inference Server Management
@@ -28,6 +26,92 @@ hidden from run selection by default.
 
 The Settings menu (bottom-left) lets you clear all DB tables and edit the
 repo-root `.env` file. Env changes apply after restarting the backend.
+
+## Frontend workflow: from server definition to a test run
+
+### 1) Define an inference server
+
+1. Start the app with `npm run dev`.
+2. Open the dashboard and go to **Inference servers**.
+3. In **Create inference server**, fill:
+   - `Display name`
+   - `Base URL` (example: `http://localhost:11434`)
+   - `Schema families` (`OpenAI-compatible`, `Ollama`, and/or `Custom`)
+   - `Auth type`, `Auth header name`, and optional `Auth token env var`
+4. Click **Create**.
+5. Select the created server and use:
+   - **Refresh runtime** to fetch runtime metadata
+   - **Refresh discovery** to fetch available models
+
+### 2) Define a test template (JSON or Python)
+
+1. Go to **Templates**.
+2. Click **New template**.
+3. Fill `Template ID`, `Name`, `Type`, and `Version`.
+4. Paste template content in **Content** and click **Save**.
+
+#### JSON template
+
+Use `Type = JSON` and provide declarative test content (request + assertions).
+Minimum practical shape:
+
+```json
+{
+  "id": "template-id",
+  "version": "1.0.0",
+  "name": "Template name",
+  "description": "Describe the test",
+  "protocols": ["openai_chat_completions"],
+  "request": {
+    "method": "POST",
+    "path": "/v1/chat/completions",
+    "body_template": {
+      "model": "gpt-4o-mini",
+      "messages": [{ "role": "user", "content": "ping" }]
+    }
+  },
+  "assertions": [],
+  "metrics": {}
+}
+```
+
+#### Python template
+
+Use `Type = Python` and provide a python template descriptor that points to a
+python module/entrypoint:
+
+```json
+{
+  "kind": "python_test",
+  "schema_version": "v1",
+  "id": "template-id",
+  "name": "Python Template",
+  "version": "1.0.0",
+  "lifecycle": { "status": "active" },
+  "python": {
+    "module": "tests.python.sample_test",
+    "entrypoint": "entrypoint",
+    "requirements": { "pip": [] }
+  },
+  "contracts": { "requires": [], "provides": [] },
+  "defaults": { "timeout_ms": 60000, "retries": { "max": 0, "backoff_ms": 0 } },
+  "outputs": {
+    "result_schema": "scenario_result.v1",
+    "normalised_response": "response_normalisation.v1"
+  }
+}
+```
+
+### 3) Run a test from the frontend
+
+1. Go to **Run Single Test**.
+2. Select the inference server.
+3. Select the model (from discovered models, or type manually if needed).
+4. Select one or more templates in **Templates**.
+5. Click **Generate Active Tests**.
+6. Optionally fill profile/timeouts/parameter overrides.
+7. Click **Run**.
+8. Click **Results** to fetch run outputs and metrics.
 
 ## Prerequisites
 
@@ -45,7 +129,8 @@ npm install
 ## Environment variables
 Create a local `.env` file at the repo root:
 
-- `AITESTBENCH_API_TOKEN` (required): shared token for API + CLI auth.
+- `AITESTBENCH_API_TOKEN` (required): shared token for API auth.
+  Used by backend auth (and by the frontend when `VITE_AITESTBENCH_API_TOKEN` is set).
 - `AITESTBENCH_DB_PATH` (optional): override DB file path.
 - `AITESTBENCH_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
@@ -76,59 +161,6 @@ To change tcp port for backend:
 
 ```bash
 PORT=9090 npm run dev  # don't forget to update the VITE_AITESTBENCH_API_BASE_URL 
-```
-
-## CLI usage (reference)
-
-```bash
-# inference server management
-npm run cli -- server add \
-  --name "local-ollama" \
-  --base-url "http://localhost:11434" \
-  --schema-family "ollama"
-
-# multi-schema server (comma-separated)
-npm run cli -- server add \
-  --name "local-multi" \
-  --base-url "http://localhost:11434" \
-  --schema-family "openai-compatible,ollama"
-
-# list inference servers
-npm run cli -- server list
-
-# archive inference server
-npm run cli -- server archive --id "<server-id>"
-
-# update inference server
-npm run cli -- server update --id "<server-id>" --name "new-name" --base-url "http://localhost:11434"
-
-# single test
-npm run cli -- test run --id "chat-basic" --server "<server-id>"
-
-# suite run
-npm run cli -- suite run --id "default" --server "<server-id>"
-
-# profile selection on runs
-npm run cli -- test run --id "chat-basic" --server "<server-id>" \
-  --profile-id "perf-default" --profile-version "1.0.0"
-
-# create profile
-npm run cli -- profiles create \
-  --id "perf-default" \
-  --version "1.0.0" \
-  --name "Perf default"
-
-# reload tests
-npm run cli -- tests reload
-
-# list profiles
-npm run cli -- profiles list
-
-# list models
-npm run cli -- models list
-
-# export results
-npm run cli -- export --format json --run-id <run-id>
 ```
 
 ## API endpoints (local-only)
@@ -559,7 +591,6 @@ def run(ctx):
 ```bash
 npm -w backend run test
 npm -w frontend run test
-npm -w cli run test
 ```
 
 ## Data storage
@@ -574,7 +605,7 @@ is controlled by `RETENTION_DAYS` (default: 30 days).
 
 ## Troubleshooting
 
-- `401 Unauthorized`: confirm `AITESTBENCH_API_TOKEN` matches in CLI + backend env.
+- `401 Unauthorized`: confirm `AITESTBENCH_API_TOKEN` matches backend env, and frontend token config if used.
 - `409 Conflict` with `"Inference server has existing runs"` : Servers with existing runs must be archived instead of deleted.
 - `no such table`: delete `./data/harness.sqlite` or ensure schema load on startup.
 - `python3 not found`: install Python 3.10+ and ensure it is on PATH.

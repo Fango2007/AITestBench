@@ -39,6 +39,12 @@ export function InferenceServerDetails({
         : 'Inactive';
     const runtime = server.runtime;
     const discovery = server.discovery;
+    const softwareName =
+      runtime.server_software.name && runtime.server_software.name.toLowerCase() !== 'unknown'
+        ? runtime.server_software.name
+        : null;
+    const softwareVersion = runtime.server_software.version?.trim() ? runtime.server_software.version : null;
+    const softwareBuild = runtime.server_software.build?.trim() ? runtime.server_software.build : null;
     const gpuLabel = runtime.hardware.gpu.length
       ? runtime.hardware.gpu.map((gpu) => `${gpu.vendor}${gpu.model ? ` ${gpu.model}` : ''}`).join(', ')
       : 'None';
@@ -105,10 +111,24 @@ export function InferenceServerDetails({
             <span>API version</span>
             <strong>{runtime.api.api_version ?? 'Unknown'}</strong>
           </div>
-          <div className="detail-row">
-            <span>Server software</span>
-            <strong>{runtime.server_software.name}</strong>
-          </div>
+          {softwareName ? (
+            <div className="detail-row">
+              <span>Server software</span>
+              <strong>{softwareName}</strong>
+            </div>
+          ) : null}
+          {softwareVersion ? (
+            <div className="detail-row">
+              <span>Software version</span>
+              <strong>{softwareVersion}</strong>
+            </div>
+          ) : null}
+          {softwareBuild ? (
+            <div className="detail-row">
+              <span>Software build</span>
+              <strong>{softwareBuild}</strong>
+            </div>
+          ) : null}
           <div className="detail-row">
             <span>Runtime retrieved</span>
             <strong>{runtime.retrieved_at}</strong>

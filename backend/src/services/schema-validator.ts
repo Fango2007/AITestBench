@@ -1,14 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 
-import Ajv, { ErrorObject, ValidateFunction } from 'ajv';
+import { type ErrorObject, type ValidateFunction } from 'ajv';
+import Ajv2020 from 'ajv/dist/2020.js';
 
 export interface SchemaValidationIssue {
   message: string;
   path?: string;
 }
 
-const ajv = new Ajv({ allErrors: true, strict: false });
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+ajv.addFormat('date-time', true);
 const validators = new Map<string, ValidateFunction>();
 
 function formatAjvErrors(errors: ErrorObject[] | null | undefined): SchemaValidationIssue[] {

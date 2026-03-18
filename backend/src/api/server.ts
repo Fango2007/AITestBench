@@ -15,6 +15,7 @@ import { registerProfilesRoutes } from './routes/profiles.js';
 import { registerModelsRoutes } from './routes/models.js';
 import { registerSystemRoutes } from './routes/system.js';
 import { registerTemplatesRoutes } from './routes/templates.js';
+import { registerDashboardResultsRoutes } from './routes/dashboard-results.js';
 
 export function createServer() {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
@@ -64,6 +65,7 @@ export function createServer() {
   registerModelsRoutes(app);
   registerResultsRoutes(app);
   registerTemplatesRoutes(app);
+  registerDashboardResultsRoutes(app);
 
   return app;
 }

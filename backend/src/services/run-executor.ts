@@ -1,4 +1,7 @@
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { performance } from 'perf_hooks';
 
 import { InferenceServerRecord, getInferenceServerById } from '../models/inference-server.js';
@@ -8,6 +11,7 @@ import { computeMetrics, MetricResult } from './metrics.js';
 import { loadPerplexityDataset } from './perplexity.js';
 import { parseSseEvents } from './sse-parser.js';
 import { logEvent } from './observability.js';
+import { runPythonEntrypoint } from '../plugins/python-runner.js';
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
 
@@ -338,6 +342,189 @@ function buildMetricsSnapshot(
     tokens_in: metrics.prompt_tokens ?? null,
     tokens_out: metrics.completion_tokens ?? null,
     tok_s: metrics.tokens_per_sec ?? null
+  };
+}
+
+function emptyMetricsSnapshot(): MetricsSnapshot {
+  return {
+    ttfb_ms: 0,
+    total_ms: 0,
+    bytes_in: null,
+    bytes_out: null,
+    tokens_in: null,
+    tokens_out: null,
+    tok_s: null
+  };
+}
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(moduleDir, '..', '..', '..');
+
+function resolvePythonModulePath(moduleRef: string): string {
+  if (!moduleRef) {
+    throw new Error('Python module reference missing');
+  }
+  const testsDir = path.join(repoRoot, 'backend', 'tests_python');
+  const normalized = moduleRef.replace(/^tests_python[./]/, '');
+  if (moduleRef.endsWith('.py') || moduleRef.includes(path.sep) || moduleRef.includes('/')) {
+    if (path.isAbsolute(moduleRef)) {
+      return moduleRef;
+    }
+    return path.resolve(testsDir, normalized);
+  }
+  const relPath = normalized.split('.').join(path.sep) + '.py';
+  return path.join(testsDir, relPath);
+}
+
+async function executePythonTest(
+  definition: { spec_path: string },
+  server: InferenceServerRecord,
+  effectiveConfig: Record<string, unknown> | null,
+  abortSignal?: AbortSignal
+): Promise<Omit<TestExecutionResult, 'test_id'>> {
+  const startedAtIso = new Date().toISOString();
+  if (abortSignal?.aborted) {
+    return {
+      verdict: 'skip',
+      failure_reason: 'Canceled',
+      metrics: null,
+      artefacts: null,
+      raw_events: null,
+      started_at: startedAtIso,
+      ended_at: new Date().toISOString(),
+      step_results: []
+    };
+  }
+
+  const raw = fs.readFileSync(definition.spec_path, 'utf8');
+  const spec = JSON.parse(raw) as Record<string, unknown>;
+  const pythonSpec = (spec.python as Record<string, unknown>) ?? {};
+  const moduleRef = String(pythonSpec.module ?? '');
+  const entrypoint = String(pythonSpec.entrypoint ?? 'run');
+  const modulePath = resolvePythonModulePath(moduleRef);
+
+  const context = {
+    profile: {
+      server: { base_url: server.endpoints.base_url },
+      selection: { model: effectiveConfig?.model ?? null }
+    },
+    env: process.env,
+    vars: {}
+  };
+
+  const timeoutMs =
+    (spec.defaults as Record<string, unknown>)?.timeout_ms ??
+    (effectiveConfig?.request_timeout_sec
+      ? Number(effectiveConfig.request_timeout_sec) * 1000
+      : 60000);
+
+  const result = await runPythonEntrypoint({
+    modulePath,
+    entrypoint,
+    spec,
+    context,
+    timeoutMs,
+    allowedPaths: [repoRoot]
+  });
+
+  const endedAtIso = new Date().toISOString();
+
+  if (result.exitCode !== 0) {
+    const metricsSnapshot = emptyMetricsSnapshot();
+    const errorStep: StepResultSnapshot = {
+      index: 0,
+      name: null,
+      status: 'error',
+      attempts: 1,
+      request: {
+        method: 'POST',
+        url: '',
+        headers: {},
+        query: null,
+        body: null,
+        body_sha256: null,
+        transport: null,
+        timeout_ms: timeoutMs
+      },
+      response: {
+        status: 0,
+        headers: {},
+        body: null,
+        text: result.stderr || result.stdout || null,
+        body_sha256: null,
+        stream: null,
+        metrics: metricsSnapshot
+      },
+      extract: [],
+      vars_delta: {},
+      assertions: [],
+      metrics: metricsSnapshot,
+      timing: { started_at: startedAtIso, ended_at: endedAtIso },
+      error: { code: 'unknown', message: 'Python test failed', details: null },
+      notes: 'Python runner returned non-zero exit code.'
+    };
+    return {
+      verdict: 'fail',
+      failure_reason: result.stderr || 'Python test failed',
+      metrics: null,
+      artefacts: { stderr: result.stderr, stdout: result.stdout },
+      raw_events: null,
+      started_at: startedAtIso,
+      ended_at: endedAtIso,
+      step_results: [errorStep]
+    };
+  }
+
+  const output = result.output ?? {};
+  const steps = Array.isArray(output.steps) ? (output.steps as StepResultSnapshot[]) : [];
+  const stepResults =
+    steps.length > 0
+      ? steps
+      : [
+          {
+            index: 0,
+            name: null,
+            status: 'pass',
+            attempts: 1,
+            request: {
+              method: 'POST',
+              url: '',
+              headers: {},
+              query: null,
+              body: null,
+              body_sha256: null,
+              transport: null,
+              timeout_ms: timeoutMs
+            },
+            response: {
+              status: 0,
+              headers: {},
+              body: null,
+              text: null,
+              body_sha256: null,
+              stream: null,
+              metrics: emptyMetricsSnapshot()
+            },
+            extract: [],
+            vars_delta: {},
+            assertions: [],
+            metrics: emptyMetricsSnapshot(),
+            timing: { started_at: startedAtIso, ended_at: endedAtIso },
+            error: null,
+            notes: 'Python test returned no steps; synthetic step added by runner.'
+          }
+        ];
+  const metrics = (output.result as Record<string, unknown>)?.metrics ?? null;
+
+  return {
+    verdict: 'pass',
+    failure_reason: null,
+    metrics: metrics ?? null,
+    artefacts: output.result ? { python_result: output.result } : null,
+    raw_events: null,
+    started_at: startedAtIso,
+    ended_at: endedAtIso,
+    step_results: stepResults
   };
 }
 
@@ -855,24 +1042,29 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
     });
 
     const authHeaders = buildAuthHeaders(server);
-    const usesProxyPerplexity = definition.protocols?.includes('proxy_perplexity');
-    const result = usesProxyPerplexity
-      ? await executeProxyPerplexityTest(
-          server.endpoints.base_url,
-          definition.request_template,
-          definition.assertions as Assertion[],
-          request.effective_config ?? null,
-          authHeaders,
-          abortSignal
-        )
-      : await executeHttpTest(
-          server.endpoints.base_url,
-          definition.request_template,
-          definition.assertions as Assertion[],
-          request.effective_config ?? null,
-          authHeaders,
-          abortSignal
-        );
+    let result: Omit<TestExecutionResult, 'test_id'>;
+    if (definition.runner_type === 'python') {
+      result = await executePythonTest(definition, server, request.effective_config ?? null, abortSignal);
+    } else {
+      const usesProxyPerplexity = definition.protocols?.includes('proxy_perplexity');
+      result = usesProxyPerplexity
+        ? await executeProxyPerplexityTest(
+            server.endpoints.base_url,
+            definition.request_template,
+            definition.assertions as Assertion[],
+            request.effective_config ?? null,
+            authHeaders,
+            abortSignal
+          )
+        : await executeHttpTest(
+            server.endpoints.base_url,
+            definition.request_template,
+            definition.assertions as Assertion[],
+            request.effective_config ?? null,
+            authHeaders,
+            abortSignal
+          );
+    }
 
     results.push({
       test_id: testId,
