@@ -238,7 +238,7 @@ function evaluateAssertions(
   const failures: string[] = [];
   const outcomes: AssertionOutcomeDraft[] = [];
 
-  for (const [index, assertion] of assertions.entries()) {
+  for (const assertion of assertions) {
     const type = assertion.type;
     const outcome: AssertionOutcomeDraft = {
       type,
@@ -615,10 +615,12 @@ async function executeHttpTest(
     if (response.body) {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      while (true) {
+      let streamDone = false;
+      while (!streamDone) {
         const { value, done } = await reader.read();
         if (done) {
-          break;
+          streamDone = true;
+          continue;
         }
         if (!firstTokenAt) {
           firstTokenAt = performance.now();

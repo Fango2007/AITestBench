@@ -28,6 +28,10 @@ export default defineConfig(({ mode }) => {
   return {
     envDir: repoRoot,
     plugins: [react()],
+    preview: {
+      host,
+      port
+    },
     server: {
       host,
       port

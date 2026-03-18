@@ -243,7 +243,7 @@ function buildCommandPreview(
 
   const url = new URL(requestUrl || path, baseUrl).toString();
   const headerLines = Object.entries(headers).map(
-    ([key, value]) => `  -H \"${key}: ${value}\" \\`
+    ([key, value]) => `  -H "${key}: ${value}" \\`
   );
   const mergedBody =
     bodyTemplate && typeof bodyTemplate === 'object' && !Array.isArray(bodyTemplate)
@@ -251,7 +251,7 @@ function buildCommandPreview(
       : bodyTemplate;
   const body = typeof mergedBody === 'string' ? mergedBody : JSON.stringify(mergedBody);
   const lines = [
-    `curl -X ${method} \"${url}\" \\`,
+    `curl -X ${method} "${url}" \\`,
     ...headerLines,
     `  -d '${body}'`
   ];

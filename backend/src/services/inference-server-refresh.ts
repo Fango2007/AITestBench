@@ -229,7 +229,7 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
   if (!updated) {
     throw new InferenceServerRefreshError({
       server_id: server.inference_server.server_id,
-      attempted_url: url,
+      attempted_url: server.endpoints.base_url,
       message: 'Unable to persist discovery response',
       timestamp: nowIso()
     });

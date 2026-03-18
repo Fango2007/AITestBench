@@ -43,6 +43,15 @@ module.exports = {
   overrides: [
     {
       files: [
+        "**/*.{ts,tsx}"
+      ],
+      rules: {
+        "no-undef": "off",
+        "no-unused-vars": "off"
+      }
+    },
+    {
+      files: [
         "frontend/src/**/*.{js,jsx,ts,tsx}",
         "frontend/tests/**/*.{js,jsx,ts,tsx}"
       ],

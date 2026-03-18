@@ -1,5 +1,7 @@
 # Inference server Test Bench
 
+Version: `0.1.0`
+
 Local-first harness for running automated LLM tests against OpenAI-compatible
 or Ollama inference servers. It provides:
 
@@ -126,14 +128,33 @@ python module/entrypoint:
 npm install
 ```
 
+Create a local `.env` file from the example:
+
+```bash
+cp .env.example .env
+```
+
+## Desktop deployment
+
+This release is intended to be deployed locally from source on a desktop or workstation.
+The frontend is built with Vite and the backend runs directly from source.
+
+```bash
+npm ci
+npm run build
+npm start
+```
+
 ## Environment variables
 Create a local `.env` file at the repo root:
 
 - `AITESTBENCH_API_TOKEN` (required): shared token for API auth.
   Used by backend auth (and by the frontend when `VITE_AITESTBENCH_API_TOKEN` is set).
+- `PORT` (optional): backend port. Default is `8080`.
 - `AITESTBENCH_DB_PATH` (optional): override DB file path.
 - `AITESTBENCH_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
+- `AITESTBENCH_PYTHON_BIN` (optional): Python executable used for Python-backed tests (default: `python3`).
 - `AITESTBENCH_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
 - `AITESTBENCH_CONTEXT_PROBE_TIMEOUT_MS` (optional): context window probe timeout in ms (default: 600000).
 - `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)

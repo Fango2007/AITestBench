@@ -29,7 +29,7 @@ export interface PythonEntrypointResult extends PythonRunResult {
 }
 
 function shellEscape(value: string): string {
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 function resolvePythonBin(): string {

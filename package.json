@@ -1,19 +1,25 @@
 {
   "name": "aitestbench",
+  "version": "0.1.0",
   "private": true,
   "workspaces": [
     "backend",
-    "frontend",
-    "cli"
+    "frontend"
   ],
   "dependencies": {
     "better-sqlite3": "^12.5.0",
     "fastify": "^5.6.2"
   },
   "scripts": {
-    "cli": "npm -w cli run cli --",
+    "build": "npm run build:frontend",
+    "build:frontend": "npm -w frontend run build",
     "dev": "concurrently \"npm -w backend run dev\" \"npm -w frontend run dev\"",
-    "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "release:check": "npm run lint && npm test && npm run build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:backend": "npm -w backend run start",
+    "start:frontend": "npm -w frontend run preview",
+    "test": "npm -w backend test && npm -w frontend test"
   },
   "devDependencies": {
     "@typescript-eslint/parser": "^8.0.0",
