@@ -694,32 +694,7 @@ export function RunSingle() {
           <button type="button" onClick={handleInstantiate} disabled={!canGenerate}>
             Generate Active Tests
           </button>
-          <button type="button" onClick={handleRun} disabled={!canRun}>
-            Run
-          </button>
-          <button type="button" onClick={handleStopRun} disabled={!runInProgress || busy}>
-            Stop
-          </button>
-          <button
-            type="button"
-            onClick={handleResults}
-            disabled={!canViewResults}
-            className={runInProgress && !runCompleted ? 'is-pending' : undefined}
-          >
-            {runInProgress && !runCompleted ? 'Running…' : hasTimeoutResult ? 'Results · Timeout' : 'Results'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAssistantMessage(assistantMessageForRun);
-              setShowAssistantMessage(true);
-            }}
-            disabled={!assistantMessageForRun}
-          >
-            Assistant message
-          </button>
         </div>
-        {runStatusMessage ? <p className="muted">{runStatusMessage}</p> : null}
         <div className="divider" />
         <div className="field">
           <h3>Active Tests</h3>
@@ -784,6 +759,33 @@ export function RunSingle() {
             placeholder="30"
           />
         </label>
+        <div className="actions">
+          <button type="button" onClick={handleRun} disabled={!canRun}>
+            Run
+          </button>
+          <button type="button" onClick={handleStopRun} disabled={!runInProgress || busy}>
+            Stop
+          </button>
+          <button
+            type="button"
+            onClick={handleResults}
+            disabled={!canViewResults}
+            className={runInProgress && !runCompleted ? 'is-pending' : undefined}
+          >
+            {runInProgress && !runCompleted ? 'Running…' : hasTimeoutResult ? 'Results · Timeout' : 'Results'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAssistantMessage(assistantMessageForRun);
+              setShowAssistantMessage(true);
+            }}
+            disabled={!assistantMessageForRun}
+          >
+            Assistant message
+          </button>
+        </div>
+        {runStatusMessage ? <p className="muted">{runStatusMessage}</p> : null}
       </div>
       {result ? (
         <div className="card">

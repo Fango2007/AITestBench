@@ -10,6 +10,7 @@ interface InferenceServerCreateFormProps {
 export function InferenceServerCreateForm({ onCreate, disabled }: InferenceServerCreateFormProps) {
   const [displayName, setDisplayName] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
+  const [softwareVersion, setSoftwareVersion] = useState('');
   const [schemaFamilies, setSchemaFamilies] = useState<ApiSchemaFamily[]>(['openai-compatible']);
   const [authType, setAuthType] = useState<AuthType>('none');
   const [authTokenEnv, setAuthTokenEnv] = useState('');
@@ -44,6 +45,9 @@ export function InferenceServerCreateForm({ onCreate, disabled }: InferenceServe
           base_url: baseUrl
         },
         runtime: {
+          server_software: {
+            version: softwareVersion.trim() || null
+          },
           api: {
             schema_family: schemaFamilies,
             api_version: null
@@ -57,6 +61,7 @@ export function InferenceServerCreateForm({ onCreate, disabled }: InferenceServe
       });
       setDisplayName('');
       setBaseUrl('');
+      setSoftwareVersion('');
       setAuthTokenEnv('');
       setSchemaFamilies(['openai-compatible']);
     } finally {
@@ -83,6 +88,15 @@ export function InferenceServerCreateForm({ onCreate, disabled }: InferenceServe
           onChange={(event) => setBaseUrl(event.target.value)}
           placeholder="http://localhost:8080"
           required
+          disabled={disabled}
+        />
+      </label>
+      <label>
+        Software version
+        <input
+          value={softwareVersion}
+          onChange={(event) => setSoftwareVersion(event.target.value)}
+          placeholder="e.g. 0.8.5"
           disabled={disabled}
         />
       </label>

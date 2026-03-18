@@ -302,6 +302,24 @@ export function instantiateActiveTests(input: {
         assertions: (parsed.assertions as Record<string, unknown>[]) ?? [],
         metric_rules: (parsed.metrics as Record<string, unknown>) ?? null
       });
+    } else if (template.type === 'python') {
+      const parsed = JSON.parse(template.content) as Record<string, unknown>;
+      const contracts = (parsed.contracts as Record<string, unknown>) ?? {};
+      const provides = Array.isArray(contracts.provides) ? (contracts.provides as string[]) : [];
+      upsertTestDefinition({
+        id: activeTestId,
+        version: template.version,
+        name: `${template.name} (${input.model_name})`,
+        description: String(parsed.description ?? ''),
+        category: null,
+        tags: [],
+        protocols: provides,
+        spec_path: template.filePath,
+        runner_type: template.type,
+        request_template: null,
+        assertions: [],
+        metric_rules: null
+      });
     }
 
     return createActiveTest({
