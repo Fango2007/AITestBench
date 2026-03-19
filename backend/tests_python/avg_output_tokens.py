@@ -1,80 +1,83 @@
+"""
+Average output tokens performance test.
 
-# avg_output_tokens.py
-# Average Output Tokens Test
-# --------------------------
-
-# Estimates the average number of output tokens produced by a model
-# over a fixed set of canonical prompts, with temperature and top_p fixed.
-
-# Test kind: python-defined
-
+Canonical Python test module contract:
+- The runner imports this module and calls `entrypoint(ctx, params)`.
+- `ctx` exposes runner helpers such as `ctx.http`, `ctx.render`, `ctx.logger`,
+  `ctx.profile`, `ctx.env`, and `ctx.vars`.
+- `params` comes from the Python template descriptor `parameters` object.
+"""
 
 from typing import List, Dict, Any
-import time
 import statistics
-import requests
+
+from common import http_json_request, log_debug, render_value
 
 TEST_ID = "perf.avg_output_tokens.v1"
 
 
-def run(test_context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Required entrypoint for python-defined tests.
-
-    test_context provides:
-      - inference_server.base_url
-      - inference_server.headers
-      - model.id
-      - test.params
-    """
-
-    base_url = test_context["inference_server"]["base_url"]
-    headers = test_context["inference_server"].get("headers", {})
-    model = test_context["model"]["id"]
-
-    params = test_context.get("params", {})
+def entrypoint(ctx: Any, params: Dict[str, Any]) -> Dict[str, Any]:
     prompts: List[str] = params.get("prompts", [])
     temperature: float = params.get("temperature", 0.7)
     top_p: float = params.get("top_p", 0.9)
     max_tokens: int = params.get("max_tokens", 512)
+    system_prompt: str = params.get("system_prompt", "You are a concise assistant.")
+    request_timeout_ms = params.get("timeout_ms", 30000)
 
     if not prompts:
         raise ValueError("avg_output_tokens test requires a non-empty prompts list")
-
-    endpoint = f"{base_url}/v1/chat/completions"
 
     per_prompt_results = []
     token_counts = []
 
     for idx, prompt in enumerate(prompts, start=1):
-        body = {
-            "model": model,
+        request_body = {
+            "model": "{{profile.selection.model}}",
             "temperature": temperature,
             "top_p": top_p,
             "max_completion_tokens": max_tokens,
             "stream": False,
             "messages": [
-                {"role": "system", "content": "You are a concise assistant."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt},
             ],
         }
 
-        start = time.perf_counter()
-        resp = requests.post(endpoint, headers=headers, json=body, timeout=30)
-        elapsed_ms = (time.perf_counter() - start) * 1000
+        request = render_value(
+            ctx,
+            {
+                "method": "POST",
+                "url": "{{profile.server.base_url}}/v1/chat/completions",
+                "headers": {"content-type": "application/json"},
+                "body": request_body,
+                "timeout_ms": request_timeout_ms,
+            }
+        )
+        log_debug(ctx, f"avg_output_tokens request {idx}: {request['url']}")
 
-        if resp.status_code != 200:
+        response = http_json_request(
+            ctx,
+            method=request["method"],
+            url=request["url"],
+            headers=request.get("headers"),
+            body=request.get("body"),
+            timeout_ms=request.get("timeout_ms"),
+        )
+
+        if response.status != 200:
             raise RuntimeError(
                 f"Request failed for prompt {idx}: "
-                f"{resp.status_code} {resp.text}"
+                f"{response.status} {response.text}"
             )
 
-        data = resp.json()
+        data = response.body or {}
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Request returned non-JSON body for prompt {idx}")
 
         # Preferred: server-reported token usage
         completion_tokens = None
         usage = data.get("usage")
-        if usage and "completion_tokens" in usage:
+        if isinstance(usage, dict) and "completion_tokens" in usage:
             completion_tokens = usage["completion_tokens"]
 
         # Fallback: naive token estimation (clearly flagged)
@@ -85,13 +88,16 @@ def run(test_context: Dict[str, Any]) -> Dict[str, Any]:
             completion_tokens = len(content.split())
 
         token_counts.append(completion_tokens)
+        latency_ms = None
+        if isinstance(response.metrics, dict):
+            latency_ms = response.metrics.get("total_ms")
 
         per_prompt_results.append({
             "prompt_index": idx,
             "prompt": prompt,
             "completion_tokens": completion_tokens,
             "token_source": estimation_method,
-            "latency_ms": elapsed_ms,
+            "latency_ms": latency_ms,
         })
 
     metrics = {
@@ -124,3 +130,8 @@ def run(test_context: Dict[str, Any]) -> Dict[str, Any]:
             )
         },
     }
+
+
+def run(ctx: Any, params: Dict[str, Any]) -> Dict[str, Any]:
+    """Backward-compatible alias for older descriptors."""
+    return entrypoint(ctx, params)
