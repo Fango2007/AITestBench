@@ -5,7 +5,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createServer } from '../../src/api/server.js';
-import { getDb } from '../../src/models/db.js';
+import { getDb, resetDbInstance } from '../../src/models/db.js';
 
 const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 
@@ -46,19 +46,26 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
 
 describe('active tests contract', () => {
   process.env.AITESTBENCH_API_TOKEN = 'test-token';
-  process.env.AITESTBENCH_DB_PATH = ':memory:';
 
   let tempDir: string;
+  let tempDbDir: string;
 
   beforeEach(() => {
+    tempDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-active-tests-db-'));
+    process.env.AITESTBENCH_DB_PATH = path.join(tempDbDir, 'aitestbench.sqlite');
+    resetDbInstance();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-templates-'));
     process.env.AITESTBENCH_TEST_TEMPLATES_DIR = tempDir;
   });
 
   afterEach(() => {
     resetDb();
+    resetDbInstance();
     if (tempDir && fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+    if (tempDbDir && fs.existsSync(tempDbDir)) {
+      fs.rmSync(tempDbDir, { recursive: true, force: true });
     }
   });
 
