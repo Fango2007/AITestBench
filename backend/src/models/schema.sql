@@ -1,0 +1,203 @@
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS inference_servers (
+  server_id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  archived_at TEXT,
+  runtime TEXT NOT NULL,
+  endpoints TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  capabilities TEXT NOT NULL,
+  discovery TEXT NOT NULL,
+  raw TEXT NOT NULL,
+  CHECK (NOT (active = 1 AND archived = 1))
+);
+
+CREATE TABLE IF NOT EXISTS test_definitions (
+  id TEXT NOT NULL,
+  version TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  category TEXT,
+  tags TEXT,
+  protocols TEXT,
+  spec_path TEXT,
+  runner_type TEXT NOT NULL,
+  request_template TEXT,
+  assertions TEXT,
+  metric_rules TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (id, version)
+);
+
+CREATE TABLE IF NOT EXISTS suites (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  ordered_test_ids TEXT,
+  filters TEXT,
+  stop_on_fail INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS profiles (
+  id TEXT NOT NULL,
+  version TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  generation_parameters TEXT,
+  context_strategy TEXT,
+  test_selection TEXT,
+  execution_behaviour TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (id, version)
+);
+
+CREATE TABLE IF NOT EXISTS models (
+  server_id TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  archived_at TEXT,
+  model_schema_version TEXT NOT NULL,
+  identity TEXT NOT NULL,
+  architecture TEXT NOT NULL,
+  modalities TEXT NOT NULL,
+  capabilities TEXT NOT NULL,
+  limits TEXT NOT NULL,
+  performance TEXT NOT NULL,
+  configuration TEXT NOT NULL,
+  discovery TEXT NOT NULL,
+  raw TEXT NOT NULL,
+  PRIMARY KEY (server_id, model_id),
+  FOREIGN KEY (server_id) REFERENCES inference_servers(server_id),
+  CHECK (NOT (active = 1 AND archived = 1))
+);
+
+CREATE TABLE IF NOT EXISTS runs (
+  id TEXT PRIMARY KEY,
+  inference_server_id TEXT NOT NULL,
+  suite_id TEXT,
+  test_id TEXT,
+  profile_id TEXT,
+  profile_version TEXT,
+  status TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  environment_snapshot TEXT,
+  retention_days INTEGER,
+  CHECK (
+    (suite_id IS NOT NULL AND test_id IS NULL)
+    OR (suite_id IS NULL AND test_id IS NOT NULL)
+  ),
+  FOREIGN KEY (inference_server_id) REFERENCES inference_servers(server_id),
+  FOREIGN KEY (suite_id) REFERENCES suites(id)
+);
+
+CREATE TABLE IF NOT EXISTS active_tests (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  template_version TEXT NOT NULL,
+  inference_server_id TEXT NOT NULL,
+  model_name TEXT NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  deleted_at TEXT,
+  version TEXT NOT NULL,
+  command_preview TEXT,
+  python_ready INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS test_results (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  test_id TEXT NOT NULL,
+  verdict TEXT NOT NULL,
+  failure_reason TEXT,
+  metrics TEXT,
+  artefacts TEXT,
+  raw_events TEXT,
+  repetition_stats TEXT,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  FOREIGN KEY (run_id) REFERENCES runs(id)
+);
+
+CREATE TABLE IF NOT EXISTS test_result_documents (
+  test_result_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  test_id TEXT NOT NULL,
+  schema_version TEXT NOT NULL,
+  document TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (test_result_id) REFERENCES test_results(id) ON DELETE CASCADE,
+  FOREIGN KEY (run_id) REFERENCES runs(id)
+);
+
+CREATE TABLE IF NOT EXISTS metric_samples (
+  id TEXT PRIMARY KEY,
+  test_result_id TEXT NOT NULL,
+  repetition_index INTEGER NOT NULL,
+  ttfb_ms REAL,
+  total_ms REAL,
+  prefill_ms REAL,
+  decode_ms REAL,
+  tokens_per_sec REAL,
+  prompt_tokens INTEGER,
+  completion_tokens INTEGER,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (test_result_id) REFERENCES test_results(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runs_inference_server ON runs(inference_server_id);
+CREATE INDEX IF NOT EXISTS idx_results_run ON test_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_result_documents_run ON test_result_documents(run_id);
+CREATE INDEX IF NOT EXISTS idx_metrics_result ON metric_samples(test_result_id);
+
+CREATE TABLE IF NOT EXISTS test_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  format TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  owner_id TEXT NOT NULL,
+  current_version_id TEXT,
+  storage_path TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (current_version_id) REFERENCES test_template_versions(id)
+);
+
+CREATE TABLE IF NOT EXISTS test_template_versions (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  version_number INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  FOREIGN KEY (template_id) REFERENCES test_templates(id) ON DELETE CASCADE,
+  UNIQUE(template_id, version_number)
+);
+
+CREATE TABLE IF NOT EXISTS instantiated_tests (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  template_version_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (template_id) REFERENCES test_templates(id),
+  FOREIGN KEY (template_version_id) REFERENCES test_template_versions(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_test_templates_active_name
+  ON test_templates(name)
+  WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_test_templates_status ON test_templates(status);
+CREATE INDEX IF NOT EXISTS idx_template_versions_template ON test_template_versions(template_id);
+CREATE INDEX IF NOT EXISTS idx_instantiated_tests_template ON instantiated_tests(template_id);

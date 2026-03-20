@@ -39,6 +39,7 @@ Thumbs.db
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+!backend/src/models/schema.sql
 
 # Coding assistant
 .copilot/
@@ -47,4 +48,3 @@ Thumbs.db
 /specs
 /.cli
 /UI_design
-
