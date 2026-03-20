@@ -11,7 +11,11 @@ const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 
 function resetDb() {
   const db = getDb();
-  db.prepare('DELETE FROM active_tests').run();
+  try {
+    db.prepare('DELETE FROM active_tests').run();
+  } catch {
+    // Table may not exist if schema bootstrap did not run before cleanup.
+  }
 }
 
 function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
@@ -119,6 +123,7 @@ describe('active tests contract', () => {
         template_ids: ['template-2']
       }
     });
+    expect(instantiateResponse.statusCode).toBe(201);
     const [activeTest] = instantiateResponse.json();
 
     const deleteResponse = await app.inject({

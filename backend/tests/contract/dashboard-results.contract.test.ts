@@ -25,6 +25,7 @@ function resetDb() {
 }
 
 function seedDashboardData() {
+  createServer();
   const db = getDb();
   const now = new Date();
   const within = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();

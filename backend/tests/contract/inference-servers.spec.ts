@@ -8,8 +8,16 @@ const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 
 function resetDb() {
   const db = getDb();
-  db.prepare('DELETE FROM runs').run();
-  db.prepare('DELETE FROM inference_servers').run();
+  try {
+    db.prepare('DELETE FROM runs').run();
+  } catch {
+    // Table may not exist before schema bootstrap in first test.
+  }
+  try {
+    db.prepare('DELETE FROM inference_servers').run();
+  } catch {
+    // Table may not exist before schema bootstrap in first test.
+  }
 }
 
 function buildCreatePayload(overrides?: Record<string, unknown>) {
@@ -24,6 +32,8 @@ function buildCreatePayload(overrides?: Record<string, unknown>) {
 describe('inference servers contract', () => {
   process.env.AITESTBENCH_API_TOKEN = 'test-token';
   process.env.AITESTBENCH_DB_PATH = ':memory:';
+
+  createServer();
 
   afterEach(() => {
     resetDb();
