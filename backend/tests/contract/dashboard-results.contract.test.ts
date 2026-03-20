@@ -1,7 +1,11 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createServer } from '../../src/api/server.js';
-import { getDb } from '../../src/models/db.js';
+import { getDb, runSchema } from '../../src/models/db.js';
 
 const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 
@@ -25,7 +29,9 @@ function resetDb() {
 }
 
 function seedDashboardData() {
-  createServer();
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const schemaPath = path.resolve(moduleDir, '../../src/models/schema.sql');
+  runSchema(fs.readFileSync(schemaPath, 'utf8'));
   const db = getDb();
   const now = new Date();
   const within = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();

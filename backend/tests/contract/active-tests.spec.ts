@@ -61,7 +61,7 @@ describe('active tests contract', () => {
 
   it('instantiates and lists active tests', async () => {
     const app = createServer();
-    await app.inject({
+    const createTemplateResponse = await app.inject({
       method: 'POST',
       url: '/templates',
       headers: AUTH_HEADERS,
@@ -73,6 +73,7 @@ describe('active tests contract', () => {
         content: buildJsonTemplateContent('template-1', 'Template 1')
       }
     });
+    expect(createTemplateResponse.statusCode).toBe(201);
 
     const instantiateResponse = await app.inject({
       method: 'POST',
@@ -101,7 +102,7 @@ describe('active tests contract', () => {
 
   it('deletes active tests', async () => {
     const app = createServer();
-    await app.inject({
+    const createTemplateResponse = await app.inject({
       method: 'POST',
       url: '/templates',
       headers: AUTH_HEADERS,
@@ -113,6 +114,7 @@ describe('active tests contract', () => {
         content: buildJsonTemplateContent('template-2', 'Template 2')
       }
     });
+    expect(createTemplateResponse.statusCode).toBe(201);
     const instantiateResponse = await app.inject({
       method: 'POST',
       url: '/active-tests/instantiate',
