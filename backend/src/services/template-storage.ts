@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 export type TemplateType = 'json' | 'python';
 
@@ -21,7 +22,9 @@ export class TemplateStorageError extends Error {
   }
 }
 
-const DEFAULT_TEMPLATES_DIR = path.join(process.cwd(), 'backend', 'data', 'templates');
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(moduleDir, '..', '..', '..');
+const DEFAULT_TEMPLATES_DIR = path.join(repoRoot, 'backend', 'data', 'templates');
 let warnedFallback = false;
 
 function warnFallback(message: string): void {
@@ -35,7 +38,7 @@ function warnFallback(message: string): void {
 function resolveTemplatesDir(): string {
   const configured = process.env.AITESTBENCH_TEST_TEMPLATES_DIR?.trim();
   if (configured) {
-    return configured;
+    return path.isAbsolute(configured) ? configured : path.resolve(repoRoot, configured);
   }
   warnFallback('AITESTBENCH_TEST_TEMPLATES_DIR not set; using default templates directory.');
   return DEFAULT_TEMPLATES_DIR;

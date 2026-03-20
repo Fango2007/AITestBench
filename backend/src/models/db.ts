@@ -1,8 +1,11 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import Database from 'better-sqlite3';
 
-const DEFAULT_DB_PATH = path.join(process.cwd(), 'data', 'aitestbench.sqlite');
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(moduleDir, '..', '..', '..');
+const DEFAULT_DB_PATH = path.join(repoRoot, 'data', 'aitestbench.sqlite');
 
 let dbInstance: Database.Database | null = null;
 
@@ -18,7 +21,10 @@ export function getDb(): Database.Database {
     return dbInstance;
   }
 
-  const dbPath = process.env.AITESTBENCH_DB_PATH || DEFAULT_DB_PATH;
+  const configuredPath = process.env.AITESTBENCH_DB_PATH?.trim();
+  const dbPath = configuredPath
+    ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(repoRoot, configuredPath))
+    : DEFAULT_DB_PATH;
   ensureDir(dbPath);
 
   const db = new Database(dbPath);

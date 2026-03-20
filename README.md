@@ -82,7 +82,7 @@ Copy/paste starter `.env`:
 ```bash
 AITESTBENCH_API_TOKEN=change-me
 PORT=8080
-AITESTBENCH_DB_PATH=./data/aitestbench.sqlite
+AITESTBENCH_DB_PATH=./data/db/aitestbench.sqlite
 AITESTBENCH_TEST_TEMPLATES_DIR=./backend/data/templates
 RETENTION_DAYS=30
 AITESTBENCH_PYTHON_BIN=python3
