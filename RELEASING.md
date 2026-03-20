@@ -12,7 +12,7 @@ It does not currently publish standalone installers or a compiled backend bundle
 5. Create and push the tag:
 
 ```bash
-git tag v0.1.3
+git tag v0.1.4
 git push origin main --follow-tags
 ```
 

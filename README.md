@@ -1,6 +1,6 @@
 # Inference server Test Bench
 
-Version: `0.1.3`
+Version: `0.1.4`
 
 Local-first harness for running automated LLM tests against OpenAI-compatible
 or Ollama inference servers. It provides:
