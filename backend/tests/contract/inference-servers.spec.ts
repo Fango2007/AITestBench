@@ -48,6 +48,9 @@ describe('inference servers contract', () => {
       headers: AUTH_HEADERS,
       payload: buildCreatePayload()
     });
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${createResponse.statusCode} ${createResponse.body}`);
+    }
     expect(createResponse.statusCode).toBe(201);
     const created = createResponse.json();
     expect(created.inference_server.server_id).toBeTruthy();
@@ -98,6 +101,9 @@ describe('inference servers contract', () => {
       headers: AUTH_HEADERS,
       payload: buildCreatePayload()
     });
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${createResponse.statusCode} ${createResponse.body}`);
+    }
     const created = createResponse.json();
     await new Promise((resolve) => setTimeout(resolve, 2));
     const updatedResponse = await app.inject({
@@ -141,6 +147,9 @@ describe('inference servers contract', () => {
       headers: AUTH_HEADERS,
       payload: buildCreatePayload()
     });
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${createResponse.statusCode} ${createResponse.body}`);
+    }
     const created = createResponse.json();
     const payload = { data: [{ id: 'gpt-test' }] };
     vi.stubGlobal(
@@ -180,6 +189,9 @@ describe('inference servers contract', () => {
         }
       })
     });
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${createResponse.statusCode} ${createResponse.body}`);
+    }
     const created = createResponse.json();
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500 })) as any);
 

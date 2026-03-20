@@ -7,8 +7,16 @@ const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 
 function resetDb() {
   const db = getDb();
-  db.prepare('DELETE FROM models').run();
-  db.prepare('DELETE FROM inference_servers').run();
+  try {
+    db.prepare('DELETE FROM models').run();
+  } catch {
+    // Table may not exist before schema bootstrap in first test.
+  }
+  try {
+    db.prepare('DELETE FROM inference_servers').run();
+  } catch {
+    // Table may not exist before schema bootstrap in first test.
+  }
 }
 
 function buildServerPayload(overrides?: Record<string, unknown>) {
@@ -44,6 +52,8 @@ describe('models contract', () => {
   process.env.AITESTBENCH_API_TOKEN = 'test-token';
   process.env.AITESTBENCH_DB_PATH = ':memory:';
 
+  createServer();
+
   afterEach(() => {
     resetDb();
     vi.restoreAllMocks();
@@ -57,6 +67,9 @@ describe('models contract', () => {
       headers: AUTH_HEADERS,
       payload: buildServerPayload()
     });
+    if (serverResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${serverResponse.statusCode} ${serverResponse.body}`);
+    }
     const server = serverResponse.json();
 
     const createResponse = await app.inject({
@@ -89,6 +102,9 @@ describe('models contract', () => {
       headers: AUTH_HEADERS,
       payload: buildServerPayload()
     });
+    if (serverResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${serverResponse.statusCode} ${serverResponse.body}`);
+    }
     const server = serverResponse.json();
 
     const response = await app.inject({
@@ -110,6 +126,9 @@ describe('models contract', () => {
       headers: AUTH_HEADERS,
       payload: buildServerPayload()
     });
+    if (serverResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${serverResponse.statusCode} ${serverResponse.body}`);
+    }
     const server = serverResponse.json();
     const createResponse = await app.inject({
       method: 'POST',

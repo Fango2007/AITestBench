@@ -1,6 +1,11 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { describe, expect, it } from 'vitest';
 
 import { createServer } from '../../src/api/server.js';
+import { runSchema } from '../../src/models/db.js';
 import { createInferenceServerRecord } from '../../src/services/inference-servers-repository.js';
 import { saveSuite } from '../../src/services/suite-service.js';
 import { upsertTestDefinition } from '../../src/models/test-definition.js';
@@ -9,6 +14,10 @@ import { upsertTestDefinition } from '../../src/models/test-definition.js';
 describe('suite runs API', () => {
   it('creates a suite run', async () => {
     process.env.AITESTBENCH_API_TOKEN = 'test-token';
+    process.env.AITESTBENCH_DB_PATH = ':memory:';
+    const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+    const schemaPath = path.resolve(moduleDir, '../../src/models/schema.sql');
+    runSchema(fs.readFileSync(schemaPath, 'utf8'));
     const app = createServer();
     const server = createInferenceServerRecord({
       inference_server: { display_name: `suite-server-${Date.now()}` },

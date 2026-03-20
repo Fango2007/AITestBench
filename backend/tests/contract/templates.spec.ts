@@ -11,7 +11,11 @@ const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 
 function resetDb() {
   const db = getDb();
-  db.prepare('DELETE FROM active_tests').run();
+  try {
+    db.prepare('DELETE FROM active_tests').run();
+  } catch {
+    // Table may not exist if schema bootstrap did not run before cleanup.
+  }
 }
 
 function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
@@ -21,6 +25,7 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
       version,
       name,
       description: 'Template description',
+      protocols: [],
       steps: [
         {
           id: 'step-1',
@@ -28,9 +33,11 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
             method: 'POST',
             url: '/v1/chat/completions',
             body_template: {}
-          }
+          },
+          assert: []
         }
-      ]
+      ],
+      final_assert: []
     },
     null,
     2
