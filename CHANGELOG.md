@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project follows Semantic Versioning.
 
-## [0.1.4] - 2026-03-20
+## [0.1.0] - 2026-03-20
 
 ### Added
 
@@ -18,4 +18,4 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Standardized the default backend port on `8080` so the backend, frontend, Playwright config, and documentation align out of the box.
 - Added production-oriented `build` and `start` scripts for the backend and frontend workspaces.
-- Excluded the CLI from the `0.1.4` public release surface.
+- Excluded the CLI from the `0.1.0` public release surface.

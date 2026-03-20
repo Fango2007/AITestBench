@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '..', '..', '..');
-const DEFAULT_DB_PATH = path.join(repoRoot, 'data', 'aitestbench.sqlite');
+const DEFAULT_DB_PATH = path.join(repoRoot, 'backend', 'data', 'db', 'aitestbench.sqlite');
 
 let dbInstance: Database.Database | null = null;
 
