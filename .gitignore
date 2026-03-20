@@ -39,6 +39,9 @@ Thumbs.db
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+:memory:
+:memory:-shm
+:memory:-wal
 !backend/src/models/schema.sql
 
 # Coding assistant

@@ -39,3 +39,11 @@ export function runSchema(sql: string): void {
   const db = getDb();
   db.exec(sql);
 }
+
+export function resetDbInstance(): void {
+  if (!dbInstance) {
+    return;
+  }
+  dbInstance.close();
+  dbInstance = null;
+}
