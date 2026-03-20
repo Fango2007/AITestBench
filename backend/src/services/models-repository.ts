@@ -45,7 +45,7 @@ export class InvalidModelError extends Error {
 
 function resolveSchemaPath(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(moduleDir, '../../../specs/003-model-schema/model-schema.json');
+  return path.resolve(moduleDir, '../schemas/model-schema.json');
 }
 
 function defaultIdentity(): ModelIdentity {

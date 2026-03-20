@@ -161,7 +161,7 @@ function defaultDiscovery(): DiscoveryInfo {
 
 function resolveSchemaPath(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(moduleDir, '../../../specs/002-inferencer-server-schema/inferencer-server-schema.json');
+  return path.resolve(moduleDir, '../schemas/inferencer-server-schema.json');
 }
 
 function validateRecord(record: InferenceServerRecord): void {

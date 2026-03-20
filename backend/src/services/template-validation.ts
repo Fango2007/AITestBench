@@ -13,15 +13,12 @@ export interface TemplateValidationError {
 
 function resolveSchemaPath(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(moduleDir, '../../../specs/004-test-template-schema/json-test-template-schema.json');
+  return path.resolve(moduleDir, '../schemas/json-test-template-schema.json');
 }
 
 function resolvePythonSchemaPath(): string {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(
-    moduleDir,
-    '../../../specs/006-python-test-template-schema/python-test-template-schema.json'
-  );
+  return path.resolve(moduleDir, '../schemas/python-test-template-schema.json');
 }
 
 function validateScenarioTemplate(spec: Record<string, unknown>): TemplateValidationError[] {

@@ -57,7 +57,7 @@ const RESULT_SCHEMA_VERSION = '1.0.0';
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const RESULT_SCHEMA_PATH = path.resolve(
   moduleDir,
-  '../../../specs/007-test-result-schema/test-run-result.schema.json'
+  '../schemas/test-run-result.schema.json'
 );
 
 function toNumber(value: unknown): number | null {
