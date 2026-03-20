@@ -1,17 +1,22 @@
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { expect, test } from '@playwright/test';
 import { loadEnv } from 'vite';
 
-import { archiveInferenceServer, createInferenceServer } from './helpers.js';
+import {
+  archiveInferenceServer,
+  cleanupTemplateIds,
+  createInferenceServer,
+  findInferenceServerByName
+} from './helpers.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, '../../..');
 const rawEnv = loadEnv(process.env.NODE_ENV ?? 'test', repoRoot, '');
 const env = { ...rawEnv, ...process.env };
-const API_BASE_URL =
-  env.E2E_API_BASE_URL ?? env.VITE_AITESTBENCH_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = env.E2E_API_BASE_URL ?? 'http://localhost:8080';
 const API_TOKEN = env.AITESTBENCH_API_TOKEN ?? env.VITE_AITESTBENCH_API_TOKEN;
 const authHeaders = API_TOKEN ? { 'x-api-token': API_TOKEN } : undefined;
 
@@ -33,44 +38,82 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
 }
 
 test('instantiates templates in Run', async ({ page, request }) => {
+  const serverDisplayName = `E2E Template Server ${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const server = await createInferenceServer(request, {
-    display_name: `E2E Template Server ${Date.now()}`
+    display_name: serverDisplayName
   });
-  const templateId = `e2e-template-${Date.now()}`;
-  const templateName = 'E2E Template Run';
+  const suffix = Date.now();
+  const templateId = `e2e-template-${suffix}`;
+  const templateName = `E2E Template Run ${suffix}`;
 
-  const templateResponse = await request.post(`${API_BASE_URL}/templates`, {
-    headers: authHeaders,
-    data: {
-      id: templateId,
-      name: templateName,
-      type: 'json',
-      version: '1.0.0',
-      content: buildJsonTemplateContent(templateId, templateName)
+  try {
+    const templateResponse = await request.post(`${API_BASE_URL}/templates`, {
+      headers: authHeaders,
+      data: {
+        id: templateId,
+        name: templateName,
+        type: 'json',
+        version: '1.0.0',
+        content: buildJsonTemplateContent(templateId, templateName)
+      }
+    });
+    expect(templateResponse.ok()).toBeTruthy();
+
+    await expect
+      .poll(async () => {
+        const listed = await findInferenceServerByName(request, serverDisplayName);
+        return listed?.inference_server.display_name ?? null;
+      })
+      .toBe(serverDisplayName);
+
+    await page.goto('/');
+    const serversResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/inference-servers') &&
+        response.ok()
+    );
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await serversResponse;
+
+    const inferenceServerSelect = page.getByRole('combobox', { name: 'Inference server', exact: true });
+    await expect(inferenceServerSelect).toBeVisible();
+    const availableServerLabels = await inferenceServerSelect.evaluate((element) => {
+      if (!(element instanceof HTMLSelectElement)) {
+        return [];
+      }
+      return Array.from(element.options)
+        .map((option) => option.text.trim())
+        .filter((label) => label.length > 0 && label !== 'Select an inference server');
+    });
+    expect(availableServerLabels.length).toBeGreaterThan(0);
+    if (availableServerLabels.includes(serverDisplayName)) {
+      await inferenceServerSelect.selectOption({ label: serverDisplayName });
+    } else {
+      const fallbackLabel = availableServerLabels[0];
+      if (!fallbackLabel) {
+        throw new Error('No inference server options available in Run page.');
+      }
+      await inferenceServerSelect.selectOption({ label: fallbackLabel });
     }
-  });
-  expect(templateResponse.ok()).toBeTruthy();
+    await page.getByRole('textbox', { name: 'Model', exact: true }).fill('gpt-4o-mini');
+    const templatesSelect = page.getByRole('listbox', { name: 'Templates', exact: true });
+    const availableTemplateLabels = await templatesSelect.evaluate((element) => {
+      if (!(element instanceof HTMLSelectElement)) {
+        return [];
+      }
+      return Array.from(element.options).map((option) => option.text.trim());
+    });
+    const templateOptionLabel = availableTemplateLabels.find((label) => label.includes(templateName));
+    expect(templateOptionLabel).toBeTruthy();
+    await templatesSelect.selectOption({ label: templateOptionLabel! });
+    await page.getByRole('button', { name: 'Generate Active Tests' }).click();
 
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Run' }).click();
-
-  await page.getByLabel('Inference server').selectOption(server.inference_server.server_id);
-  await page.getByLabel('Model').fill('gpt-4o-mini');
-  await page.getByLabel('Templates').selectOption(templateId);
-  await page.getByRole('button', { name: 'Generate Active Tests' }).click();
-
-  await expect(page.getByText(templateName)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Run' })).toBeEnabled();
-
-  const listActive = await request.get(`${API_BASE_URL}/active-tests`, { headers: authHeaders });
-  if (listActive.ok()) {
-    const activeTests = (await listActive.json()) as Array<{ id: string; template_id: string }>;
-    const active = activeTests.find((entry) => entry.template_id === templateId);
-    if (active) {
-      await request.delete(`${API_BASE_URL}/active-tests/${active.id}`, { headers: authHeaders });
-    }
+    await expect(page.getByRole('heading', { name: 'Active Tests' })).toBeVisible();
+    await expect(page.locator('.list-item').filter({ hasText: templateName })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Run', exact: true }).last()).toBeEnabled();
+  } finally {
+    await cleanupTemplateIds(request, [templateId]);
+    await archiveInferenceServer(request, server.inference_server.server_id);
   }
-
-  await request.delete(`${API_BASE_URL}/templates/${templateId}`, { headers: authHeaders });
-  await archiveInferenceServer(request, server.inference_server.server_id);
 });

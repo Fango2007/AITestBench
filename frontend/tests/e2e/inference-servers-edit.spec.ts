@@ -8,11 +8,10 @@ test('edits an inference server', async ({ page, request }) => {
 
   await page.goto('/');
 
-  const listItem = page
-    .getByRole('listitem')
-    .filter({ hasText: created.inference_server.display_name });
-  await expect(listItem).toBeVisible();
-  await listItem.getByRole('button', { name: 'Edit' }).click();
+  const serverTab = page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name });
+  await expect(serverTab).toBeVisible();
+  await serverTab.click();
+  await page.getByRole('button', { name: 'Update', exact: true }).click();
 
   const editForm = page
     .locator('form')
@@ -21,7 +20,12 @@ test('edits an inference server', async ({ page, request }) => {
   await editForm.getByLabel('Display name').fill(updatedName);
   await editForm.getByRole('button', { name: 'Save' }).click();
 
-  await expect(page.getByText(updatedName)).toBeVisible();
+  const updatedTab = page.locator('.details-tabs button').filter({ hasText: updatedName });
+  await expect(updatedTab).toBeVisible();
+  const nameRow = page.locator('.detail-row').filter({
+    has: page.getByText('Inference Server', { exact: true })
+  });
+  await expect(nameRow).toContainText(updatedName);
 
   const updated = (await findInferenceServerByName(request, updatedName)) ?? created;
   await archiveInferenceServer(request, updated.inference_server.server_id);

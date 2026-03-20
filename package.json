@@ -14,6 +14,7 @@
     "build": "npm run build:frontend",
     "build:frontend": "npm -w frontend run build",
     "dev": "concurrently \"npm -w backend run dev\" \"npm -w frontend run dev\"",
+    "e2e:serve": "concurrently \"npm run start:backend\" \"npm -w frontend run dev\"",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "release:check": "npm run lint && npm test && npm run build",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",

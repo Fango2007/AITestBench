@@ -7,17 +7,9 @@ test('archives an inference server', async ({ page, request }) => {
 
   await page.goto('/');
 
-  const activeCard = page
-    .locator('.card')
-    .filter({ has: page.getByRole('heading', { name: 'Active' }) });
-  const archivedCard = page
-    .locator('.card')
-    .filter({ has: page.getByRole('heading', { name: 'Archived' }) });
-
-  const listItem = activeCard
-    .getByRole('listitem')
-    .filter({ hasText: created.inference_server.display_name });
-  await expect(listItem).toBeVisible();
+  const serverTab = page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name });
+  await expect(serverTab).toBeVisible();
+  await serverTab.click();
 
   const [archiveResponse] = await Promise.all([
     page.waitForResponse(
@@ -25,12 +17,10 @@ test('archives an inference server', async ({ page, request }) => {
         response.request().method() === 'POST'
         && response.url().includes(`/inference-servers/${created.inference_server.server_id}/archive`)
     ),
-    listItem.getByRole('button', { name: 'Archive' }).click()
+    page.getByRole('button', { name: 'Archive', exact: true }).click()
   ]);
   expect(archiveResponse.ok()).toBeTruthy();
 
-  await expect(activeCard.getByText(created.inference_server.display_name)).toHaveCount(0);
-  await expect(archivedCard.getByText(created.inference_server.display_name)).toBeVisible();
-
-  await archiveInferenceServer(request, created.inference_server.server_id);
+  await expect(page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name })).toContainText('Archived');
+  await expect(page.getByRole('button', { name: 'Unarchive', exact: true })).toBeVisible();
 });

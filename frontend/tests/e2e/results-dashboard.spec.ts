@@ -95,5 +95,6 @@ test('results dashboard filter and render flow', async ({ page }) => {
     .getByLabel('Group Keys (comma-separated)')
     .fill('runtime:ollama|model:mistral:latest|metric:latency_ms');
 
-  await expect(page.getByText('Grouped: latency-benchmark')).toBeVisible();
+  await expect(page.getByLabel('Metric')).toHaveValue('latency_ms');
+  await expect(page.locator('[data-panel-type="graph"]').getByRole('heading', { name: 'latency_ms' })).toBeVisible();
 });

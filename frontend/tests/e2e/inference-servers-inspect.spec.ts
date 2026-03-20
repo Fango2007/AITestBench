@@ -7,18 +7,19 @@ test('inspects an inference server', async ({ page, request }) => {
 
   await page.goto('/');
 
-  const listItem = page
-    .getByRole('listitem')
-    .filter({ hasText: created.inference_server.display_name });
-  await expect(listItem).toBeVisible();
-  await listItem.getByRole('button', { name: 'Inspect' }).click();
+  const serverTab = page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name });
+  await expect(serverTab).toBeVisible();
+  await serverTab.click();
 
-  const inspector = page
-    .locator('.card')
-    .filter({ has: page.getByRole('heading', { name: 'Server details' }) });
+  const inferenceServerRow = page.locator('.detail-row').filter({
+    has: page.getByText('Inference Server', { exact: true })
+  });
+  const baseUrlRow = page.locator('.detail-row').filter({
+    has: page.getByText('Base URL', { exact: true })
+  });
 
-  await expect(inspector.getByText(created.inference_server.display_name)).toBeVisible();
-  await expect(inspector.getByText(created.endpoints.base_url)).toBeVisible();
+  await expect(inferenceServerRow.getByText(created.inference_server.display_name, { exact: true })).toBeVisible();
+  await expect(baseUrlRow.getByText(created.endpoints.base_url, { exact: true })).toBeVisible();
 
   await archiveInferenceServer(request, created.inference_server.server_id);
 });

@@ -18,11 +18,13 @@ test('creates a new inference server from the dashboard', async ({ page, request
   await createForm.getByLabel('Base URL').fill(baseUrl);
   await createForm.getByRole('button', { name: 'Create' }).click();
 
-  const activeCard = page
-    .locator('.card')
-    .filter({ has: page.getByRole('heading', { name: 'Active' }) });
-
-  await expect(activeCard.getByText(displayName)).toBeVisible();
+  const serverTab = page.locator('.details-tabs button').filter({ hasText: displayName });
+  await expect(serverTab).toBeVisible();
+  await serverTab.click();
+  const inferenceServerRow = page.locator('.detail-row').filter({
+    has: page.getByText('Inference Server', { exact: true })
+  });
+  await expect(inferenceServerRow.getByText(displayName, { exact: true })).toBeVisible();
 
   const created = await findInferenceServerByName(request, displayName);
   if (created) {

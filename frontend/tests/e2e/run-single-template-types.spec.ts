@@ -1,17 +1,22 @@
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import { expect, test } from '@playwright/test';
 import { loadEnv } from 'vite';
 
-import { archiveInferenceServer, createInferenceServer } from './helpers.js';
+import {
+  archiveInferenceServer,
+  cleanupTemplateIds,
+  createInferenceServer,
+  findInferenceServerByName
+} from './helpers.js';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, '../../..');
 const rawEnv = loadEnv(process.env.NODE_ENV ?? 'test', repoRoot, '');
 const env = { ...rawEnv, ...process.env };
-const API_BASE_URL =
-  env.E2E_API_BASE_URL ?? env.VITE_AITESTBENCH_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = env.E2E_API_BASE_URL ?? 'http://localhost:8080';
 const API_TOKEN = env.AITESTBENCH_API_TOKEN ?? env.VITE_AITESTBENCH_API_TOKEN;
 const authHeaders = API_TOKEN ? { 'x-api-token': API_TOKEN } : undefined;
 
@@ -55,57 +60,101 @@ function buildPythonTemplateContent(id: string, name: string, version = '1.0.0')
 }
 
 test('supports JSON and Python template types', async ({ page, request }) => {
+  const serverDisplayName = `E2E Template Type Server ${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const server = await createInferenceServer(request, {
-    display_name: `E2E Template Type Server ${Date.now()}`
+    display_name: serverDisplayName
   });
-  const jsonTemplateId = `e2e-json-${Date.now()}`;
-  const pythonTemplateId = `e2e-python-${Date.now()}`;
+  const suffix = Date.now();
+  const jsonTemplateId = `e2e-json-${suffix}`;
+  const pythonTemplateId = `e2e-python-${suffix}`;
+  const jsonTemplateName = `JSON Template ${suffix}`;
+  const pythonTemplateName = `Python Template ${suffix}`;
+  try {
+    const jsonTemplateResponse = await request.post(`${API_BASE_URL}/templates`, {
+      headers: authHeaders,
+      data: {
+        id: jsonTemplateId,
+        name: jsonTemplateName,
+        type: 'json',
+        version: '1.0.0',
+        content: buildJsonTemplateContent(jsonTemplateId, jsonTemplateName)
+      }
+    });
+    expect(jsonTemplateResponse.ok()).toBeTruthy();
 
-  await request.post(`${API_BASE_URL}/templates`, {
-    headers: authHeaders,
-    data: {
-      id: jsonTemplateId,
-      name: 'JSON Template',
-      type: 'json',
-      version: '1.0.0',
-      content: buildJsonTemplateContent(jsonTemplateId, 'JSON Template')
+    const pythonTemplateResponse = await request.post(`${API_BASE_URL}/templates`, {
+      headers: authHeaders,
+      data: {
+        id: pythonTemplateId,
+        name: pythonTemplateName,
+        type: 'python',
+        version: '1.0.0',
+        content: buildPythonTemplateContent(pythonTemplateId, pythonTemplateName)
+      }
+    });
+    expect(pythonTemplateResponse.ok()).toBeTruthy();
+
+    await expect
+      .poll(async () => {
+        const listed = await findInferenceServerByName(request, serverDisplayName);
+        return listed?.inference_server.display_name ?? null;
+      })
+      .toBe(serverDisplayName);
+
+    await page.goto('/');
+    const serversResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes('/inference-servers') &&
+        response.ok()
+    );
+    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await serversResponse;
+    await expect(page.getByRole('heading', { name: 'Run Single Test' })).toBeVisible();
+
+    const inferenceServerSelect = page.getByRole('combobox', { name: 'Inference server', exact: true });
+    await expect(inferenceServerSelect).toBeVisible();
+    const availableServerLabels = await inferenceServerSelect.evaluate((element) => {
+      if (!(element instanceof HTMLSelectElement)) {
+        return [];
+      }
+      return Array.from(element.options)
+        .map((option) => option.text.trim())
+        .filter((label) => label.length > 0 && label !== 'Select an inference server');
+    });
+    expect(availableServerLabels.length).toBeGreaterThan(0);
+    if (availableServerLabels.includes(serverDisplayName)) {
+      await inferenceServerSelect.selectOption({ label: serverDisplayName });
+    } else {
+      const fallbackLabel = availableServerLabels[0];
+      if (!fallbackLabel) {
+        throw new Error('No inference server options available in Run page.');
+      }
+      await inferenceServerSelect.selectOption({ label: fallbackLabel });
     }
-  });
+    await page.getByRole('textbox', { name: 'Model', exact: true }).fill('gpt-4o-mini');
+    const templatesSelect = page.getByRole('listbox', { name: 'Templates', exact: true });
+    const availableTemplateLabels = await templatesSelect.evaluate((element) => {
+      if (!(element instanceof HTMLSelectElement)) {
+        return [];
+      }
+      return Array.from(element.options).map((option) => option.text.trim());
+    });
+    const jsonTemplateLabel = availableTemplateLabels.find((label) => label.includes(jsonTemplateName));
+    const pythonTemplateLabel = availableTemplateLabels.find((label) => label.includes(pythonTemplateName));
+    expect(jsonTemplateLabel).toBeTruthy();
+    expect(pythonTemplateLabel).toBeTruthy();
+    await templatesSelect.selectOption([
+      { label: jsonTemplateLabel! },
+      { label: pythonTemplateLabel! }
+    ]);
+    await page.getByRole('button', { name: 'Generate Active Tests' }).click();
 
-  await request.post(`${API_BASE_URL}/templates`, {
-    headers: authHeaders,
-    data: {
-      id: pythonTemplateId,
-      name: 'Python Template',
-      type: 'python',
-      version: '1.0.0',
-      content: buildPythonTemplateContent(pythonTemplateId, 'Python Template')
-    }
-  });
-
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Run' }).click();
-  await expect(page.getByRole('heading', { name: 'Run Single Test' })).toBeVisible();
-
-  await page.getByLabel('Inference server', { exact: true }).selectOption(server.inference_server.server_id);
-  await page.getByLabel('Model').fill('gpt-4o-mini');
-  await page.getByLabel('Templates').selectOption([jsonTemplateId, pythonTemplateId]);
-  await page.getByRole('button', { name: 'Generate Active Tests' }).click();
-
-  await expect(page.getByText('Sandbox ready')).toBeVisible();
-  await expect(page.getByText('Runnable Command Preview')).toBeVisible();
-
-  const listActive = await request.get(`${API_BASE_URL}/active-tests`, { headers: authHeaders });
-  if (listActive.ok()) {
-    const activeTests = (await listActive.json()) as Array<{ id: string; template_id: string }>;
-    for (const active of activeTests.filter((entry) =>
-      [jsonTemplateId, pythonTemplateId].includes(entry.template_id)
-    )) {
-      await request.delete(`${API_BASE_URL}/active-tests/${active.id}`, { headers: authHeaders });
-    }
+    await expect(page.getByRole('heading', { name: 'Active Tests' })).toBeVisible();
+    await expect(page.getByText('Sandbox ready')).toBeVisible();
+    await expect(page.getByText('Runnable Command Preview')).toBeVisible();
+  } finally {
+    await cleanupTemplateIds(request, [jsonTemplateId, pythonTemplateId]);
+    await archiveInferenceServer(request, server.inference_server.server_id);
   }
-
-  await request.delete(`${API_BASE_URL}/templates/${jsonTemplateId}`, { headers: authHeaders });
-  await request.delete(`${API_BASE_URL}/templates/${pythonTemplateId}`, { headers: authHeaders });
-  await archiveInferenceServer(request, server.inference_server.server_id);
 });
