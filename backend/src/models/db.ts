@@ -22,10 +22,15 @@ export function getDb(): Database.Database {
   }
 
   const configuredPath = process.env.AITESTBENCH_DB_PATH?.trim();
-  const dbPath = configuredPath
-    ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(repoRoot, configuredPath))
-    : DEFAULT_DB_PATH;
-  ensureDir(dbPath);
+  const isSpecialPath = configuredPath === ':memory:' || configuredPath?.startsWith('file:');
+  const dbPath = isSpecialPath
+    ? configuredPath!
+    : configuredPath
+      ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(repoRoot, configuredPath))
+      : DEFAULT_DB_PATH;
+  if (!isSpecialPath) {
+    ensureDir(dbPath);
+  }
 
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
