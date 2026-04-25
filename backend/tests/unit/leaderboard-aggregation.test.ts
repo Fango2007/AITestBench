@@ -108,3 +108,62 @@ describe('getLeaderboard', () => {
     expect(result.entries[1].rank).toBe(2);
   });
 });
+
+describe('getLeaderboard performance benchmark', () => {
+  beforeEach(() => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitb-lb-perf-'));
+    process.env.AITESTBENCH_DB_PATH = path.join(tmpDir, 'test.sqlite');
+    resetDbInstance();
+    runSchema(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+    seedServer('srv-perf');
+  });
+
+  afterEach(() => {
+    resetDbInstance();
+  });
+
+  it('p95 ≤ 200 ms for 5,000 evaluations across 50 distinct model names', () => {
+    const db = getDb();
+    const modelNames = Array.from({ length: 50 }, (_, i) => `perf-model-${i.toString().padStart(2, '0')}`);
+
+    const insertPrompt = db.prepare('INSERT INTO eval_prompts (id, text, tags, created_at) VALUES (?, ?, ?, ?)');
+    const insertEval = db.prepare(`
+      INSERT INTO evaluations (
+        id, prompt_id, model_name, server_id, inference_config, answer_text,
+        accuracy_score, relevance_score, coherence_score, completeness_score, helpfulness_score,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const seed = db.transaction(() => {
+      const base = new Date('2026-01-01T00:00:00.000Z').getTime();
+      for (let i = 0; i < 5000; i++) {
+        const promptId = crypto.randomUUID();
+        const evalId = crypto.randomUUID();
+        const modelName = modelNames[i % 50];
+        const createdAt = new Date(base + i * 1000).toISOString();
+        insertPrompt.run(promptId, `Prompt ${i}`, '[]', createdAt);
+        insertEval.run(
+          evalId, promptId, modelName, 'srv-perf',
+          '{}', 'Answer',
+          3, 4, 3, 4, 3,
+          createdAt
+        );
+      }
+    });
+
+    seed();
+
+    const runs = 20;
+    const durations: number[] = [];
+    for (let i = 0; i < runs; i++) {
+      const start = performance.now();
+      getLeaderboard({});
+      durations.push(performance.now() - start);
+    }
+
+    durations.sort((a, b) => a - b);
+    const p95 = durations[Math.ceil(runs * 0.95) - 1];
+    expect(p95).toBeLessThan(200);
+  }, 30000);
+});
