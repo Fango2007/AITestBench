@@ -201,3 +201,41 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_test_templates_active_name
 CREATE INDEX IF NOT EXISTS idx_test_templates_status ON test_templates(status);
 CREATE INDEX IF NOT EXISTS idx_template_versions_template ON test_template_versions(template_id);
 CREATE INDEX IF NOT EXISTS idx_instantiated_tests_template ON instantiated_tests(template_id);
+
+CREATE TABLE IF NOT EXISTS eval_prompts (
+  id          TEXT NOT NULL PRIMARY KEY,
+  text        TEXT NOT NULL,
+  tags        TEXT NOT NULL DEFAULT '[]',
+  created_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_eval_prompts_created_at ON eval_prompts(created_at);
+
+CREATE TABLE IF NOT EXISTS evaluations (
+  id                  TEXT NOT NULL PRIMARY KEY,
+  prompt_id           TEXT NOT NULL,
+  model_name          TEXT NOT NULL,
+  server_id           TEXT NOT NULL,
+  inference_config    TEXT NOT NULL,
+  answer_text         TEXT NOT NULL,
+  input_tokens        INTEGER,
+  output_tokens       INTEGER,
+  total_tokens        INTEGER,
+  latency_ms          REAL,
+  word_count          INTEGER,
+  estimated_cost      REAL,
+  accuracy_score      INTEGER NOT NULL CHECK (accuracy_score BETWEEN 1 AND 5),
+  relevance_score     INTEGER NOT NULL CHECK (relevance_score BETWEEN 1 AND 5),
+  coherence_score     INTEGER NOT NULL CHECK (coherence_score BETWEEN 1 AND 5),
+  completeness_score  INTEGER NOT NULL CHECK (completeness_score BETWEEN 1 AND 5),
+  helpfulness_score   INTEGER NOT NULL CHECK (helpfulness_score BETWEEN 1 AND 5),
+  note                TEXT,
+  created_at          TEXT NOT NULL,
+  FOREIGN KEY (prompt_id)  REFERENCES eval_prompts(id),
+  FOREIGN KEY (server_id)  REFERENCES inference_servers(server_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_evaluations_model_name  ON evaluations(model_name);
+CREATE INDEX IF NOT EXISTS idx_evaluations_prompt_id   ON evaluations(prompt_id);
+CREATE INDEX IF NOT EXISTS idx_evaluations_created_at  ON evaluations(created_at);
+CREATE INDEX IF NOT EXISTS idx_evaluations_server_id   ON evaluations(server_id);
