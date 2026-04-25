@@ -1,6 +1,6 @@
 # Releasing
 
-This repository ships `0.1.x` as a source release for local desktop deployment.
+This repository ships source releases for local desktop deployment.
 It does not currently publish standalone installers or a compiled backend bundle.
 
 ## Release checklist
@@ -9,10 +9,10 @@ It does not currently publish standalone installers or a compiled backend bundle
 2. Run `npm ci`.
 3. Run `npm run release:check`.
 4. Commit the release changes.
-5. Create and push the tag:
+5. Create and push the tag (replace `X.Y.Z` with the version from `package.json`):
 
 ```bash
-git tag v0.1.0
+git tag vX.Y.Z
 git push origin main --follow-tags
 ```
 
