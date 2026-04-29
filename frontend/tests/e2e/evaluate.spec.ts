@@ -8,7 +8,7 @@ test.describe('Evaluate page', () => {
   });
 
   test('shows the evaluation form with all required inputs', async ({ page }) => {
-    await expect(page.getByText('Inference server')).toBeVisible();
+    await expect(page.locator('.evaluation-form select').first()).toBeVisible();
     await expect(page.getByPlaceholder('Enter your prompt...')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Run Inference' })).toBeVisible();
   });

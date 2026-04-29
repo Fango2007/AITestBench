@@ -22,6 +22,9 @@
     "start:frontend": "npm -w frontend run preview",
     "test": "npm -w backend test && npm -w frontend test"
   },
+  "overrides": {
+    "vite": "^8.0.10"
+  },
   "devDependencies": {
     "@typescript-eslint/parser": "^8.0.0",
     "concurrently": "^9.0.1",
