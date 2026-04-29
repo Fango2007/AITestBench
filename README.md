@@ -1,12 +1,13 @@
 # Inference server Test Bench
 
-Version: `0.1.0`
+Version: `0.2.0`
 
 Local-first harness for running automated LLM tests against OpenAI-compatible
 or Ollama inference servers. It provides:
 
 - A local HTTP API for triggering runs and fetching results
 - A lightweight dashboard for browsing runs, profiles, and comparisons
+- An evaluation workflow for scoring LLM answers on five qualitative dimensions and a ranked leaderboard for comparing models
 
 ## Purpose
 
@@ -20,7 +21,11 @@ templates, execute runs from a browser-based dashboard, and inspect results in
 one place. The application supports both declarative JSON tests and
 Python-backed tests, keeps run history and metrics locally, and provides a
 results dashboard for filtering, comparing, and reviewing performance and
-response data over time.
+response data over time. It also includes a qualitative evaluation flow: submit
+a prompt to any registered model, receive the answer with six auto-computed
+quantitative metrics, score the answer on five dimensions (accuracy, relevance,
+coherence, completeness, helpfulness), and compare all evaluated models on a
+ranked leaderboard.
 
 ## Components
 
@@ -121,6 +126,48 @@ hidden from run selection by default.
 
 The Settings menu (bottom-left) lets you clear all DB tables and edit the
 repo-root `.env` file. Env changes apply after restarting the backend.
+
+The **Evaluate** page (pencil-star icon) lets you submit a prompt to a
+registered model, review the answer with six auto-computed metrics, assign
+qualitative scores, and save an immutable evaluation record. Compare Mode
+(up to four models) runs the same prompt against multiple models side-by-side.
+
+The **Leaderboard** page (trophy icon) ranks all evaluated models by composite
+qualitative score. Use the date-range and tag filters to focus on a subset of
+evaluations; the leaderboard refreshes automatically when a new evaluation is
+saved.
+
+## Frontend workflow: evaluate and rank LLM answers
+
+### 1) Run inference and score the answer
+
+1. Start the app with `npm run dev`.
+2. Open the dashboard and click **Evaluate** (pencil-star icon in the sidebar).
+3. Select an inference server and type (or select) a model name.
+4. Enter a prompt and adjust inference parameters (temperature, top-p, max tokens, quantization) if needed.
+5. Click **Run Inference**. The answer appears with six auto-computed metrics:
+   - Input tokens, output tokens, total tokens
+   - Latency (ms), word count, estimated cost
+   - Metrics not available from the server are shown as N/A.
+6. Rate the answer on five dimensions using the 1–5 sliders: Accuracy, Relevance, Coherence, Completeness, Helpfulness.
+7. Optionally add a note, then click **Save Evaluation**. A confirmation appears inline and the leaderboard updates automatically.
+
+### 2) Compare multiple models side-by-side
+
+1. On the **Evaluate** page, click **Compare Mode**.
+2. A second evaluation form appears sharing the same prompt and inference parameters.
+3. Click **+** to add up to four models. Click **−** to remove one.
+4. Run inference and score each model independently. Each **Save** records a separate evaluation.
+5. Click **Single Mode** to return to the standard single-form view.
+
+### 3) Review the leaderboard
+
+1. Click **Leaderboard** (trophy icon in the sidebar).
+2. All evaluated models appear ranked by composite qualitative score (arithmetic mean of the five dimensions).
+3. Each row shows per-dimension averages, aggregate token/latency/cost stats, and evaluation count.
+4. Use the **date-from / date-to** fields and the **tag** chip input to filter the leaderboard to a specific time window or prompt category. Click **Apply** to update and **Clear** to restore all results.
+
+---
 
 ## Frontend workflow: from server definition to a test run
 

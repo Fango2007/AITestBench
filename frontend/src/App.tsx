@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { CompareRuns } from './pages/CompareRuns.js';
+import { Evaluate } from './pages/Evaluate.js';
+import { Leaderboard } from './pages/Leaderboard.js';
 import { Models } from './pages/Models.js';
 import { RunSingle } from './pages/RunSingle.js';
 import { Templates } from './pages/Templates.js';
@@ -11,7 +13,7 @@ import { InferenceServerRecord, listInferenceServers } from './services/inferenc
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from './services/connectivity-api.js';
 import { EnvEntry, clearDatabase, listEnvEntries, setEnvEntry } from './services/system-api.js';
 
-type View = 'servers' | 'run-single' | 'templates' | 'models' | 'compare' | 'results-dashboard';
+type View = 'servers' | 'run-single' | 'templates' | 'models' | 'compare' | 'results-dashboard' | 'evaluate' | 'leaderboard';
 
 type SystemMetrics = {
   cpu: {
@@ -548,6 +550,29 @@ export function App() {
                 <path d="M4 18h16M7 14l3-3 2 2 4-5" stroke="currentColor" strokeWidth="1.5" fill="none" />
               </svg>
             </button>
+            <button
+              type="button"
+              className={view === 'evaluate' ? 'active' : undefined}
+              onClick={() => setView('evaluate')}
+              aria-label="Evaluate"
+              title="Evaluate"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20l6-6m0 0l2-5 3 3 5-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                <circle cx="10" cy="14" r="1" fill="currentColor" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={view === 'leaderboard' ? 'active' : undefined}
+              onClick={() => setView('leaderboard')}
+              aria-label="Leaderboard"
+              title="Leaderboard"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3l2 5h5l-4 3 1 5-4-3-4 3 1-5-4-3h5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
+              </svg>
+            </button>
           </div>
           <div className="nav-footer">
             <button
@@ -587,6 +612,10 @@ export function App() {
             <Models />
           ) : view === 'results-dashboard' ? (
             <ResultsDashboard />
+          ) : view === 'evaluate' ? (
+            <Evaluate />
+          ) : view === 'leaderboard' ? (
+            <Leaderboard setView={(v) => setView(v as View)} />
           ) : (
             <CompareRuns />
           )}
