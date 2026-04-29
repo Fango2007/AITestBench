@@ -25,6 +25,10 @@
   "overrides": {
     "vite": "^8.0.10"
   },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-x64-gnu": "1.0.0-rc.17",
+    "@rolldown/binding-linux-x64-musl": "1.0.0-rc.17"
+  },
   "devDependencies": {
     "@typescript-eslint/parser": "^8.0.0",
     "concurrently": "^9.0.1",
