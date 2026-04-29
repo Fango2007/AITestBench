@@ -6,12 +6,12 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-04-29
+
 ### Security
 
 - Upgraded Vite from 7.3.1 to 8.0.10, resolving three high-severity vulnerabilities (path traversal in optimised deps `.map` handling, `server.fs.deny` bypass via query strings, arbitrary file read via dev-server WebSocket — GHSA-4w7w-66w2-5vf9, GHSA-v2wj-q39q-566r, GHSA-p9ff-h696-f583).
 - Co-upgraded `@vitejs/plugin-react` to 6.0.1 and `vitest` to 4.1.5, both of which require Vite 8.
-
-## [0.2.0] - 2026-04-25
 
 ### Added
 
