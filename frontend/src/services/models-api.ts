@@ -14,6 +14,8 @@ export type ModelProvider =
   | 'custom'
   | 'unknown';
 export type ModelQuantisationMethod = 'gguf' | 'gptq' | 'awq' | 'mlx' | 'none' | 'unknown';
+export type ModelFormat = 'MLX' | 'GGUF' | 'GPTQ' | 'AWQ' | 'SafeTensors';
+export type ModelCapabilityTag = 'thinking' | 'coding' | 'instruct' | 'mixture_of_experts';
 
 export interface ModelRecord {
   model: {
@@ -25,6 +27,7 @@ export interface ModelRecord {
     created_at: string;
     updated_at: string;
     archived_at: string | null;
+    base_model_name: string | null;
   };
   identity: {
     provider: ModelProvider;
@@ -32,6 +35,7 @@ export interface ModelRecord {
     version: string | null;
     revision: string | null;
     checksum: string | null;
+    quantized_provider: string | null;
   };
   architecture: {
     type: string;
@@ -45,11 +49,13 @@ export interface ModelRecord {
       variant?: string | null;
       weight_format?: string | null;
     };
+    format: ModelFormat | null;
   };
   capabilities: {
     generation: { text: boolean; json_schema_output: boolean; tools: boolean; embeddings: boolean };
     multimodal: { vision: boolean; audio: boolean };
     reasoning: { supported: boolean; explicit_tokens: boolean };
+    use_case: { thinking: boolean; coding: boolean; instruct: boolean; mixture_of_experts: boolean };
   };
   limits: {
     context_window_tokens: number | null;
@@ -63,7 +69,9 @@ export interface ModelInput {
   model?: Partial<ModelRecord['model']>;
   identity?: Partial<ModelRecord['identity']>;
   architecture?: Partial<ModelRecord['architecture']>;
-  capabilities?: Partial<ModelRecord['capabilities']>;
+  capabilities?: Partial<ModelRecord['capabilities']> & {
+    use_case?: Partial<ModelRecord['capabilities']['use_case']>;
+  };
   limits?: Partial<ModelRecord['limits']>;
 }
 

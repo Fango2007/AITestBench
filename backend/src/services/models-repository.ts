@@ -21,6 +21,7 @@ import {
   updateModel
 } from '../models/model.js';
 import { nowIso } from '../models/repositories.js';
+import { extractBaseModelName } from './model-name-parser.js';
 import { validateWithSchema } from './schema-validator.js';
 
 export interface ModelInput {
@@ -54,7 +55,8 @@ function defaultIdentity(): ModelIdentity {
     family: null,
     version: null,
     revision: null,
-    checksum: null
+    checksum: null,
+    quantized_provider: null
   };
 }
 
@@ -63,7 +65,8 @@ function defaultArchitecture(): ModelArchitecture {
     type: 'unknown',
     parameter_count: null,
     precision: 'unknown',
-    quantisation: { method: 'unknown', bits: null, group_size: null }
+    quantisation: { method: 'unknown', bits: null, group_size: null },
+    format: null
   };
 }
 
@@ -75,7 +78,8 @@ function defaultCapabilities(): ModelCapabilities {
   return {
     generation: { text: false, json_schema_output: false, tools: false, embeddings: false },
     multimodal: { vision: false, audio: false },
-    reasoning: { supported: false, explicit_tokens: false }
+    reasoning: { supported: false, explicit_tokens: false },
+    use_case: { thinking: false, coding: false, instruct: false, mixture_of_experts: false }
   };
 }
 
@@ -165,7 +169,8 @@ function mergeCapabilities(
     ...updates,
     generation: { ...base.generation, ...updates.generation },
     multimodal: { ...base.multimodal, ...updates.multimodal },
-    reasoning: { ...base.reasoning, ...updates.reasoning }
+    reasoning: { ...base.reasoning, ...updates.reasoning },
+    use_case: { ...base.use_case, ...updates.use_case }
   };
 }
 
@@ -276,6 +281,10 @@ export function createModelRecord(input: ModelInput): ModelRecord {
   }
 
   const now = nowIso();
+  const inferredBaseName =
+    input.model?.base_model_name !== undefined
+      ? (input.model.base_model_name ?? null)
+      : extractBaseModelName(modelId);
   const record: ModelRecord = {
     model_schema_version: MODEL_SCHEMA_VERSION,
     model: {
@@ -286,7 +295,8 @@ export function createModelRecord(input: ModelInput): ModelRecord {
       archived: modelInfo.archived ?? false,
       created_at: now,
       updated_at: now,
-      archived_at: modelInfo.archived_at ?? null
+      archived_at: modelInfo.archived_at ?? null,
+      base_model_name: inferredBaseName
     },
     identity: mergeIdentity(null, input.identity),
     architecture: mergeArchitecture(null, input.architecture),

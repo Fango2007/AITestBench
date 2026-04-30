@@ -88,6 +88,33 @@ function parseQuantisationBits(text: string): number | null {
   return null;
 }
 
+const DROP_PATTERNS = [
+  /^mlx$/i,
+  /^gguf$/i,
+  /^gptq$/i,
+  /^awq$/i,
+  /^safetensors$/i,
+  /^\d+(\.\d+)?bit$/i,
+  /^q\d+(_k_[sml]|_[0-3])?$/i,
+  /^\d{4,}$/,
+  /^fp(16|32)$/i,
+  /^bf16$/i,
+  /^int[48]$/i
+];
+
+export function extractBaseModelName(modelId: string): string | null {
+  if (!modelId.trim()) {
+    return null;
+  }
+  const stripped = modelId.replace(/^\/?[^/]+\//, '');
+  const parts = stripped.split(/[-_]/);
+  while (parts.length > 0 && DROP_PATTERNS.some((p) => p.test(parts[parts.length - 1]))) {
+    parts.pop();
+  }
+  const result = parts.join('-');
+  return result || null;
+}
+
 export function guessModelCharacteristics(modelName: string): ModelNameGuess {
   const normalized = modelName.trim();
   const provider =

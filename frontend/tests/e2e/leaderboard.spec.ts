@@ -13,7 +13,7 @@ const rawEnv = loadEnv(process.env.NODE_ENV ?? 'test', repoRoot, '');
 const env = { ...rawEnv, ...process.env };
 const API_BASE_URL = env.E2E_API_BASE_URL ?? 'http://localhost:8080';
 const API_TOKEN = env.AITESTBENCH_API_TOKEN ?? env.VITE_AITESTBENCH_API_TOKEN;
-const authHeaders = API_TOKEN ? { 'x-api-token': API_TOKEN } : {};
+const authHeaders: Record<string, string> = API_TOKEN ? { 'x-api-token': API_TOKEN } : {};
 
 async function seedEvaluation(
   request: APIRequestContext,

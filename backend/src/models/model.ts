@@ -1,7 +1,7 @@
 import { getDb } from './db.js';
 import { nowIso, parseJson, serializeJson } from './repositories.js';
 
-export const MODEL_SCHEMA_VERSION = '1.0.0';
+export const MODEL_SCHEMA_VERSION = '1.1.0';
 
 export type ModelProvider =
   | 'openai'
@@ -19,6 +19,8 @@ export type ModelProvider =
 export type ModelArchitectureType = 'decoder-only' | 'encoder-decoder' | 'other' | 'unknown';
 export type ModelPrecision = 'fp32' | 'fp16' | 'bf16' | 'int8' | 'int4' | 'mixed' | 'unknown';
 export type ModelQuantisationMethod = 'gguf' | 'gptq' | 'awq' | 'mlx' | 'none' | 'unknown';
+export type ModelFormat = 'MLX' | 'GGUF' | 'GPTQ' | 'AWQ' | 'SafeTensors';
+export type ModelCapabilityTag = 'thinking' | 'coding' | 'instruct' | 'mixture_of_experts';
 export type ContextStrategyType = 'truncate' | 'sliding' | 'summarise' | 'custom';
 export type DiscoverySource = 'server' | 'manual' | 'test';
 
@@ -31,6 +33,7 @@ export interface ModelInfo {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  base_model_name: string | null;
 }
 
 export interface ModelIdentity {
@@ -39,6 +42,7 @@ export interface ModelIdentity {
   version: string | null;
   revision: string | null;
   checksum: string | null;
+  quantized_provider: string | null;
 }
 
 export interface ModelArchitecture {
@@ -53,6 +57,7 @@ export interface ModelArchitecture {
     variant?: 'S' | 'M' | 'L' | null;
     weight_format?: string | null;
   };
+  format: ModelFormat | null;
 }
 
 export interface ModelModalities {
@@ -74,6 +79,12 @@ export interface ModelCapabilities {
   reasoning: {
     supported: boolean;
     explicit_tokens: boolean;
+  };
+  use_case: {
+    thinking: boolean;
+    coding: boolean;
+    instruct: boolean;
+    mixture_of_experts: boolean;
   };
 }
 
@@ -137,7 +148,8 @@ function defaultIdentity(): ModelIdentity {
     family: null,
     version: null,
     revision: null,
-    checksum: null
+    checksum: null,
+    quantized_provider: null
   };
 }
 
@@ -153,7 +165,8 @@ function defaultArchitecture(): ModelArchitecture {
       scheme: null,
       variant: null,
       weight_format: null
-    }
+    },
+    format: null
   };
 }
 
@@ -165,7 +178,8 @@ function defaultCapabilities(): ModelCapabilities {
   return {
     generation: { text: false, json_schema_output: false, tools: false, embeddings: false },
     multimodal: { vision: false, audio: false },
-    reasoning: { supported: false, explicit_tokens: false }
+    reasoning: { supported: false, explicit_tokens: false },
+    use_case: { thinking: false, coding: false, instruct: false, mixture_of_experts: false }
   };
 }
 
@@ -218,6 +232,7 @@ function mapRow(row: {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  base_model_name?: string | null;
   model_schema_version: string;
   identity: string | null;
   architecture: string | null;
@@ -229,6 +244,12 @@ function mapRow(row: {
   discovery: string | null;
   raw: string | null;
 }): ModelRecord {
+  const rawIdentity = (parseJson(row.identity ?? '') as Partial<ModelIdentity>) ?? {};
+  const rawArch = (parseJson(row.architecture ?? '') as Partial<ModelArchitecture>) ?? {};
+  const rawCaps = (parseJson(row.capabilities ?? '') as Partial<ModelCapabilities>) ?? {};
+  const defCaps = defaultCapabilities();
+  const defArch = defaultArchitecture();
+
   return {
     model_schema_version: row.model_schema_version ?? MODEL_SCHEMA_VERSION,
     model: {
@@ -239,12 +260,22 @@ function mapRow(row: {
       archived: Boolean(row.archived),
       created_at: row.created_at,
       updated_at: row.updated_at,
-      archived_at: row.archived_at
+      archived_at: row.archived_at,
+      base_model_name: row.base_model_name ?? null
     },
-    identity: (parseJson(row.identity ?? '') as ModelIdentity) ?? defaultIdentity(),
-    architecture: (parseJson(row.architecture ?? '') as ModelArchitecture) ?? defaultArchitecture(),
+    identity: { ...defaultIdentity(), ...rawIdentity },
+    architecture: {
+      ...defArch,
+      ...rawArch,
+      quantisation: { ...defArch.quantisation, ...rawArch.quantisation }
+    },
     modalities: (parseJson(row.modalities ?? '') as ModelModalities) ?? defaultModalities(),
-    capabilities: (parseJson(row.capabilities ?? '') as ModelCapabilities) ?? defaultCapabilities(),
+    capabilities: {
+      generation: { ...defCaps.generation, ...rawCaps.generation },
+      multimodal: { ...defCaps.multimodal, ...rawCaps.multimodal },
+      reasoning: { ...defCaps.reasoning, ...rawCaps.reasoning },
+      use_case: { ...defCaps.use_case, ...rawCaps.use_case }
+    },
     limits: (parseJson(row.limits ?? '') as ModelLimits) ?? defaultLimits(),
     performance: (parseJson(row.performance ?? '') as ModelPerformance) ?? defaultPerformance(),
     configuration: (parseJson(row.configuration ?? '') as ModelConfiguration) ?? defaultConfiguration(),
@@ -322,9 +353,9 @@ export function createModel(
   db.prepare(
     `INSERT INTO models (
       server_id, model_id, display_name, active, archived, created_at, updated_at, archived_at,
-      model_schema_version, identity, architecture, modalities, capabilities, limits,
+      base_model_name, model_schema_version, identity, architecture, modalities, capabilities, limits,
       performance, configuration, discovery, raw
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     input.model.server_id,
     input.model.model_id,
@@ -334,6 +365,7 @@ export function createModel(
     now,
     now,
     input.model.archived_at,
+    input.model.base_model_name ?? null,
     input.model_schema_version,
     serializeJson(input.identity),
     serializeJson(input.architecture),
@@ -380,7 +412,7 @@ export function updateModel(
   db.prepare(
     `UPDATE models
      SET display_name = ?, active = ?, archived = ?, updated_at = ?, archived_at = ?,
-         model_schema_version = ?, identity = ?, architecture = ?, modalities = ?,
+         base_model_name = ?, model_schema_version = ?, identity = ?, architecture = ?, modalities = ?,
          capabilities = ?, limits = ?, performance = ?, configuration = ?, discovery = ?, raw = ?
      WHERE server_id = ? AND model_id = ?`
   ).run(
@@ -389,6 +421,7 @@ export function updateModel(
     merged.model.archived ? 1 : 0,
     merged.model.updated_at,
     merged.model.archived_at,
+    merged.model.base_model_name ?? null,
     merged.model_schema_version,
     serializeJson(merged.identity),
     serializeJson(merged.architecture),

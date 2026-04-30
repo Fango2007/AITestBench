@@ -38,7 +38,8 @@
         "archived": { "type": "boolean" },
         "created_at": { "type": "string" },
         "updated_at": { "type": "string" },
-        "archived_at": { "type": ["string", "null"] }
+        "archived_at": { "type": ["string", "null"] },
+        "base_model_name": { "type": ["string", "null"] }
       },
       "allOf": [
         {
@@ -63,7 +64,8 @@
         "family": { "type": ["string", "null"] },
         "version": { "type": ["string", "null"] },
         "revision": { "type": ["string", "null"] },
-        "checksum": { "type": ["string", "null"] }
+        "checksum": { "type": ["string", "null"] },
+        "quantized_provider": { "type": ["string", "null"] }
       }
     },
     "architecture": {
@@ -99,6 +101,10 @@
               "description": "Canonical published quantization label, e.g. Q4_K_M"
             }
           }
+        },
+        "format": {
+          "type": ["string", "null"],
+          "enum": ["MLX", "GGUF", "GPTQ", "AWQ", "SafeTensors", null]
         }
       }
     },
@@ -139,6 +145,16 @@
             "supported": { "type": "boolean" },
             "explicit_tokens": { "type": "boolean" }
           }
+        },
+        "use_case": {
+          "type": "object",
+          "properties": {
+            "thinking": { "type": "boolean" },
+            "coding": { "type": "boolean" },
+            "instruct": { "type": "boolean" },
+            "mixture_of_experts": { "type": "boolean" }
+          },
+          "additionalProperties": false
         }
       }
     },
