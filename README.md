@@ -137,6 +137,28 @@ qualitative score. Use the date-range and tag filters to focus on a subset of
 evaluations; the leaderboard refreshes automatically when a new evaluation is
 saved.
 
+## Dashboard: Model Management
+
+The **Models** page lists all models registered under each inference server. Each row shows the model's display name, server, and metadata.
+
+Use the filter bar to narrow the list:
+
+- **Quantized Provider** — filter to models published by a specific quantized-model provider (e.g., `lmstudio-community`). Only providers present in the registered models appear in the dropdown.
+- **Format** — filter by model format: `MLX`, `GGUF`, `GPTQ`, `AWQ`, or `SafeTensors`.
+- **Capabilities** — filter by one or more use-case tags (`thinking`, `coding`, `instruct`, `mixture of experts`). When multiple tags are selected, only models matching **all** selected tags are shown.
+
+Model names throughout the UI — in the Models list, the Evaluate model selector, and the Leaderboard — display the **clean base model name** (e.g., `Qwen3-Coder-30B-A3B-Instruct`) where available, instead of the raw model_id path.
+
+The **Update** form for each model (and the initial registration form) exposes the following metadata fields:
+
+- **Quantized Provider** — the organization that published the quantized variant
+- **Format** — `MLX`, `GGUF`, `GPTQ`, `AWQ`, `SafeTensors`, or unset
+- **Capabilities / Use Case** — `thinking`, `coding`, `instruct`, and `mixture of experts` checkboxes
+
+`base_model_name` is auto-inferred from the model_id at registration time and can be overridden in the update form.
+
+---
+
 ## Frontend workflow: evaluate and rank LLM answers
 
 ### 1) Run inference and score the answer

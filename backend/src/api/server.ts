@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { runSchema } from '../models/db.js';
+import { getDb, runSchema } from '../models/db.js';
 import { reloadTests } from '../services/test-service.js';
 import { registerAuth } from './middleware/auth.js';
 import { registerResultsRoutes } from './routes/results.js';
@@ -20,6 +20,14 @@ import { registerEvalInferenceRoutes } from './routes/eval-inference.js';
 import { registerEvaluationsRoutes } from './routes/evaluations.js';
 import { registerLeaderboardRoutes } from './routes/leaderboard.js';
 
+function applyColumnMigrations(): void {
+  const db = getDb();
+  const columns = (db.prepare('PRAGMA table_info(models)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!columns.includes('base_model_name')) {
+    db.exec('ALTER TABLE models ADD COLUMN base_model_name TEXT');
+  }
+}
+
 export function createServer() {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
 
@@ -28,6 +36,7 @@ export function createServer() {
   if (fs.existsSync(schemaPath)) {
     runSchema(fs.readFileSync(schemaPath, 'utf8'));
   }
+  applyColumnMigrations();
 
   reloadTests();
 

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { InferenceServerRecord, listInferenceServers } from '../services/inference-servers-api.js';
 import {
+  ModelCapabilityTag,
+  ModelFormat,
   ModelInput,
   ModelProvider,
   ModelQuantisationMethod,
@@ -158,6 +160,9 @@ export function Models() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string>('all');
   const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
+  const [selectedQuantizedProvider, setSelectedQuantizedProvider] = useState<string>('all');
+  const [selectedFormat, setSelectedFormat] = useState<ModelFormat | 'all'>('all');
+  const [selectedCapabilities, setSelectedCapabilities] = useState<Set<ModelCapabilityTag>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modelRecords, setModelRecords] = useState<ModelRecord[]>([]);
@@ -181,7 +186,13 @@ export function Models() {
     capVision: false,
     capAudio: false,
     capReasoning: false,
-    capExplicit: false
+    capExplicit: false,
+    quantizedProvider: '',
+    capThinking: false,
+    capCoding: false,
+    capInstruct: false,
+    capMoe: false,
+    format: '' as ModelFormat | ''
   });
 
   useEffect(() => {
@@ -238,6 +249,46 @@ export function Models() {
     return map;
   }, [modelRecords]);
 
+  const modelRecordByModelId = useMemo(() => {
+    const map = new Map<string, ModelRecord>();
+    for (const record of modelRecords) {
+      if (!map.has(record.model.model_id)) {
+        map.set(record.model.model_id, record);
+      }
+    }
+    return map;
+  }, [modelRecords]);
+
+  const modelDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const record of modelRecords) {
+      if (!map.has(record.model.model_id)) {
+        map.set(record.model.model_id, record.model.base_model_name ?? record.model.display_name);
+      }
+    }
+    return map;
+  }, [modelRecords]);
+
+  const quantizedProviders = useMemo(() => {
+    const set = new Set<string>();
+    for (const record of modelRecords) {
+      if (record.identity.quantized_provider) {
+        set.add(record.identity.quantized_provider);
+      }
+    }
+    return Array.from(set).sort();
+  }, [modelRecords]);
+
+  const formats = useMemo(() => {
+    const set = new Set<ModelFormat>();
+    for (const record of modelRecords) {
+      if (record.architecture.format) {
+        set.add(record.architecture.format);
+      }
+    }
+    return Array.from(set).sort();
+  }, [modelRecords]);
+
   const models = useMemo<ModelAggregate[]>(() => {
     const map = new Map<string, ModelAggregate>();
     for (const server of servers) {
@@ -288,8 +339,31 @@ export function Models() {
         }
       }
     }
+    // Merge in models from modelRecords not covered by discovery
+    for (const record of modelRecords) {
+      if (map.has(record.model.model_id)) {
+        continue;
+      }
+      const server = servers.find((s) => s.inference_server.server_id === record.model.server_id);
+      map.set(record.model.model_id, {
+        model_id: record.model.model_id,
+        display_name: record.model.display_name,
+        context_windows: record.limits.context_window_tokens != null ? [record.limits.context_window_tokens] : [],
+        quantisations: [],
+        servers: server
+          ? [
+              {
+                server_id: server.inference_server.server_id,
+                display_name: server.inference_server.display_name,
+                base_url: server.endpoints.base_url,
+                schema_families: server.runtime.api.schema_family
+              }
+            ]
+          : []
+      });
+    }
     return Array.from(map.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
-  }, [servers]);
+  }, [servers, modelRecords]);
 
   const providers = useMemo(() => {
     const bucket = new Set<ModelProvider>();
@@ -311,22 +385,68 @@ export function Models() {
         if (!model.servers.some((server) => server.server_id === selectedServerId)) {
           return false;
         }
-        if (selectedProvider !== 'all') {
-          const providerKey =
-            providerByModelId.get(model.model_id)
-            ?? modelRecordMap.get(`${selectedServerId}:${model.model_id}`)?.identity.provider
-            ?? inferProviderKey(model);
-          return providerKey === selectedProvider;
-        }
-        return true;
       }
+
       if (selectedProvider !== 'all') {
-        const providerKey = providerByModelId.get(model.model_id) ?? inferProviderKey(model);
-        return providerKey === selectedProvider;
+        const providerKey =
+          selectedServerId !== 'all'
+            ? (providerByModelId.get(model.model_id)
+                ?? modelRecordMap.get(`${selectedServerId}:${model.model_id}`)?.identity.provider
+                ?? inferProviderKey(model))
+            : (providerByModelId.get(model.model_id) ?? inferProviderKey(model));
+        if (providerKey !== selectedProvider) {
+          return false;
+        }
       }
+
+      if (selectedQuantizedProvider !== 'all') {
+        const record =
+          selectedServerId !== 'all'
+            ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
+            : modelRecordByModelId.get(model.model_id);
+        if ((record?.identity.quantized_provider ?? null) !== selectedQuantizedProvider) {
+          return false;
+        }
+      }
+
+      if (selectedFormat !== 'all') {
+        const record =
+          selectedServerId !== 'all'
+            ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
+            : modelRecordByModelId.get(model.model_id);
+        if ((record?.architecture.format ?? null) !== selectedFormat) {
+          return false;
+        }
+      }
+
+      if (selectedCapabilities.size > 0) {
+        const record =
+          selectedServerId !== 'all'
+            ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
+            : modelRecordByModelId.get(model.model_id);
+        if (!record) {
+          return false;
+        }
+        for (const cap of selectedCapabilities) {
+          if (!record.capabilities.use_case[cap]) {
+            return false;
+          }
+        }
+      }
+
       return true;
     });
-  }, [models, modelRecordMap, providerByModelId, selectedProvider, selectedServerId]);
+  }, [
+    models,
+    modelRecordByModelId,
+    modelRecordMap,
+    providerByModelId,
+    selectedProvider,
+    selectedServerId,
+    selectedQuantizedProvider,
+    selectedFormat,
+    selectedCapabilities
+  ]);
 
   useEffect(() => {
     if (!filteredModels.length) {
@@ -436,7 +556,13 @@ export function Models() {
       capVision: record?.capabilities.multimodal.vision ?? false,
       capAudio: record?.capabilities.multimodal.audio ?? false,
       capReasoning: record?.capabilities.reasoning.supported ?? false,
-      capExplicit: record?.capabilities.reasoning.explicit_tokens ?? false
+      capExplicit: record?.capabilities.reasoning.explicit_tokens ?? false,
+      quantizedProvider: record?.identity.quantized_provider ?? '',
+      capThinking: record?.capabilities.use_case.thinking ?? false,
+      capCoding: record?.capabilities.use_case.coding ?? false,
+      capInstruct: record?.capabilities.use_case.instruct ?? false,
+      capMoe: record?.capabilities.use_case.mixture_of_experts ?? false,
+      format: record?.architecture.format ?? ''
     });
     setUpdateError(null);
     setShowUpdateModal(true);
@@ -454,7 +580,10 @@ export function Models() {
         server_id: effectiveServerId,
         display_name: selectedModel.display_name
       },
-      identity: { provider: updateForm.provider },
+      identity: {
+        provider: updateForm.provider,
+        quantized_provider: updateForm.quantizedProvider.trim() || null
+      },
       architecture: {
         quantisation: {
           method: updateForm.quantMethod,
@@ -463,7 +592,8 @@ export function Models() {
           scheme: updateForm.quantScheme === '' ? null : updateForm.quantScheme,
           variant: updateForm.quantVariant === '' ? null : updateForm.quantVariant,
           weight_format: updateForm.quantWeightFormat.trim() ? updateForm.quantWeightFormat.trim() : null
-        }
+        },
+        format: updateForm.format || null
       },
       limits: {
         context_window_tokens: parseOptionalNumber(updateForm.contextWindow)
@@ -476,7 +606,13 @@ export function Models() {
           embeddings: updateForm.capEmbeddings
         },
         multimodal: { vision: updateForm.capVision, audio: updateForm.capAudio },
-        reasoning: { supported: updateForm.capReasoning, explicit_tokens: updateForm.capExplicit }
+        reasoning: { supported: updateForm.capReasoning, explicit_tokens: updateForm.capExplicit },
+        use_case: {
+          thinking: updateForm.capThinking,
+          coding: updateForm.capCoding,
+          instruct: updateForm.capInstruct,
+          mixture_of_experts: updateForm.capMoe
+        }
       }
     };
 
@@ -568,6 +704,64 @@ export function Models() {
           </select>
         </div>
         <div className="field">
+          <label htmlFor="quantized-provider-filter">Quantized provider</label>
+          <select
+            id="quantized-provider-filter"
+            value={selectedQuantizedProvider}
+            onChange={(event) => setSelectedQuantizedProvider(event.target.value)}
+            disabled={quantizedProviders.length === 0}
+          >
+            <option value="all">All providers</option>
+            {quantizedProviders.map((qp) => (
+              <option key={qp} value={qp}>
+                {qp}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="format-filter">Format</label>
+          <select
+            id="format-filter"
+            value={selectedFormat}
+            onChange={(event) => setSelectedFormat(event.target.value as ModelFormat | 'all')}
+            disabled={formats.length === 0}
+          >
+            <option value="all">All formats</option>
+            {formats.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Capabilities</label>
+          <div className="checkbox-grid">
+            {(['thinking', 'coding', 'instruct', 'mixture_of_experts'] as ModelCapabilityTag[]).map((cap) => (
+              <label key={cap} className="checkbox">
+                <input
+                  type="checkbox"
+                  value={cap}
+                  checked={selectedCapabilities.has(cap)}
+                  onChange={(event) => {
+                    setSelectedCapabilities((prev) => {
+                      const next = new Set(prev);
+                      if (event.target.checked) {
+                        next.add(cap);
+                      } else {
+                        next.delete(cap);
+                      }
+                      return next;
+                    });
+                  }}
+                />
+                {cap.replace(/_/g, ' ')}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="field">
           <label htmlFor="model-filter">Model</label>
           <select
             id="model-filter"
@@ -580,7 +774,7 @@ export function Models() {
             ) : (
               filteredModels.map((model) => (
                 <option key={model.model_id} value={model.model_id}>
-                  {model.display_name}
+                  {modelDisplayMap.get(model.model_id) ?? model.display_name}
                 </option>
               ))
             )}
@@ -749,6 +943,83 @@ export function Models() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="field">
+              <label htmlFor="update-quantized-provider">Quantized provider</label>
+              <input
+                id="update-quantized-provider"
+                value={updateForm.quantizedProvider}
+                onChange={(event) =>
+                  setUpdateForm((current) => ({ ...current, quantizedProvider: event.target.value }))
+                }
+                placeholder="lmstudio-community"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="update-format">Format</label>
+              <select
+                id="update-format"
+                value={updateForm.format}
+                onChange={(event) =>
+                  setUpdateForm((current) => ({ ...current, format: event.target.value as ModelFormat | '' }))
+                }
+              >
+                <option value="">Not set</option>
+                {(['MLX', 'GGUF', 'GPTQ', 'AWQ', 'SafeTensors'] as ModelFormat[]).map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Use case capabilities</label>
+              <div className="checkbox-grid">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    name="update-cap-thinking"
+                    checked={updateForm.capThinking}
+                    onChange={(event) =>
+                      setUpdateForm((current) => ({ ...current, capThinking: event.target.checked }))
+                    }
+                  />
+                  Thinking
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    name="update-cap-coding"
+                    checked={updateForm.capCoding}
+                    onChange={(event) =>
+                      setUpdateForm((current) => ({ ...current, capCoding: event.target.checked }))
+                    }
+                  />
+                  Coding
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    name="update-cap-instruct"
+                    checked={updateForm.capInstruct}
+                    onChange={(event) =>
+                      setUpdateForm((current) => ({ ...current, capInstruct: event.target.checked }))
+                    }
+                  />
+                  Instruct
+                </label>
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    name="update-cap-moe"
+                    checked={updateForm.capMoe}
+                    onChange={(event) =>
+                      setUpdateForm((current) => ({ ...current, capMoe: event.target.checked }))
+                    }
+                  />
+                  Mixture of experts
+                </label>
+              </div>
             </div>
             <div className="field">
               <label>Quantisation</label>

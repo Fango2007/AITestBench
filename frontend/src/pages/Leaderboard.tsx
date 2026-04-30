@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { LeaderboardFilters } from '../components/LeaderboardFilters.js';
 import type { LeaderboardFilterValues } from '../components/LeaderboardFilters.js';
 import { LeaderboardTable } from '../components/LeaderboardTable.js';
 import type { LeaderboardEntry, LeaderboardFilters as ApiFilters } from '../services/leaderboard-api.js';
 import { getLeaderboard } from '../services/leaderboard-api.js';
+import { listModels } from '../services/models-api.js';
+import type { ModelRecord } from '../services/models-api.js';
 
 interface LeaderboardProps {
   setView: (view: string) => void;
@@ -16,6 +18,16 @@ export function Leaderboard({ setView }: LeaderboardProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<ApiFilters>({});
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
+  const [modelRecords, setModelRecords] = useState<ModelRecord[]>([]);
+
+  const modelDisplayMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const record of modelRecords) {
+      if (!map.has(record.model.model_id))
+        map.set(record.model.model_id, record.model.base_model_name ?? record.model.display_name);
+    }
+    return map;
+  }, [modelRecords]);
 
   function fetchLeaderboard(filters: ApiFilters = {}) {
     setLoading(true);
@@ -33,6 +45,7 @@ export function Leaderboard({ setView }: LeaderboardProps) {
 
   useEffect(() => {
     fetchLeaderboard();
+    listModels().then(setModelRecords).catch(() => {});
 
     const handleSaved = () => fetchLeaderboard(activeFilters);
     window.addEventListener('evaluations:saved', handleSaved);
@@ -77,7 +90,7 @@ export function Leaderboard({ setView }: LeaderboardProps) {
           </div>
         )
       ) : (
-        <LeaderboardTable entries={entries} />
+        <LeaderboardTable entries={entries} modelDisplayMap={modelDisplayMap} />
       )}
     </div>
   );

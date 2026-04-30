@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS models (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   archived_at TEXT,
+  base_model_name TEXT,
   model_schema_version TEXT NOT NULL,
   identity TEXT NOT NULL,
   architecture TEXT NOT NULL,

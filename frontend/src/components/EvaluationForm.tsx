@@ -168,7 +168,10 @@ export function EvaluationForm({
     }
   }
 
-  const modelOptions = models.map((m) => ({ model_id: m.model.model_id, display_name: m.model.display_name }));
+  const modelOptions = models.map((m) => ({
+    model_id: m.model.model_id,
+    display_name: m.model.base_model_name ?? m.model.display_name
+  }));
 
   return (
     <div className="card evaluation-form">

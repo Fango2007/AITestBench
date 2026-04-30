@@ -2,6 +2,7 @@ import type { LeaderboardEntry } from '../services/leaderboard-api.js';
 
 interface LeaderboardTableProps {
   entries: LeaderboardEntry[];
+  modelDisplayMap?: Map<string, string>;
 }
 
 function fmt(value: number | null, decimals = 2): string {
@@ -9,7 +10,7 @@ function fmt(value: number | null, decimals = 2): string {
   return value.toFixed(decimals);
 }
 
-export function LeaderboardTable({ entries }: LeaderboardTableProps) {
+export function LeaderboardTable({ entries, modelDisplayMap }: LeaderboardTableProps) {
   return (
     <div className="table-wrapper">
       <table className="leaderboard-table">
@@ -38,7 +39,7 @@ export function LeaderboardTable({ entries }: LeaderboardTableProps) {
             entries.map((entry) => (
               <tr key={entry.model_name}>
                 <td>{entry.rank}</td>
-                <td>{entry.model_name}</td>
+                <td>{modelDisplayMap?.get(entry.model_name) ?? entry.model_name}</td>
                 <td>{fmt(entry.composite_score, 4)}</td>
                 <td>{fmt(entry.avg_accuracy)}</td>
                 <td>{fmt(entry.avg_relevance)}</td>
