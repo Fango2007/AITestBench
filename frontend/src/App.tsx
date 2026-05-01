@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { CompareRuns } from './pages/CompareRuns.js';
 import { Evaluate } from './pages/Evaluate.js';
 import { Leaderboard } from './pages/Leaderboard.js';
+import { ModelDetails } from './pages/ModelDetails.js';
 import { Models } from './pages/Models.js';
 import { RunSingle } from './pages/RunSingle.js';
 import { Templates } from './pages/Templates.js';
@@ -13,7 +14,9 @@ import { InferenceServerRecord, listInferenceServers } from './services/inferenc
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from './services/connectivity-api.js';
 import { EnvEntry, clearDatabase, listEnvEntries, setEnvEntry } from './services/system-api.js';
 
-type View = 'servers' | 'run-single' | 'templates' | 'models' | 'compare' | 'results-dashboard' | 'evaluate' | 'leaderboard';
+type View = 'servers' | 'run-single' | 'templates' | 'models' | 'models-detail' | 'compare' | 'results-dashboard' | 'evaluate' | 'leaderboard';
+
+type ModelDetailState = { serverId: string; modelId: string };
 
 type SystemMetrics = {
   cpu: {
@@ -79,6 +82,7 @@ function formatNumericParam(value: unknown, digits = 2): string {
 
 export function App() {
   const [view, setView] = useState<View>('servers');
+  const [modelDetail, setModelDetail] = useState<ModelDetailState | null>(null);
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'up' | 'down'>('unknown');
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
   const [metricsError, setMetricsError] = useState(false);
@@ -609,7 +613,18 @@ export function App() {
           ) : view === 'templates' ? (
             <Templates />
           ) : view === 'models' ? (
-            <Models />
+            <Models
+              onModelSelect={(serverId, modelId) => {
+                setModelDetail({ serverId, modelId });
+                setView('models-detail');
+              }}
+            />
+          ) : view === 'models-detail' && modelDetail ? (
+            <ModelDetails
+              serverId={modelDetail.serverId}
+              modelId={modelDetail.modelId}
+              onBack={() => setView('models')}
+            />
           ) : view === 'results-dashboard' ? (
             <ResultsDashboard />
           ) : view === 'evaluate' ? (

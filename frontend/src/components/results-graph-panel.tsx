@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
-import ReactECharts from 'echarts-for-react';
-import type { EChartsOption } from 'echarts';
+import type { ComponentType } from 'react';
+import _ReactECharts from 'echarts-for-react';
+import type { EChartsReactProps } from 'echarts-for-react';
+import type { EChartsOption } from 'echarts/types/dist/shared';
+
+const ReactECharts = _ReactECharts as unknown as ComponentType<EChartsReactProps>;
 
 import { DashboardPanel } from '../services/dashboard-results-api.js';
 

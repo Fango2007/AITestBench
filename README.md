@@ -1,6 +1,6 @@
 # Inference server Test Bench
 
-Version: `0.2.0`
+Version: `0.3.0`
 
 Local-first harness for running automated LLM tests against OpenAI-compatible
 or Ollama inference servers. It provides:
@@ -8,6 +8,7 @@ or Ollama inference servers. It provides:
 - A local HTTP API for triggering runs and fetching results
 - A lightweight dashboard for browsing runs, profiles, and comparisons
 - An evaluation workflow for scoring LLM answers on five qualitative dimensions and a ranked leaderboard for comparing models
+- A model architecture inspector for supported open-weight models, showing expandable layer trees and parameter summaries without loading weights
 
 ## Purpose
 
@@ -25,7 +26,9 @@ response data over time. It also includes a qualitative evaluation flow: submit
 a prompt to any registered model, receive the answer with six auto-computed
 quantitative metrics, score the answer on five dimensions (accuracy, relevance,
 coherence, completeness, helpfulness), and compare all evaluated models on a
-ranked leaderboard.
+ranked leaderboard. For supported open-weight models, the model detail page can
+inspect architecture metadata, cache it locally, and display a layer-by-layer
+tree with parameter totals without downloading model weights.
 
 ## Components
 
@@ -36,7 +39,7 @@ ranked leaderboard.
 
 - Node.js 20 LTS (Node 25 also works in this repo)
 - npm 9+
-- Python 3.10+ (for Python test runners)
+- Python 3.10+ (for Python test runners and model architecture inspection)
 - SQLite (bundled with macOS/Linux)
 
 ## Setup
@@ -46,6 +49,7 @@ It installs dependencies and creates the local environment file.
 
 ```bash
 npm install
+pip install -r backend/src/scripts/requirements.txt
 ```
 
 Create a local `.env` file from the example:
@@ -61,6 +65,7 @@ This is the intended local release flow: install from lockfile, build the fronte
 
 ```bash
 npm ci
+pip install -r backend/src/scripts/requirements.txt
 npm run build
 npm start
 ```
@@ -75,6 +80,7 @@ Create a local `.env` file at the repo root:
 - `AITESTBENCH_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
 - `AITESTBENCH_PYTHON_BIN` (optional): Python executable used for Python-backed tests (default: `python3`).
+- `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN` (optional): Hugging Face token used for gated model architecture inspection.
 - `AITESTBENCH_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
 - `AITESTBENCH_CONTEXT_PROBE_TIMEOUT_MS` (optional): context window probe timeout in ms (default: 600000).
 - `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
@@ -91,6 +97,7 @@ AITESTBENCH_DB_PATH=./backend/data/db/aitestbench.sqlite
 AITESTBENCH_TEST_TEMPLATES_DIR=./backend/data/templates
 RETENTION_DAYS=30
 AITESTBENCH_PYTHON_BIN=python3
+HF_TOKEN=
 VITE_AITESTBENCH_API_BASE_URL=http://localhost:8080
 VITE_AITESTBENCH_FRONTEND_BASE_URL=http://localhost:5173
 VITE_AITESTBENCH_API_TOKEN=change-me
@@ -156,6 +163,13 @@ The **Update** form for each model (and the initial registration form) exposes t
 - **Capabilities / Use Case** — `thinking`, `coding`, `instruct`, and `mixture of experts` checkboxes
 
 `base_model_name` is auto-inferred from the model_id at registration time and can be overridden in the update form.
+
+Click **View details** on a model row to open the model detail page. For
+supported open-weight models, **Inspect Architecture** downloads architecture
+metadata only, stores the cache under `backend/data/model/`, and renders an
+expandable layer tree with total, trainable, non-trainable, and per-layer-type
+parameter counts. Gated Hugging Face models require `HF_TOKEN` or
+`HUGGINGFACE_HUB_TOKEN` in the repo-root `.env`.
 
 ---
 

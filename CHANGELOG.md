@@ -6,6 +6,26 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-01
+
+### Added
+
+- **Model Architecture Inspector** — model detail pages can inspect supported open-weight models and render an expandable layer tree with parameter counts, shapes, layer-type badges, and summary breakdowns.
+- Backend architecture inspection APIs for cache-backed `POST`, cache-only `GET`, cache deletion, and per-model `trust_remote_code` settings.
+- Python-based architecture extraction for Hugging Face Transformers configs and local GGUF files without loading model weights.
+- Architecture cache storage under `backend/data/model/`, with corrupt-cache recovery, partial-file cleanup, path traversal protection, and a two-inspection concurrency limit.
+- Frontend architecture tree controls for expand/collapse, expand all/collapse all, virtualized rendering for large trees, and hover highlighting by layer type.
+- Optional Hugging Face token support through `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN` for gated model inspection.
+
+### Changed
+
+- Models now support navigation to model detail pages from the Models view.
+- Release and desktop deployment docs now include Python architecture-inspection dependencies.
+
+### Fixed
+
+- Tightened TypeScript typings around schema validation, redaction, run execution, and chart rendering so release checks compile cleanly with current dependencies.
+
 ## [0.2.0] - 2026-04-29
 
 ### Security

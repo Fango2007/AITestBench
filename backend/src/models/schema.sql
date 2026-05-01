@@ -240,3 +240,12 @@ CREATE INDEX IF NOT EXISTS idx_evaluations_model_name  ON evaluations(model_name
 CREATE INDEX IF NOT EXISTS idx_evaluations_prompt_id   ON evaluations(prompt_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_created_at  ON evaluations(created_at);
 CREATE INDEX IF NOT EXISTS idx_evaluations_server_id   ON evaluations(server_id);
+
+CREATE TABLE IF NOT EXISTS model_architecture_settings (
+  server_id         TEXT NOT NULL,
+  model_id          TEXT NOT NULL,
+  trust_remote_code INTEGER NOT NULL DEFAULT 0,
+  updated_at        TEXT NOT NULL,
+  PRIMARY KEY (server_id, model_id),
+  FOREIGN KEY (server_id, model_id) REFERENCES models(server_id, model_id) ON DELETE CASCADE
+);

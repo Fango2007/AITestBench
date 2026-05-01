@@ -46,7 +46,7 @@ export function listActiveTests(): ActiveTestRecord[] {
   const db = getDb();
   const rows = db
     .prepare('SELECT * FROM active_tests WHERE deleted_at IS NULL ORDER BY created_at DESC')
-    .all() as Array<ActiveTestRecord & { python_ready: number }>;
+    .all() as Array<Omit<ActiveTestRecord, 'python_ready'> & { python_ready: number }>;
 
   return rows.map((row) => ({
     ...row,

@@ -56,10 +56,13 @@ export function InferenceServerEditForm({ server, onSave, onCancel }: InferenceS
         },
         runtime: {
           server_software: {
-            version: softwareVersion.trim() || null
+            name: server.runtime.server_software.name,
+            version: softwareVersion.trim() || null,
+            build: server.runtime.server_software.build
           },
           api: {
-            schema_family: schemaFamilies
+            schema_family: schemaFamilies,
+            api_version: server.runtime.api.api_version
           }
         },
         auth: {

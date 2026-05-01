@@ -413,7 +413,7 @@ async function executePythonTest(
   };
 
   const timeoutMs =
-    (spec.defaults as Record<string, unknown>)?.timeout_ms ??
+    ((spec.defaults as Record<string, unknown>)?.timeout_ms as number | undefined) ??
     (effectiveConfig?.request_timeout_sec
       ? Number(effectiveConfig.request_timeout_sec) * 1000
       : 60000);
@@ -481,7 +481,7 @@ async function executePythonTest(
     steps.length > 0
       ? steps
       : [
-          {
+          ({
             index: 0,
             name: null,
             status: 'pass',
@@ -512,9 +512,9 @@ async function executePythonTest(
             timing: { started_at: startedAtIso, ended_at: endedAtIso },
             error: null,
             notes: 'Python test returned no steps; synthetic step added by runner.'
-          }
+          } as unknown as StepResultSnapshot)
         ];
-  const metrics = (output.result as Record<string, unknown>)?.metrics ?? null;
+  const metrics = ((output.result as Record<string, unknown>)?.metrics ?? null) as Record<string, unknown> | null;
 
   return {
     verdict: 'pass',
@@ -707,7 +707,7 @@ async function executeHttpTest(
     return {
       verdict: assertionResult.verdict,
       failure_reason: assertionResult.failures.length ? assertionResult.failures.join('; ') : null,
-      metrics,
+      metrics: metrics as unknown as Record<string, unknown>,
       artefacts: {
         status: responseStatus,
         headers: responseHeaders,
@@ -1046,14 +1046,14 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
     const authHeaders = buildAuthHeaders(server);
     let result: Omit<TestExecutionResult, 'test_id'>;
     if (definition.runner_type === 'python') {
-      result = await executePythonTest(definition, server, request.effective_config ?? null, abortSignal);
+      result = await executePythonTest({ ...definition, spec_path: definition.spec_path! }, server, request.effective_config ?? null, abortSignal);
     } else {
       const usesProxyPerplexity = definition.protocols?.includes('proxy_perplexity');
       result = usesProxyPerplexity
         ? await executeProxyPerplexityTest(
             server.endpoints.base_url,
             definition.request_template,
-            definition.assertions as Assertion[],
+            definition.assertions as unknown as Assertion[],
             request.effective_config ?? null,
             authHeaders,
             abortSignal
@@ -1061,7 +1061,7 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
         : await executeHttpTest(
             server.endpoints.base_url,
             definition.request_template,
-            definition.assertions as Assertion[],
+            definition.assertions as unknown as Assertion[],
             request.effective_config ?? null,
             authHeaders,
             abortSignal
