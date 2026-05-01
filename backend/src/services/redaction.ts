@@ -8,7 +8,7 @@ export function redactString(value: string): string {
 }
 
 export function redactObject<T extends Record<string, unknown>>(input: T): T {
-  const output: Record<string, unknown> = Array.isArray(input) ? [] : {};
+  const output: Record<string, unknown> = (Array.isArray(input) ? [] : {}) as Record<string, unknown>;
 
   for (const [key, value] of Object.entries(input)) {
     if (SENSITIVE_KEYS.includes(key.toLowerCase())) {

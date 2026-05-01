@@ -155,7 +155,11 @@ function formatDiscoveryQuantisation(
   return bits ? `${method.toUpperCase()} · ${bits}-bit` : method.toUpperCase();
 }
 
-export function Models() {
+interface ModelsProps {
+  onModelSelect?: (serverId: string, modelId: string) => void;
+}
+
+export function Models({ onModelSelect }: ModelsProps = {}) {
   const [servers, setServers] = useState<InferenceServerRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedServerId, setSelectedServerId] = useState<string>('all');
@@ -341,25 +345,30 @@ export function Models() {
     }
     // Merge in models from modelRecords not covered by discovery
     for (const record of modelRecords) {
+      const server = servers.find((s) => s.inference_server.server_id === record.model.server_id);
+      const serverInfo = server
+        ? {
+            server_id: server.inference_server.server_id,
+            display_name: server.inference_server.display_name,
+            base_url: server.endpoints.base_url,
+            schema_families: server.runtime.api.schema_family
+          }
+        : null;
       if (map.has(record.model.model_id)) {
+        if (serverInfo) {
+          const existing = map.get(record.model.model_id)!;
+          if (!existing.servers.some((s) => s.server_id === serverInfo.server_id)) {
+            existing.servers.push(serverInfo);
+          }
+        }
         continue;
       }
-      const server = servers.find((s) => s.inference_server.server_id === record.model.server_id);
       map.set(record.model.model_id, {
         model_id: record.model.model_id,
         display_name: record.model.display_name,
         context_windows: record.limits.context_window_tokens != null ? [record.limits.context_window_tokens] : [],
         quantisations: [],
-        servers: server
-          ? [
-              {
-                server_id: server.inference_server.server_id,
-                display_name: server.inference_server.display_name,
-                base_url: server.endpoints.base_url,
-                schema_families: server.runtime.api.schema_family
-              }
-            ]
-          : []
+        servers: serverInfo ? [serverInfo] : []
       });
     }
     return Array.from(map.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
@@ -888,6 +897,18 @@ export function Models() {
                   </p>
                 ) : null}
                 <div className="actions details-span">
+                  {onModelSelect && canUpdate ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedModel && effectiveServerId !== 'all') {
+                          onModelSelect(effectiveServerId, selectedModel.model_id);
+                        }
+                      }}
+                    >
+                      View details
+                    </button>
+                  ) : null}
                   <button type="button" onClick={openUpdateModal} disabled={!canUpdate}>
                     Update
                   </button>

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { type ErrorObject, type ValidateFunction } from 'ajv';
-import Ajv2020 from 'ajv/dist/2020.js';
+import { Ajv2020 } from 'ajv/dist/2020.js';
 
 export interface SchemaValidationIssue {
   message: string;

@@ -19,6 +19,7 @@ import { registerDashboardResultsRoutes } from './routes/dashboard-results.js';
 import { registerEvalInferenceRoutes } from './routes/eval-inference.js';
 import { registerEvaluationsRoutes } from './routes/evaluations.js';
 import { registerLeaderboardRoutes } from './routes/leaderboard.js';
+import { registerArchitectureRoutes } from './routes/architecture.js';
 
 function applyColumnMigrations(): void {
   const db = getDb();
@@ -81,6 +82,7 @@ export function createServer() {
   registerEvalInferenceRoutes(app);
   registerEvaluationsRoutes(app);
   registerLeaderboardRoutes(app);
+  registerArchitectureRoutes(app);
 
   return app;
 }

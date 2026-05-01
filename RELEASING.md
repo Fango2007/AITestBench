@@ -7,16 +7,17 @@ It does not currently publish standalone installers or a compiled backend bundle
 
 1. Update `CHANGELOG.md`.
 2. Run `npm ci`.
-3. Run `npm run release:check`.
-4. Commit the release changes.
-5. Create and push the tag (replace `X.Y.Z` with the version from `package.json`):
+3. Run `pip install -r backend/src/scripts/requirements.txt`.
+4. Run `npm run release:check`.
+5. Commit the release changes.
+6. Create and push the tag (replace `X.Y.Z` with the version from `package.json`):
 
 ```bash
 git tag vX.Y.Z
 git push origin main --follow-tags
 ```
 
-6. Open the GitHub release created by Actions and verify:
+7. Open the GitHub release created by Actions and verify:
    - release notes are present
    - attached source archives are present
    - README desktop deployment steps are accurate
@@ -32,6 +33,7 @@ Users should:
 
 ```bash
 npm ci
+pip install -r backend/src/scripts/requirements.txt
 npm run build
 npm start
 ```

@@ -46,7 +46,9 @@ export function InferenceServerCreateForm({ onCreate, disabled }: InferenceServe
         },
         runtime: {
           server_software: {
-            version: softwareVersion.trim() || null
+            name: '',
+            version: softwareVersion.trim() || null,
+            build: null
           },
           api: {
             schema_family: schemaFamilies,
