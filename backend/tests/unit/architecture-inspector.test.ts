@@ -152,6 +152,39 @@ describe('readCachedTree', () => {
     }
   });
 
+  it('returns not_cached and deletes file missing required schema fields', () => {
+    const sanitizedId = 'test-missing-required-fields-xyz';
+    writeLayerTree(sanitizedId, JSON.stringify({ schema_version: '1.0.0' }));
+    try {
+      const result = readCachedTree(sanitizedId);
+      expect(result).toEqual({ code: 'not_cached' });
+      expect(fs.existsSync(path.join(DATA_DIR, sanitizedId, 'layer-tree.json'))).toBe(false);
+    } finally {
+      cleanupModel(sanitizedId);
+    }
+  });
+
+  it('returns not_cached and deletes file with malformed layer nodes', () => {
+    const sanitizedId = 'test-malformed-layer-node-xyz';
+    writeLayerTree(
+      sanitizedId,
+      JSON.stringify({
+        ...validTree,
+        root: {
+          ...validTree.root,
+          parameters: -1,
+        },
+      })
+    );
+    try {
+      const result = readCachedTree(sanitizedId);
+      expect(result).toEqual({ code: 'not_cached' });
+      expect(fs.existsSync(path.join(DATA_DIR, sanitizedId, 'layer-tree.json'))).toBe(false);
+    } finally {
+      cleanupModel(sanitizedId);
+    }
+  });
+
   it('returns valid ArchitectureTree for a correct cache file', () => {
     const sanitizedId = 'test-valid-cache-xyz';
     writeLayerTree(sanitizedId, JSON.stringify(validTree));

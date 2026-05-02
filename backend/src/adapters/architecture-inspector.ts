@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { validateWithSchema } from '../services/schema-validator.js';
+
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '..', '..', '..');
 export const DATA_DIR = path.join(repoRoot, 'backend', 'data', 'model');
@@ -10,6 +12,7 @@ export const DATA_DIR = path.join(repoRoot, 'backend', 'data', 'model');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const PYTHON_SCRIPT = path.join(moduleDir, '..', 'scripts', 'inspect_architecture.py');
+const ARCHITECTURE_TREE_SCHEMA = path.join(moduleDir, '..', 'schemas', 'architecture-tree.schema.json');
 
 const WINDOWS_RESERVED = /^(CON|NUL|PRN|AUX|COM[0-9]|LPT[0-9])$/i;
 
@@ -100,6 +103,10 @@ function configPath(cacheDir: string): string {
   return path.join(cacheDir, 'config.json');
 }
 
+function isValidArchitectureTree(value: unknown): value is ArchitectureTree {
+  return validateWithSchema(ARCHITECTURE_TREE_SCHEMA, value).ok;
+}
+
 export function readCachedTree(sanitized: string): ArchitectureTree | InspectorError {
   const treePath = layerTreePath(modelCacheDir(sanitized));
   if (!fs.existsSync(treePath)) {
@@ -112,15 +119,11 @@ export function readCachedTree(sanitized: string): ArchitectureTree | InspectorE
     _deleteCacheFiles(sanitized);
     return { code: 'not_cached' };
   }
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    (parsed as Record<string, unknown>)['schema_version'] !== '1.0.0'
-  ) {
+  if (!isValidArchitectureTree(parsed)) {
     _deleteCacheFiles(sanitized);
     return { code: 'not_cached' };
   }
-  return parsed as ArchitectureTree;
+  return parsed;
 }
 
 function _deleteCacheFiles(sanitized: string): void {
@@ -234,6 +237,10 @@ async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree 
   } catch {
     _deleteCacheFiles(sanitizedId);
     return { code: 'inspection_failed', message: 'Failed to parse inspection output' };
+  }
+  if (!isValidArchitectureTree(tree)) {
+    _deleteCacheFiles(sanitizedId);
+    return { code: 'inspection_failed', message: 'Inspection output did not match the architecture schema' };
   }
 
   // Write config.json then layer-tree.json atomically
