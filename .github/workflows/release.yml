@@ -43,10 +43,35 @@ jobs:
           git archive --format=zip --output=release-assets/aitestbench-${GITHUB_REF_NAME}.zip HEAD
           git archive --format=tar.gz --output=release-assets/aitestbench-${GITHUB_REF_NAME}.tar.gz HEAD
 
+      - name: Extract changelog release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ]; then
+            VERSION="$(node -p "require('./package.json').version")"
+          fi
+
+          awk -v version="$VERSION" '
+            $0 == "## [" version "]" || $0 ~ "^## \\[" version "\\] - " {
+              found = 1
+              next
+            }
+            found && /^## \[/ {
+              exit
+            }
+            found {
+              print
+            }
+          ' CHANGELOG.md > release-notes.md
+
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "No CHANGELOG.md section found for version ${VERSION}" >&2
+            exit 1
+          fi
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           files: |
             release-assets/aitestbench-${{ github.ref_name }}.zip
             release-assets/aitestbench-${{ github.ref_name }}.tar.gz
-          generate_release_notes: true
