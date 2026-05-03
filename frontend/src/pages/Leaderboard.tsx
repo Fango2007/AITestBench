@@ -48,8 +48,20 @@ export function Leaderboard({ setView }: LeaderboardProps) {
     listModels().then(setModelRecords).catch(() => {});
 
     const handleSaved = () => fetchLeaderboard(activeFilters);
+    const handleDatabaseCleared = () => {
+      setEntries([]);
+      setModelRecords([]);
+      setActiveFilters({});
+      setHasActiveFilters(false);
+      setError(null);
+      setLoading(false);
+    };
     window.addEventListener('evaluations:saved', handleSaved);
-    return () => window.removeEventListener('evaluations:saved', handleSaved);
+    window.addEventListener('database:cleared', handleDatabaseCleared);
+    return () => {
+      window.removeEventListener('evaluations:saved', handleSaved);
+      window.removeEventListener('database:cleared', handleDatabaseCleared);
+    };
   }, []);
 
   function handleApply(filterValues: LeaderboardFilterValues) {

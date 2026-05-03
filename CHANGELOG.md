@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Fixed
+
+- Settings **Empty database** now clears all application SQLite tables, including evaluation prompts and evaluations that feed the leaderboard.
+- Leaderboard view now clears stale displayed rows immediately after the database is emptied from settings.
+
 ## [0.3.1] - 2026-05-02
 
 ### Changed

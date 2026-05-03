@@ -103,26 +103,20 @@ export function setEnvEntry(key: string, value: string | null): EnvEntry[] {
 
 export function clearDatabase(): void {
   const db = getDb();
-  const tables = [
-    'metric_samples',
-    'test_result_documents',
-    'test_results',
-    'runs',
-    'active_tests',
-    'instantiated_tests',
-    'test_template_versions',
-    'test_templates',
-    'suites',
-    'profiles',
-    'models',
-    'test_definitions',
-    'inference_servers'
-  ];
+  const tables = db
+    .prepare(`
+      SELECT name
+      FROM sqlite_schema
+      WHERE type = 'table'
+        AND name NOT LIKE 'sqlite_%'
+      ORDER BY name
+    `)
+    .all() as Array<{ name: string }>;
 
   db.pragma('foreign_keys = OFF');
   const clear = db.transaction(() => {
-    for (const table of tables) {
-      db.prepare(`DELETE FROM ${table}`).run();
+    for (const { name } of tables) {
+      db.prepare(`DELETE FROM "${name.replace(/"/g, '""')}"`).run();
     }
   });
   try {
