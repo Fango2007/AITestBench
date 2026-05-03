@@ -46,6 +46,13 @@ function isInspectorError(v: ArchitectureTree | InspectorError): v is InspectorE
   return 'code' in v && !('schema_version' in v);
 }
 
+function inspectionFailureMessage(err: InspectorError): string {
+  if ('message' in err && typeof err.message === 'string' && err.message.trim()) {
+    return err.message.trim();
+  }
+  return 'Inspection failed.';
+}
+
 function errorToHttp(err: InspectorError): { status: number; body: { error: string; code: string } } {
   switch (err.code) {
     case 'inspection_in_progress':
@@ -76,7 +83,7 @@ function errorToHttp(err: InspectorError): { status: number; body: { error: stri
       return {
         status: 500,
         body: {
-          error: (err as { code: string; message?: string }).message ?? 'Inspection failed.',
+          error: inspectionFailureMessage(err),
           code: (err as { code: string }).code,
         },
       };

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { ArchitectureTree, ApiError, inspectArchitecture, patchSettings } from '../services/architecture-api.js';
+import { ArchitectureTree, inspectArchitecture, patchSettings } from '../services/architecture-api.js';
 import { ModelRecord, listModels } from '../services/models-api.js';
 import { ArchitectureTreeView } from '../components/ArchitectureTree.js';
 
@@ -45,6 +45,20 @@ type InspectionState =
   | { status: 'done'; tree: ArchitectureTree }
   | { status: 'error'; code: string; message: string };
 
+function inspectionErrorFrom(err: unknown): { code: string; message: string } {
+  if (err && typeof err === 'object') {
+    const maybeError = err as { code?: unknown; error?: unknown; message?: unknown };
+    const code = typeof maybeError.code === 'string' && maybeError.code.trim() ? maybeError.code.trim() : 'unknown';
+    const message = [maybeError.error, maybeError.message]
+      .find((value) => typeof value === 'string' && value.trim()) as string | undefined;
+    return { code, message: message?.trim() ?? 'Architecture inspection failed.' };
+  }
+  if (err instanceof Error && err.message.trim()) {
+    return { code: 'unknown', message: err.message.trim() };
+  }
+  return { code: 'unknown', message: 'Architecture inspection failed.' };
+}
+
 export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
   const [record, setRecord] = useState<ModelRecord | null>(null);
   const [inspection, setInspection] = useState<InspectionState>({ status: 'idle' });
@@ -68,11 +82,11 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
       const tree = await inspectArchitecture(serverId, modelId);
       setInspection({ status: 'done', tree });
     } catch (err) {
-      const apiErr = err as ApiError;
+      const apiErr = inspectionErrorFrom(err);
       if (apiErr.code === 'unregistered_architecture') {
         setShowTrustSection(true);
       }
-      setInspection({ status: 'error', code: apiErr.code ?? 'unknown', message: apiErr.error ?? 'Inspection failed.' });
+      setInspection({ status: 'error', code: apiErr.code, message: apiErr.message });
     }
   }
 
@@ -148,10 +162,14 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
           ) : null}
 
           {inspection.status === 'error' ? (
-            <div className="error">
-              {inspection.code === 'hf_token_required'
-                ? 'This model requires a Hugging Face API token. Add your token in Settings → Environment.'
-                : inspection.message}
+            <div className="error" role="alert">
+              <strong>Architecture inspection failed.</strong>
+              <p>
+                {inspection.code === 'hf_token_required'
+                  ? 'This model requires a Hugging Face API token. Add your token in Settings → Environment.'
+                  : inspection.message}
+              </p>
+              {inspection.code !== 'unknown' ? <p className="muted">Error code: {inspection.code}</p> : null}
               <div className="actions" style={{ marginTop: '0.5rem' }}>
                 <button type="button" onClick={handleInspect}>
                   Retry

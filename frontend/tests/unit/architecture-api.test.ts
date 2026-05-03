@@ -63,6 +63,34 @@ test('inspectArchitecture preserves provenance metadata from estimated trees', a
   expect(result.warnings).toContain('estimated from config');
 });
 
+test('inspectArchitecture preserves backend message fields on errors', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: false,
+    status: 500,
+    json: async () => ({ code: 'inspection_failed', message: 'Failed to read MLX config.json: network error' }),
+  } as Response);
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(inspectArchitecture('server-1', 'org/model')).rejects.toEqual({
+    code: 'inspection_failed',
+    error: 'Failed to read MLX config.json: network error',
+  });
+});
+
+test('inspectArchitecture falls back to HTTP status when error payload is empty', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: false,
+    status: 500,
+    json: async () => ({ code: '', error: '' }),
+  } as Response);
+  vi.stubGlobal('fetch', fetchMock);
+
+  await expect(inspectArchitecture('server-1', 'org/model')).rejects.toEqual({
+    code: 'unknown',
+    error: 'Request failed: 500',
+  });
+});
+
 test('patchSettings keeps JSON content-type because it sends a JSON body', async () => {
   const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ trust_remote_code: true }));
   vi.stubGlobal('fetch', fetchMock);

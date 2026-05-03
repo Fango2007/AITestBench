@@ -65,6 +65,27 @@ describe('inspect_architecture.py config fallback', () => {
     expect(tree.root.children.some((child: any) => child.name === 'lm_head')).toBe(true);
   });
 
+  it('uses config fallback for generic MLX models without requiring PyTorch', () => {
+    writeConfig(tmpDir, {
+      model_type: 'qwen3',
+      architectures: ['Qwen3ForCausalLM'],
+      vocab_size: 100,
+      hidden_size: 16,
+      intermediate_size: 32,
+      num_hidden_layers: 2,
+      num_attention_heads: 4,
+      tie_word_embeddings: true,
+    });
+
+    const tree = inspect(tmpDir, 'mlx');
+
+    expect(tree.format).toBe('mlx');
+    expect(tree.inspection_method).toBe('config_fallback');
+    expect(tree.root.type).toBe('Qwen3ForCausalLM');
+    expect(tree.root.children.find((child: any) => child.name === 'layers').children).toHaveLength(2);
+    expect(tree.warnings.join(' ')).toContain('Tied embeddings');
+  });
+
   it('preserves composite root architecture while estimating nested decoder and vision blocks', () => {
     writeConfig(tmpDir, {
       model_type: 'vision_text',

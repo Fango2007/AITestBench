@@ -209,9 +209,12 @@ export function parseStructuredInspectorError(stderr: string): InspectorError | 
         return { code: 'unregistered_architecture' };
       }
       if (payload.error === 'inspection_failed') {
+        const message = typeof payload.message === 'string' && payload.message.trim()
+          ? payload.message.trim()
+          : 'Inspection failed';
         return {
           code: 'inspection_failed',
-          message: typeof payload.message === 'string' ? payload.message : 'Inspection failed',
+          message,
         };
       }
     } catch {
@@ -223,6 +226,24 @@ export function parseStructuredInspectorError(stderr: string): InspectorError | 
 
 export function scrubInspectionStderr(stderr: string, token: string): string {
   return token ? stderr.replace(new RegExp(escapeRegex(token), 'g'), '[REDACTED]') : stderr;
+}
+
+interface InspectionProcessResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  signal: NodeJS.Signals | null;
+  timedOut: boolean;
+}
+
+export function inspectorFailureMessage(result: InspectionProcessResult, token: string): string {
+  const output = scrubInspectionStderr(`${result.stderr}\n${result.stdout}`.trim(), token).trim();
+  const excerpt = output ? ` Last inspector output: ${output.slice(0, 500)}` : '';
+  if (result.timedOut) {
+    return `Inspector process timed out after 60 seconds.${excerpt}`;
+  }
+  const signal = result.signal ? `, signal ${result.signal}` : '';
+  return output || `Inspector process failed without diagnostic output (exit code ${result.exitCode}${signal}).`;
 }
 
 async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree | InspectorError> {
@@ -255,42 +276,53 @@ async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree 
   };
   if (token) childEnv['HF_TOKEN'] = token;
 
-  const result = await new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) => {
+  const result = await new Promise<InspectionProcessResult>((resolve) => {
+    let timedOut = false;
     const proc = spawn('bash', ['-lc', command], {
       env: { ...process.env, ...childEnv },
-      cwd: repoRoot
+      cwd: repoRoot,
+      detached: process.platform !== 'win32',
     });
 
     let stdout = '';
     let stderr = '';
 
     const timeout = setTimeout(() => {
-      proc.kill('SIGKILL');
+      timedOut = true;
       _deleteCacheFiles(sanitizedId);
+      try {
+        if (process.platform !== 'win32' && proc.pid) {
+          process.kill(-proc.pid, 'SIGKILL');
+        } else {
+          proc.kill('SIGKILL');
+        }
+      } catch {
+        try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+      }
     }, 60_000);
 
     proc.stdout.on('data', (chunk) => { stdout += (chunk as Buffer).toString(); });
     proc.stderr.on('data', (chunk) => { stderr += (chunk as Buffer).toString(); });
-    proc.on('close', (code) => {
+    proc.on('close', (code, signal) => {
       clearTimeout(timeout);
-      resolve({ stdout, stderr, exitCode: code ?? 1 });
+      resolve({ stdout, stderr, exitCode: code ?? 1, signal, timedOut });
     });
   });
 
   if (result.exitCode !== 0) {
     _deleteCacheFiles(sanitizedId);
-    const structuredError = parseStructuredInspectorError(result.stderr);
+    const combinedOutput = `${result.stderr}\n${result.stdout}`;
+    const structuredError = parseStructuredInspectorError(combinedOutput);
     if (structuredError) {
       return structuredError;
     }
-    const scrubbed = scrubInspectionStderr(result.stderr, token);
-    if (result.stderr.includes('unregistered_architecture')) {
+    if (combinedOutput.includes('unregistered_architecture')) {
       return { code: 'unregistered_architecture' };
     }
-    if (result.stderr.includes('hf_token_required') || result.stderr.includes('401') || result.stderr.includes('403')) {
+    if (combinedOutput.includes('hf_token_required') || combinedOutput.includes('401') || combinedOutput.includes('403')) {
       return { code: 'hf_token_required' };
     }
-    return { code: 'inspection_failed', message: scrubbed.slice(0, 500) };
+    return { code: 'inspection_failed', message: inspectorFailureMessage(result, token) };
   }
 
   let tree: ArchitectureTree;

@@ -10,6 +10,9 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Settings **Empty database** now clears all application SQLite tables, including evaluation prompts and evaluations that feed the leaderboard.
 - Leaderboard view now clears stale displayed rows immediately after the database is emptied from settings.
+- Architecture inspection errors now show visible, non-empty diagnostics in the model detail page instead of leaving only a red button state.
+- MLX architecture inspection now uses config-backed estimation directly, avoiding PyTorch-dependent `AutoModel` construction and allowing models such as `/inferencerlabs/Qwen3-Coder-30B-A3B-Instruct-MLX-6.5bit` to inspect successfully from `config.json`.
+- Architecture inspector subprocess failures now include captured output or an explicit timeout diagnostic when the Python process exits or is killed without a structured error.
 
 ## [0.3.1] - 2026-05-02
 
