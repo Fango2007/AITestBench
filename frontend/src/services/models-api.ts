@@ -63,6 +63,7 @@ export interface ModelRecord {
     max_images: number | null;
     max_batch_size: number | null;
   };
+  raw?: Record<string, unknown>;
 }
 
 export interface ModelInput {

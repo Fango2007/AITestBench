@@ -14,6 +14,7 @@ import {
   ModelModalities,
   ModelPerformance,
   ModelProvider,
+  ModelFormat,
   ModelRecord,
   createModel,
   getModelById,
@@ -135,11 +136,45 @@ function mergeArchitecture(
   if (!updates) {
     return base;
   }
+  const normalizedFormat = normalizeModelFormat((updates as { format?: unknown }).format);
   return {
     ...base,
     ...updates,
+    ...(normalizedFormat !== undefined ? { format: normalizedFormat } : {}),
     quantisation: { ...base.quantisation, ...updates.quantisation }
   };
+}
+
+function normalizeModelFormat(format: unknown): ModelFormat | null | undefined {
+  if (format === undefined) {
+    return undefined;
+  }
+  if (format === null || format === '') {
+    return null;
+  }
+  if (typeof format !== 'string') {
+    return format as ModelFormat;
+  }
+  const normalized = format.trim();
+  if (/^gcuf$/i.test(normalized)) {
+    return 'GGUF';
+  }
+  if (/^gguf$/i.test(normalized)) {
+    return 'GGUF';
+  }
+  if (/^mlx$/i.test(normalized)) {
+    return 'MLX';
+  }
+  if (/^gptq$/i.test(normalized)) {
+    return 'GPTQ';
+  }
+  if (/^awq$/i.test(normalized)) {
+    return 'AWQ';
+  }
+  if (/^safetensors$/i.test(normalized)) {
+    return 'SafeTensors';
+  }
+  return normalized as ModelFormat;
 }
 
 function mergeModalities(

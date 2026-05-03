@@ -30,11 +30,13 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     preview: {
       host,
-      port
+      port,
+      strictPort: true
     },
     server: {
       host,
-      port
+      port,
+      strictPort: true
     }
   };
 });

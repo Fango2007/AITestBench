@@ -151,7 +151,7 @@ The **Models** page lists all models registered under each inference server. Eac
 Use the filter bar to narrow the list:
 
 - **Quantized Provider** — filter to models published by a specific quantized-model provider (e.g., `lmstudio-community`). Only providers present in the registered models appear in the dropdown.
-- **Format** — filter by model format: `MLX`, `GGUF`, `GPTQ`, `AWQ`, or `SafeTensors`.
+- **Format** — filter by model format: `MLX`, `GGUF`, `GPTQ`, `AWQ`, or `SafeTensors`. `GCUF` input is accepted as a compatibility alias and saved as canonical `GGUF`.
 - **Capabilities** — filter by one or more use-case tags (`thinking`, `coding`, `instruct`, `mixture of experts`). When multiple tags are selected, only models matching **all** selected tags are shown.
 
 Model names throughout the UI — in the Models list, the Evaluate model selector, and the Leaderboard — display the **clean base model name** (e.g., `Qwen3-Coder-30B-A3B-Instruct`) where available, instead of the raw model_id path.
@@ -159,16 +159,20 @@ Model names throughout the UI — in the Models list, the Evaluate model selecto
 The **Update** form for each model (and the initial registration form) exposes the following metadata fields:
 
 - **Quantized Provider** — the organization that published the quantized variant
-- **Format** — `MLX`, `GGUF`, `GPTQ`, `AWQ`, `SafeTensors`, or unset
+- **Format** — `MLX`, `GGUF`, `GPTQ`, `AWQ`, `SafeTensors`, or unset (`GCUF` is normalized to `GGUF`)
 - **Capabilities / Use Case** — `thinking`, `coding`, `instruct`, and `mixture of experts` checkboxes
 
 `base_model_name` is auto-inferred from the model_id at registration time and can be overridden in the update form.
 
 Click **View details** on a model row to open the model detail page. For
-supported open-weight models, **Inspect Architecture** downloads architecture
+supported open-weight models, **Inspect Architecture** downloads or reads architecture
 metadata only, stores the cache under `backend/data/model/`, and renders an
 expandable layer tree with total, trainable, non-trainable, and per-layer-type
-parameter counts. Gated Hugging Face models require `HF_TOKEN` or
+parameter counts. Local GGUF files are supported when the model record includes
+a local path in `raw.model_path` or an equivalent raw path key. MLX models are
+supported either from a local directory with `config.json` or from local server
+IDs that point back to a Hugging Face-style repository, including IDs with a
+leading `/` such as `/lmstudio-community/...-MLX-6bit`. Gated Hugging Face models require `HF_TOKEN` or
 `HUGGINGFACE_HUB_TOKEN` in the repo-root `.env`.
 
 ---

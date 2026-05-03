@@ -21,13 +21,8 @@ export function getDb(): Database.Database {
     return dbInstance;
   }
 
-  const configuredPath = process.env.AITESTBENCH_DB_PATH?.trim();
-  const isSpecialPath = configuredPath === ':memory:' || configuredPath?.startsWith('file:');
-  const dbPath = isSpecialPath
-    ? configuredPath!
-    : configuredPath
-      ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(repoRoot, configuredPath))
-      : DEFAULT_DB_PATH;
+  const dbPath = resolvedDbPath();
+  const isSpecialPath = dbPath === ':memory:' || dbPath.startsWith('file:');
   if (!isSpecialPath) {
     ensureDir(dbPath);
   }
@@ -38,6 +33,17 @@ export function getDb(): Database.Database {
 
   dbInstance = db;
   return dbInstance;
+}
+
+export function resolvedDbPath(): string {
+  const configuredPath = process.env.AITESTBENCH_DB_PATH?.trim();
+  const isSpecialPath = configuredPath === ':memory:' || configuredPath?.startsWith('file:');
+  if (isSpecialPath) {
+    return configuredPath!;
+  }
+  return configuredPath
+    ? (path.isAbsolute(configuredPath) ? configuredPath : path.resolve(repoRoot, configuredPath))
+    : DEFAULT_DB_PATH;
 }
 
 export function runSchema(sql: string): void {

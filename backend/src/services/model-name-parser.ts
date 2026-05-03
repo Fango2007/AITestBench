@@ -26,7 +26,7 @@ const providerHints: Array<{ provider: ModelProvider; patterns: RegExp[] }> = [
 ];
 
 const quantisationHints: Array<{ method: ModelQuantisationMethod; patterns: RegExp[] }> = [
-  { method: 'gguf', patterns: [/gguf/i] },
+  { method: 'gguf', patterns: [/gguf/i, /gcuf/i] },
   { method: 'gptq', patterns: [/gptq/i] },
   { method: 'awq', patterns: [/awq/i] },
   { method: 'mlx', patterns: [/mlx/i] }
@@ -91,6 +91,7 @@ function parseQuantisationBits(text: string): number | null {
 const DROP_PATTERNS = [
   /^mlx$/i,
   /^gguf$/i,
+  /^gcuf$/i,
   /^gptq$/i,
   /^awq$/i,
   /^safetensors$/i,

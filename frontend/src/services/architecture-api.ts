@@ -2,11 +2,15 @@ const BASE_URL =
   (import.meta.env.VITE_AITESTBENCH_API_BASE_URL as string | undefined)
   ?? 'http://localhost:8080';
 
-function reqHeaders(): Record<string, string> {
-  const h: Record<string, string> = { 'content-type': 'application/json' };
+function authHeaders(): Record<string, string> {
+  const h: Record<string, string> = {};
   const token = import.meta.env.VITE_AITESTBENCH_API_TOKEN as string | undefined;
   if (token) h['x-api-token'] = token;
   return h;
+}
+
+function jsonHeaders(): Record<string, string> {
+  return { ...authHeaders(), 'content-type': 'application/json' };
 }
 
 export interface ArchitectureLayerNode {
@@ -28,7 +32,10 @@ export interface ArchitectureSummary {
 export interface ArchitectureTree {
   schema_version: '1.0.0';
   model_id: string;
-  format: 'transformers' | 'gguf';
+  format: 'transformers' | 'gguf' | 'mlx' | 'gptq' | 'awq' | 'safetensors';
+  inspection_method?: 'transformers_exact' | 'config_fallback' | 'gguf_header' | 'safetensors_header' | 'hybrid';
+  accuracy?: 'exact' | 'estimated';
+  warnings?: string[];
   summary: ArchitectureSummary;
   root: ArchitectureLayerNode;
   inspected_at: string;
@@ -57,7 +64,7 @@ async function parseApiError(response: Response): Promise<ApiError> {
 }
 
 export async function inspectArchitecture(sid: string, mid: string): Promise<ArchitectureTree> {
-  const response = await fetch(archPath(sid, mid), { method: 'POST', headers: reqHeaders() });
+  const response = await fetch(archPath(sid, mid), { method: 'POST', headers: authHeaders() });
   if (!response.ok) {
     throw await parseApiError(response);
   }
@@ -65,7 +72,7 @@ export async function inspectArchitecture(sid: string, mid: string): Promise<Arc
 }
 
 export async function getArchitecture(sid: string, mid: string): Promise<ArchitectureTree> {
-  const response = await fetch(archPath(sid, mid), { headers: reqHeaders() });
+  const response = await fetch(archPath(sid, mid), { headers: authHeaders() });
   if (!response.ok) {
     throw await parseApiError(response);
   }
@@ -73,14 +80,14 @@ export async function getArchitecture(sid: string, mid: string): Promise<Archite
 }
 
 export async function deleteArchitecture(sid: string, mid: string): Promise<void> {
-  const response = await fetch(archPath(sid, mid), { method: 'DELETE', headers: reqHeaders() });
+  const response = await fetch(archPath(sid, mid), { method: 'DELETE', headers: authHeaders() });
   if (!response.ok) {
     throw await parseApiError(response);
   }
 }
 
 export async function getSettings(sid: string, mid: string): Promise<ArchitectureSettings> {
-  const response = await fetch(archPath(sid, mid, '/settings'), { headers: reqHeaders() });
+  const response = await fetch(archPath(sid, mid, '/settings'), { headers: authHeaders() });
   if (!response.ok) {
     throw await parseApiError(response);
   }
@@ -94,7 +101,7 @@ export async function patchSettings(
 ): Promise<ArchitectureSettings> {
   const response = await fetch(archPath(sid, mid, '/settings'), {
     method: 'PATCH',
-    headers: reqHeaders(),
+    headers: jsonHeaders(),
     body: JSON.stringify(body),
   });
   if (!response.ok) {

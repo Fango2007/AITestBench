@@ -6,6 +6,17 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-02
+
+### Changed
+
+- Model format handling now accepts `GCUF` as a compatibility alias for canonical `GGUF`.
+- Architecture inspection now supports local GGUF files, MLX models with local `config.json` directories, and local-server MLX IDs that point back to HF-style repos, including leading-slash IDs such as `/lmstudio-community/...-MLX-6bit`.
+- Architecture inspection now uses a layered pipeline: exact Transformers construction first, then format-aware config/header fallback with explicit provenance and accuracy metadata.
+- Config fallback now normalizes nested decoder configs, estimates dense decoder, multimodal projector, and MoE structures, respects tied embeddings, and returns a clear unsupported error when required dimensions are missing.
+- GPTQ, AWQ, SafeTensors, MLX, and GGUF inspection targets now route through the appropriate exact, config-backed, or header-only strategy without downloading weight tensors.
+- Architecture cache entries now include inspector metadata and invalidate stale zero-parameter root-only results.
+
 ## [0.3.0] - 2026-05-01
 
 ### Added

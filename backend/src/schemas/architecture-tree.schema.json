@@ -16,7 +16,19 @@
     },
     "format": {
       "type": "string",
-      "enum": ["transformers", "gguf"]
+      "enum": ["transformers", "gguf", "mlx", "gptq", "awq", "safetensors"]
+    },
+    "inspection_method": {
+      "type": "string",
+      "enum": ["transformers_exact", "config_fallback", "gguf_header", "safetensors_header", "hybrid"]
+    },
+    "accuracy": {
+      "type": "string",
+      "enum": ["exact", "estimated"]
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
     },
     "summary": {
       "$ref": "#/$defs/ArchitectureSummary"

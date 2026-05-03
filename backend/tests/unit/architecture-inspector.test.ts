@@ -3,13 +3,23 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DATA_DIR, ArchitectureTree, sanitizeModelId, readCachedTree } from '../../src/adapters/architecture-inspector.js';
+import {
+  DATA_DIR,
+  ArchitectureTree,
+  parseStructuredInspectorError,
+  readCachedTree,
+  sanitizeModelId,
+  scrubInspectionStderr,
+} from '../../src/adapters/architecture-inspector.js';
 
 // Minimal valid ArchitectureTree fixture
 const validTree: ArchitectureTree = {
   schema_version: '1.0.0',
   model_id: 'meta-llama/Llama-3.1-8B',
   format: 'transformers',
+  inspection_method: 'transformers_exact',
+  accuracy: 'exact',
+  warnings: [],
   summary: {
     total_parameters: 8000,
     trainable_parameters: 8000,
@@ -185,6 +195,25 @@ describe('readCachedTree', () => {
     }
   });
 
+  it('returns not_cached and deletes stale zero-root cache entries without provenance', () => {
+    const sanitizedId = 'test-stale-zero-root-cache-xyz';
+    const staleTree = {
+      ...validTree,
+      inspection_method: undefined,
+      accuracy: undefined,
+      summary: { total_parameters: 0, trainable_parameters: 0, non_trainable_parameters: 0, by_type: [] },
+      root: { ...validTree.root, children: [] },
+    };
+    writeLayerTree(sanitizedId, JSON.stringify(staleTree));
+    try {
+      const result = readCachedTree(sanitizedId);
+      expect(result).toEqual({ code: 'not_cached' });
+      expect(fs.existsSync(path.join(DATA_DIR, sanitizedId, 'layer-tree.json'))).toBe(false);
+    } finally {
+      cleanupModel(sanitizedId);
+    }
+  });
+
   it('returns valid ArchitectureTree for a correct cache file', () => {
     const sanitizedId = 'test-valid-cache-xyz';
     writeLayerTree(sanitizedId, JSON.stringify(validTree));
@@ -195,5 +224,23 @@ describe('readCachedTree', () => {
     } finally {
       cleanupModel(sanitizedId);
     }
+  });
+});
+
+describe('inspector subprocess errors', () => {
+  it('parses structured inspection failures without leaking raw stderr framing', () => {
+    expect(parseStructuredInspectorError('{"error": "inspection_failed", "message": "\'ministral3\'"}\n')).toEqual({
+      code: 'inspection_failed',
+      message: "'ministral3'",
+    });
+  });
+
+  it('does not inject redaction markers when no token is configured', () => {
+    const stderr = '{"error": "inspection_failed", "message": "\'ministral3\'"}\n';
+    expect(scrubInspectionStderr(stderr, '')).toBe(stderr);
+  });
+
+  it('redacts configured Hugging Face tokens from subprocess stderr', () => {
+    expect(scrubInspectionStderr('token hf_secret appeared', 'hf_secret')).toBe('token [REDACTED] appeared');
   });
 });
