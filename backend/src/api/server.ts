@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { getDb, runSchema } from '../models/db.js';
+import { getDb, resolvedDbPath, runSchema } from '../models/db.js';
 import { reloadTests } from '../services/test-service.js';
 import { registerAuth } from './middleware/auth.js';
 import { registerResultsRoutes } from './routes/results.js';
@@ -38,6 +38,14 @@ export function createServer() {
     runSchema(fs.readFileSync(schemaPath, 'utf8'));
   }
   applyColumnMigrations();
+  if (process.env.AITESTBENCH_E2E === '1' && process.env.AITESTBENCH_E2E_MARKER_PATH) {
+    fs.mkdirSync(path.dirname(process.env.AITESTBENCH_E2E_MARKER_PATH), { recursive: true });
+    fs.writeFileSync(
+      process.env.AITESTBENCH_E2E_MARKER_PATH,
+      JSON.stringify({ db_path: resolvedDbPath(), pid: process.pid, created_at: new Date().toISOString() }, null, 2),
+      'utf8'
+    );
+  }
 
   reloadTests();
 
@@ -67,7 +75,13 @@ export function createServer() {
     return payload;
   });
 
-  app.get('/health', async () => ({ status: 'ok' }));
+  app.get('/health', async () => {
+    const payload: { status: 'ok'; db_path?: string } = { status: 'ok' };
+    if (process.env.AITESTBENCH_E2E === '1') {
+      payload.db_path = resolvedDbPath();
+    }
+    return payload;
+  });
 
   registerSystemRoutes(app);
   registerInferenceServersRoutes(app);

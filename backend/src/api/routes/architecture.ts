@@ -1,8 +1,11 @@
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { FastifyInstance } from 'fastify';
 
 import { getModelById } from '../../models/model.js';
+import type { ModelRecord } from '../../models/model.js';
+import { getInferenceServerById } from '../../models/inference-server.js';
 import { getDb } from '../../models/db.js';
 import {
   sanitizeModelId,
@@ -13,11 +16,31 @@ import {
   InspectorError,
 } from '../../adapters/architecture-inspector.js';
 import { validateWithSchema } from '../../services/schema-validator.js';
+import { guessModelCharacteristics } from '../../services/model-name-parser.js';
+import { InvalidModelError, upsertModelRecord } from '../../services/models-repository.js';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const SETTINGS_SCHEMA = path.resolve(moduleDir, '../../schemas/architecture-settings.schema.json');
 
 const HF_MODEL_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]+$/;
+const LOCAL_PATH_KEYS = ['model_path', 'modelPath', 'local_path', 'localPath', 'file_path', 'filePath', 'path'];
+
+type DiscoveryModel = {
+  model_id: string;
+  display_name: string | null;
+  context_window_tokens: number | null;
+  quantisation:
+    | {
+        method: string;
+        bits: number | null;
+        group_size: number | null;
+        scheme?: string | null;
+        variant?: string | null;
+        weight_format?: string | null;
+      }
+    | string
+    | null;
+};
 
 function isInspectorError(v: ArchitectureTree | InspectorError): v is InspectorError {
   return 'code' in v && !('schema_version' in v);
@@ -68,6 +91,217 @@ function getArchitectureSettings(serverId: string, modelId: string): { trust_rem
   return { trust_remote_code: row ? row.trust_remote_code === 1 : false };
 }
 
+function inferFormat(modelId: string): 'MLX' | 'GGUF' | 'GPTQ' | 'AWQ' | 'SafeTensors' | null {
+  if (/\bmlx\b/i.test(modelId)) return 'MLX';
+  if (/\b(?:gguf|gcuf)\b/i.test(modelId)) return 'GGUF';
+  if (/\bgptq\b/i.test(modelId)) return 'GPTQ';
+  if (/\bawq\b/i.test(modelId)) return 'AWQ';
+  if (/\bsafetensors\b/i.test(modelId)) return 'SafeTensors';
+  return null;
+}
+
+function discoveryQuantisation(modelId: string, discovered: DiscoveryModel): ModelRecord['architecture']['quantisation'] {
+  if (discovered.quantisation && typeof discovered.quantisation === 'object') {
+    return {
+      method: discovered.quantisation.method as ModelRecord['architecture']['quantisation']['method'],
+      bits: discovered.quantisation.bits,
+      group_size: discovered.quantisation.group_size,
+      scheme: discovered.quantisation.scheme as ModelRecord['architecture']['quantisation']['scheme'],
+      variant: discovered.quantisation.variant as ModelRecord['architecture']['quantisation']['variant'],
+      weight_format: discovered.quantisation.weight_format,
+    };
+  }
+  const guessed = guessModelCharacteristics(modelId);
+  return {
+    method: guessed.quantisation.method ?? 'unknown',
+    bits: guessed.quantisation.bits,
+    group_size: null,
+  };
+}
+
+function getOrCreateModelForInspection(serverId: string, modelId: string): ModelRecord | null {
+  const existing = getModelById(serverId, modelId);
+  if (existing) {
+    return existing;
+  }
+
+  const server = getInferenceServerById(serverId);
+  const discovered = server?.discovery.model_list.normalised.find((entry) => entry.model_id === modelId) as
+    | DiscoveryModel
+    | undefined;
+  if (!server || !discovered) {
+    return null;
+  }
+
+  try {
+    return upsertModelRecord({
+      model: {
+        server_id: serverId,
+        model_id: modelId,
+        display_name: discovered.display_name ?? modelId,
+      },
+      identity: {
+        provider: guessModelCharacteristics(modelId).provider ?? 'unknown',
+      },
+      architecture: {
+        format: inferFormat(modelId),
+        quantisation: discoveryQuantisation(modelId, discovered),
+      },
+      limits: {
+        context_window_tokens: discovered.context_window_tokens,
+      },
+      raw: { discovery_model: discovered },
+    });
+  } catch (error) {
+    if (error instanceof InvalidModelError) {
+      return getModelById(serverId, modelId);
+    }
+    throw error;
+  }
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function findStringByKeys(source: Record<string, unknown> | undefined, keys: string[]): string | null {
+  if (!source) {
+    return null;
+  }
+  for (const key of keys) {
+    const found = stringValue(source[key]);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
+function localModelPath(model: ModelRecord): string | null {
+  const raw = model.raw ?? {};
+  const nestedModel = raw.model && typeof raw.model === 'object' ? (raw.model as Record<string, unknown>) : undefined;
+  const candidates = [
+    findStringByKeys(raw, LOCAL_PATH_KEYS),
+    findStringByKeys(nestedModel, LOCAL_PATH_KEYS),
+    stringValue(model.model.model_id)
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function hasMlxConfig(modelPath: string): boolean {
+  try {
+    const stat = fs.statSync(modelPath);
+    if (stat.isDirectory()) {
+      return fs.existsSync(path.join(modelPath, 'config.json'));
+    }
+    return path.basename(modelPath) === 'config.json';
+  } catch {
+    return false;
+  }
+}
+
+function hasGgufFile(modelPath: string): boolean {
+  try {
+    const stat = fs.statSync(modelPath);
+    return stat.isFile() && modelPath.toLowerCase().endsWith('.gguf');
+  } catch {
+    return false;
+  }
+}
+
+function hasSafeTensorsFile(modelPath: string): boolean {
+  try {
+    const stat = fs.statSync(modelPath);
+    if (stat.isFile()) {
+      return modelPath.toLowerCase().endsWith('.safetensors');
+    }
+    if (stat.isDirectory()) {
+      return fs.readdirSync(modelPath).some((entry) => entry.toLowerCase().endsWith('.safetensors'));
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function hubModelId(modelId: string): string | null {
+  const normalized = modelId.replace(/^\/+/, '');
+  return HF_MODEL_ID_RE.test(normalized) ? normalized : null;
+}
+
+function inspectionTarget(
+  model: ModelRecord
+): {
+  format: 'transformers' | 'gguf' | 'mlx' | 'gptq' | 'awq' | 'safetensors';
+  modelPath?: string;
+  sourceModelId?: string;
+} | InspectorError {
+  const format = model.architecture.format;
+  const modelPath = localModelPath(model);
+  const sourceModelId = hubModelId(model.model.model_id);
+
+  if (format === 'GGUF') {
+    if (modelPath && hasGgufFile(modelPath)) {
+      return { format: 'gguf', modelPath };
+    }
+    return { code: 'not_inspectable' };
+  }
+
+  if (format === 'MLX') {
+    if (modelPath && hasMlxConfig(modelPath)) {
+      return { format: 'mlx', modelPath };
+    }
+    if (sourceModelId) {
+      return { format: 'mlx', sourceModelId };
+    }
+    return { code: 'not_inspectable' };
+  }
+
+  if (format === 'SafeTensors') {
+    if (modelPath && hasSafeTensorsFile(modelPath)) {
+      return sourceModelId
+        ? { format: 'safetensors', modelPath, sourceModelId }
+        : { format: 'safetensors', modelPath };
+    }
+    if (sourceModelId) {
+      return { format: 'safetensors', sourceModelId };
+    }
+    return { code: 'not_inspectable' };
+  }
+
+  if (format === 'GPTQ') {
+    if (sourceModelId) {
+      return { format: 'gptq', sourceModelId };
+    }
+    if (modelPath && hasMlxConfig(modelPath)) {
+      return { format: 'gptq', modelPath };
+    }
+    return { code: 'not_inspectable' };
+  }
+
+  if (format === 'AWQ') {
+    if (sourceModelId) {
+      return { format: 'awq', sourceModelId };
+    }
+    if (modelPath && hasMlxConfig(modelPath)) {
+      return { format: 'awq', modelPath };
+    }
+    return { code: 'not_inspectable' };
+  }
+
+  if (sourceModelId) {
+    return { format: 'transformers', sourceModelId };
+  }
+
+  return { code: 'not_inspectable' };
+}
+
 export function registerArchitectureRoutes(app: FastifyInstance): void {
   // POST — inspect or return cache
   app.post<{ Params: { serverId: string; modelId: string } }>(
@@ -75,19 +309,15 @@ export function registerArchitectureRoutes(app: FastifyInstance): void {
     async (request, reply) => {
       const { serverId, modelId } = request.params;
 
-      const model = getModelById(serverId, modelId);
+      const model = getOrCreateModelForInspection(serverId, modelId);
       if (!model) {
         return reply.code(404).send({ error: 'Model not found.', code: 'model_not_found' });
       }
 
-      // GGUF without a local path is not inspectable in this release
-      if (model.architecture.format === 'GGUF') {
-        return reply.code(422).send({ error: 'This model is not inspectable.', code: 'not_inspectable' });
-      }
-
-      // Only HF-style IDs are inspectable via transformers
-      if (!HF_MODEL_ID_RE.test(modelId)) {
-        return reply.code(422).send({ error: 'This model is not inspectable.', code: 'not_inspectable' });
+      const target = inspectionTarget(model);
+      if ('code' in target) {
+        const { status, body } = errorToHttp(target);
+        return reply.code(status).send(body);
       }
 
       let sanitized: string;
@@ -108,7 +338,9 @@ export function registerArchitectureRoutes(app: FastifyInstance): void {
       const result = await runInspection({
         modelId,
         sanitizedId: sanitized,
-        format: 'transformers',
+        sourceModelId: target.sourceModelId,
+        format: target.format,
+        modelPath: target.modelPath,
         trustRemoteCode: settings.trust_remote_code,
       });
 

@@ -68,9 +68,20 @@ const VIRTUALIZE_THRESHOLD = 200;
 interface Props {
   root: ArchitectureLayerNode;
   summary: ArchitectureSummary;
+  accuracy?: 'exact' | 'estimated';
+  inspectionMethod?: string;
+  warnings?: string[];
 }
 
-export function ArchitectureTreeView({ root, summary }: Props) {
+function provenanceLabel(method?: string): string {
+  if (!method) return 'Estimated';
+  return method
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export function ArchitectureTreeView({ root, summary, accuracy, inspectionMethod, warnings = [] }: Props) {
   const rootPath = `0:${root.name}`;
   const [expanded, setExpanded] = useState<Map<string, boolean>>(() => new Map([[rootPath, true]]));
   const [highlightedType, setHighlightedType] = useState<string | null>(null);
@@ -127,23 +138,34 @@ export function ArchitectureTreeView({ root, summary }: Props) {
     <div className="architecture-tree">
       {/* Summary panel */}
       <div className="arch-summary">
+        {accuracy === 'estimated' ? (
+          <div className="arch-provenance" title={warnings.join(' ') || 'Estimated from model configuration.'}>
+            {provenanceLabel(inspectionMethod)}
+          </div>
+        ) : null}
         <div className="arch-summary-totals">
           <div>
             <span>Total parameters</span>
             <strong>
-              <span title={summary.total_parameters.toLocaleString()}>{formatParams(summary.total_parameters)}</span>
+              <span title={summary.total_parameters.toLocaleString()}>
+                {accuracy === 'estimated' ? '~' : ''}{formatParams(summary.total_parameters)}
+              </span>
             </strong>
           </div>
           <div>
             <span>Trainable</span>
             <strong>
-              <span title={summary.trainable_parameters.toLocaleString()}>{formatParams(summary.trainable_parameters)}</span>
+              <span title={summary.trainable_parameters.toLocaleString()}>
+                {accuracy === 'estimated' ? '~' : ''}{formatParams(summary.trainable_parameters)}
+              </span>
             </strong>
           </div>
           <div>
             <span>Non-trainable</span>
             <strong>
-              <span title={summary.non_trainable_parameters.toLocaleString()}>{formatParams(summary.non_trainable_parameters)}</span>
+              <span title={summary.non_trainable_parameters.toLocaleString()}>
+                {accuracy === 'estimated' ? '~' : ''}{formatParams(summary.non_trainable_parameters)}
+              </span>
             </strong>
           </div>
         </div>

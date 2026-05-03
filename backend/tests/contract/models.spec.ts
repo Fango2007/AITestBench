@@ -210,6 +210,64 @@ describe('models contract', () => {
     expect(created.architecture.format).toBe('GGUF');
   });
 
+  it('canonicalizes GCUF format alias to GGUF on POST /models', async () => {
+    const app = createServer();
+    const serverResponse = await app.inject({
+      method: 'POST',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS,
+      payload: buildServerPayload()
+    });
+    if (serverResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${serverResponse.statusCode} ${serverResponse.body}`);
+    }
+    const server = serverResponse.json();
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/models',
+      headers: AUTH_HEADERS,
+      payload: buildModelPayload(server.inference_server.server_id, {
+        architecture: { format: 'GCUF' }
+      })
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const created = createResponse.json();
+    expect(created.architecture.format).toBe('GGUF');
+  });
+
+  it('canonicalizes GCUF format alias to GGUF on PATCH /models/:serverId/:modelId', async () => {
+    const app = createServer();
+    const serverResponse = await app.inject({
+      method: 'POST',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS,
+      payload: buildServerPayload()
+    });
+    if (serverResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${serverResponse.statusCode} ${serverResponse.body}`);
+    }
+    const server = serverResponse.json();
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/models',
+      headers: AUTH_HEADERS,
+      payload: buildModelPayload(server.inference_server.server_id)
+    });
+    expect(createResponse.statusCode).toBe(201);
+
+    const patchResponse = await app.inject({
+      method: 'PATCH',
+      url: `/models/${server.inference_server.server_id}/gpt-test`,
+      headers: AUTH_HEADERS,
+      payload: { architecture: { format: 'GCUF' } }
+    });
+    expect(patchResponse.statusCode).toBe(200);
+    expect(patchResponse.json().architecture.format).toBe('GGUF');
+  });
+
+
   it('rejects invalid format enum on POST /models with 400', async () => {
     const app = createServer();
     const serverResponse = await app.inject({

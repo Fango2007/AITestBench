@@ -19,6 +19,9 @@ function validateToken(request: FastifyRequest, reply: FastifyReply): boolean {
 
 export function registerAuth(app: FastifyInstance): void {
   app.addHook('preHandler', async (request, reply) => {
+    if (request.method === 'OPTIONS' || request.url === '/health') {
+      return;
+    }
     const ok = validateToken(request, reply);
     if (!ok) {
       return;

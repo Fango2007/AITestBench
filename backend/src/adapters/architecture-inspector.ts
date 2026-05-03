@@ -13,6 +13,7 @@ fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const PYTHON_SCRIPT = path.join(moduleDir, '..', 'scripts', 'inspect_architecture.py');
 const ARCHITECTURE_TREE_SCHEMA = path.join(moduleDir, '..', 'schemas', 'architecture-tree.schema.json');
+const INSPECTOR_VERSION = 2;
 
 const WINDOWS_RESERVED = /^(CON|NUL|PRN|AUX|COM[0-9]|LPT[0-9])$/i;
 
@@ -51,7 +52,10 @@ export interface ArchitectureSummary {
 export interface ArchitectureTree {
   schema_version: '1.0.0';
   model_id: string;
-  format: 'transformers' | 'gguf';
+  format: 'transformers' | 'gguf' | 'mlx' | 'gptq' | 'awq' | 'safetensors';
+  inspection_method?: 'transformers_exact' | 'config_fallback' | 'gguf_header' | 'safetensors_header' | 'hybrid';
+  accuracy?: 'exact' | 'estimated';
+  warnings?: string[];
   summary: ArchitectureSummary;
   root: ArchitectureLayerNode;
   inspected_at: string;
@@ -107,6 +111,18 @@ function isValidArchitectureTree(value: unknown): value is ArchitectureTree {
   return validateWithSchema(ARCHITECTURE_TREE_SCHEMA, value).ok;
 }
 
+function isStaleArchitectureTree(value: ArchitectureTree): boolean {
+  return (
+    !value.inspection_method
+    || !value.accuracy
+    || (
+      value.summary.total_parameters === 0
+      && value.root.parameters === 0
+      && value.root.children.length === 0
+    )
+  );
+}
+
 export function readCachedTree(sanitized: string): ArchitectureTree | InspectorError {
   const treePath = layerTreePath(modelCacheDir(sanitized));
   if (!fs.existsSync(treePath)) {
@@ -120,6 +136,10 @@ export function readCachedTree(sanitized: string): ArchitectureTree | InspectorE
     return { code: 'not_cached' };
   }
   if (!isValidArchitectureTree(parsed)) {
+    _deleteCacheFiles(sanitized);
+    return { code: 'not_cached' };
+  }
+  if (isStaleArchitectureTree(parsed)) {
     _deleteCacheFiles(sanitized);
     return { code: 'not_cached' };
   }
@@ -146,8 +166,9 @@ function resolvePythonBin(): string {
 
 export interface InspectOptions {
   modelId: string;
+  sourceModelId?: string;
   sanitizedId: string;
-  format?: 'gguf' | 'transformers';
+  format?: 'gguf' | 'transformers' | 'mlx' | 'gptq' | 'awq' | 'safetensors';
   modelPath?: string;
   trustRemoteCode: boolean;
 }
@@ -173,18 +194,49 @@ export async function runInspection(opts: InspectOptions): Promise<ArchitectureT
   }
 }
 
+export function parseStructuredInspectorError(stderr: string): InspectorError | null {
+  const lines = stderr.trim().split(/\r?\n/).reverse();
+  for (const line of lines) {
+    try {
+      const payload = JSON.parse(line) as { error?: unknown; message?: unknown };
+      if (payload.error === 'not_inspectable') {
+        return { code: 'not_inspectable' };
+      }
+      if (payload.error === 'hf_token_required') {
+        return { code: 'hf_token_required' };
+      }
+      if (payload.error === 'unregistered_architecture') {
+        return { code: 'unregistered_architecture' };
+      }
+      if (payload.error === 'inspection_failed') {
+        return {
+          code: 'inspection_failed',
+          message: typeof payload.message === 'string' ? payload.message : 'Inspection failed',
+        };
+      }
+    } catch {
+      // Keep scanning stderr; subprocess wrappers can add non-JSON lines.
+    }
+  }
+  return null;
+}
+
+export function scrubInspectionStderr(stderr: string, token: string): string {
+  return token ? stderr.replace(new RegExp(escapeRegex(token), 'g'), '[REDACTED]') : stderr;
+}
+
 async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree | InspectorError> {
-  const { modelId, sanitizedId, format, modelPath, trustRemoteCode } = opts;
+  const { modelId, sourceModelId, sanitizedId, format, modelPath, trustRemoteCode } = opts;
   const cacheDir = modelCacheDir(sanitizedId);
   fs.mkdirSync(cacheDir, { recursive: true });
 
   const token = process.env.HF_TOKEN ?? process.env.HUGGINGFACE_HUB_TOKEN ?? '';
   const pythonBin = resolvePythonBin();
 
-  const args: string[] = ['--model_id', modelId];
+  const args: string[] = ['--model_id', sourceModelId ?? modelId];
   if (token) args.push('--hf_token', token);
   if (trustRemoteCode) args.push('--trust_remote_code');
-  if (format === 'gguf') args.push('--format', 'gguf');
+  if (format && format !== 'transformers') args.push('--format', format);
   if (modelPath) args.push('--model_path', modelPath);
 
   const argStr = args.map(shellEscape).join(' ');
@@ -194,7 +246,13 @@ async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree 
     : `ulimit -t ${cpuSeconds}`;
   const command = `${ulimit} && ${shellEscape(pythonBin)} ${shellEscape(PYTHON_SCRIPT)} ${argStr}`;
 
-  const childEnv: Record<string, string> = {};
+  const childEnv: Record<string, string> = {
+    TOKENIZERS_PARALLELISM: 'false',
+    PYTHONWARNINGS: [
+      process.env.PYTHONWARNINGS,
+      'ignore:resource_tracker:UserWarning',
+    ].filter(Boolean).join(','),
+  };
   if (token) childEnv['HF_TOKEN'] = token;
 
   const result = await new Promise<{ stdout: string; stderr: string; exitCode: number }>((resolve) => {
@@ -221,7 +279,11 @@ async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree 
 
   if (result.exitCode !== 0) {
     _deleteCacheFiles(sanitizedId);
-    const scrubbed = result.stderr.replace(token ? new RegExp(escapeRegex(token), 'g') : /(?:)/, '[REDACTED]');
+    const structuredError = parseStructuredInspectorError(result.stderr);
+    if (structuredError) {
+      return structuredError;
+    }
+    const scrubbed = scrubInspectionStderr(result.stderr, token);
     if (result.stderr.includes('unregistered_architecture')) {
       return { code: 'unregistered_architecture' };
     }
@@ -232,8 +294,12 @@ async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree 
   }
 
   let tree: ArchitectureTree;
+  let cacheConfig: unknown;
   try {
-    tree = JSON.parse(result.stdout) as ArchitectureTree;
+    const parsed = JSON.parse(result.stdout) as ArchitectureTree & { _cache_config?: unknown };
+    cacheConfig = parsed._cache_config;
+    delete parsed._cache_config;
+    tree = { ...parsed, model_id: modelId };
   } catch {
     _deleteCacheFiles(sanitizedId);
     return { code: 'inspection_failed', message: 'Failed to parse inspection output' };
@@ -247,7 +313,24 @@ async function _spawnInspection(opts: InspectOptions): Promise<ArchitectureTree 
   const tmpConfig = configPath(cacheDir) + '.tmp';
   const tmpTree = layerTreePath(cacheDir) + '.tmp';
   try {
-    fs.writeFileSync(tmpConfig, JSON.stringify({ model_id: modelId, format: tree.format }, null, 2), 'utf8');
+    fs.writeFileSync(
+      tmpConfig,
+      JSON.stringify(
+        {
+          inspector_version: INSPECTOR_VERSION,
+          model_id: modelId,
+          source_model_id: sourceModelId ?? modelId,
+          format: tree.format,
+          inspection_method: tree.inspection_method,
+          accuracy: tree.accuracy,
+          warnings: tree.warnings ?? [],
+          config: cacheConfig ?? null,
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
     fs.renameSync(tmpConfig, configPath(cacheDir));
     fs.writeFileSync(tmpTree, JSON.stringify(tree, null, 2), 'utf8');
     fs.renameSync(tmpTree, layerTreePath(cacheDir));

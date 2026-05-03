@@ -4,12 +4,33 @@ import { ArchitectureTree, ApiError, inspectArchitecture, patchSettings } from '
 import { ModelRecord, listModels } from '../services/models-api.js';
 import { ArchitectureTreeView } from '../components/ArchitectureTree.js';
 
-const HF_MODEL_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]+$/;
+const HF_MODEL_ID_RE = /^\/?[a-zA-Z0-9][a-zA-Z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]+$/;
+const LOCAL_PATH_KEYS = ['model_path', 'modelPath', 'local_path', 'localPath', 'file_path', 'filePath', 'path'];
 
 function isInspectable(record: ModelRecord | null, modelId: string): boolean {
   if (!record) return HF_MODEL_ID_RE.test(modelId);
-  if (record.architecture.format === 'GGUF') return true;
+  if (record.architecture.format === 'GGUF') return Boolean(localPathHint(record));
+  if (record.architecture.format === 'MLX') return HF_MODEL_ID_RE.test(modelId) || Boolean(localPathHint(record));
+  if (record.architecture.format === 'SafeTensors') return HF_MODEL_ID_RE.test(modelId) || Boolean(localPathHint(record));
+  if (record.architecture.format === 'GPTQ' || record.architecture.format === 'AWQ') {
+    return HF_MODEL_ID_RE.test(modelId) || Boolean(localPathHint(record));
+  }
   return HF_MODEL_ID_RE.test(modelId);
+}
+
+function localPathHint(record: ModelRecord): string | null {
+  const raw = record.raw ?? {};
+  const nestedModel = raw.model && typeof raw.model === 'object' ? (raw.model as Record<string, unknown>) : undefined;
+  for (const source of [raw, nestedModel]) {
+    if (!source) continue;
+    for (const key of LOCAL_PATH_KEYS) {
+      const value = source[key];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+  return null;
 }
 
 interface ModelDetailsProps {
@@ -169,7 +190,13 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
           ) : null}
 
           {inspection.status === 'done' ? (
-            <ArchitectureTreeView root={inspection.tree.root} summary={inspection.tree.summary} />
+            <ArchitectureTreeView
+              root={inspection.tree.root}
+              summary={inspection.tree.summary}
+              accuracy={inspection.tree.accuracy}
+              inspectionMethod={inspection.tree.inspection_method}
+              warnings={inspection.tree.warnings}
+            />
           ) : null}
         </div>
       ) : null}
