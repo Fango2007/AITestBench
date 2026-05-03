@@ -56,11 +56,21 @@ function archPath(sid: string, mid: string, suffix = ''): string {
 
 async function parseApiError(response: Response): Promise<ApiError> {
   try {
-    const payload = (await response.json()) as Partial<ApiError>;
-    return { code: payload.code ?? 'unknown', error: payload.error ?? `Request failed: ${response.status}` };
+    const payload = (await response.json()) as Partial<ApiError> & { message?: string; detail?: string };
+    const error = firstNonEmptyString(payload.error, payload.message, payload.detail, `Request failed: ${response.status}`);
+    return { code: firstNonEmptyString(payload.code, 'unknown'), error };
   } catch {
     return { code: 'unknown', error: `Request failed: ${response.status}` };
   }
+}
+
+function firstNonEmptyString(...values: Array<unknown>): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return 'Request failed';
 }
 
 export async function inspectArchitecture(sid: string, mid: string): Promise<ArchitectureTree> {

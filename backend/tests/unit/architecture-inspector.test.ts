@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DATA_DIR,
   ArchitectureTree,
+  inspectorFailureMessage,
   parseStructuredInspectorError,
   readCachedTree,
   sanitizeModelId,
@@ -235,6 +236,13 @@ describe('inspector subprocess errors', () => {
     });
   });
 
+  it('normalizes structured inspection failures with empty messages', () => {
+    expect(parseStructuredInspectorError('{"error": "inspection_failed", "message": ""}\n')).toEqual({
+      code: 'inspection_failed',
+      message: 'Inspection failed',
+    });
+  });
+
   it('does not inject redaction markers when no token is configured', () => {
     const stderr = '{"error": "inspection_failed", "message": "\'ministral3\'"}\n';
     expect(scrubInspectionStderr(stderr, '')).toBe(stderr);
@@ -242,5 +250,25 @@ describe('inspector subprocess errors', () => {
 
   it('redacts configured Hugging Face tokens from subprocess stderr', () => {
     expect(scrubInspectionStderr('token hf_secret appeared', 'hf_secret')).toBe('token [REDACTED] appeared');
+  });
+
+  it('reports timeout failures with captured inspector output', () => {
+    expect(inspectorFailureMessage({
+      stdout: '',
+      stderr: 'Retrying config.json download',
+      exitCode: 1,
+      signal: 'SIGKILL',
+      timedOut: true,
+    }, '')).toBe('Inspector process timed out after 60 seconds. Last inspector output: Retrying config.json download');
+  });
+
+  it('uses stdout as a fallback diagnostic for process failures', () => {
+    expect(inspectorFailureMessage({
+      stdout: 'late stdout diagnostic',
+      stderr: '',
+      exitCode: 1,
+      signal: null,
+      timedOut: false,
+    }, '')).toBe('late stdout diagnostic');
   });
 });

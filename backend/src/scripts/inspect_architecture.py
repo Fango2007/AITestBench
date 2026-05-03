@@ -694,10 +694,7 @@ def main() -> None:
         model_source = args.model_path if args.format_ in {"mlx", "gptq", "awq", "safetensors"} and args.model_path else args.model_id
         if args.format_ == "mlx":
             mlx_config = _read_config_dict(model_source, args.hf_token)
-            if _uses_config_first_mlx_fallback(mlx_config):
-                result = inspect_config_fallback(model_source, mlx_config, "mlx")
-            else:
-                result = inspect_transformers(model_source, args.hf_token, args.trust_remote_code, "mlx")
+            result = inspect_config_fallback(model_source, mlx_config, "mlx")
         elif args.format_ in {"gptq", "awq", "safetensors"}:
             result = inspect_transformers(model_source, args.hf_token, args.trust_remote_code, args.format_)
         else:

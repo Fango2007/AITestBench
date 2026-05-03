@@ -198,6 +198,20 @@ describe('Architecture routes', () => {
       expect(response.statusCode).toBe(422);
     });
 
+    it('returns a visible fallback message for inspection failures with empty diagnostics', async () => {
+      vi.mocked(inspector.readCachedTree).mockReturnValue({ code: 'not_cached' });
+      vi.mocked(inspector.runInspection).mockResolvedValueOnce({ code: 'inspection_failed', message: '' });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: archUrl(seed.modelIdA),
+        headers: authHeader(),
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(response.json()).toEqual({ code: 'inspection_failed', error: 'Inspection failed.' });
+    });
+
     it('returns 404 for model not in DB', async () => {
       const response = await app.inject({
         method: 'POST',
