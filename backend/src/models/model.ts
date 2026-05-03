@@ -9,6 +9,7 @@ export type ModelProvider =
   | 'mistral'
   | 'qwen'
   | 'google'
+  | 'moonshot'
   | 'cohere'
   | 'deepseek'
   | 'anthropic'

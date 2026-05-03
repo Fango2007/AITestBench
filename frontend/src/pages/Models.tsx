@@ -12,6 +12,7 @@ import {
   listModels,
   updateModel
 } from '../services/models-api.js';
+import { extractBaseModelName, inferModelMetadata } from '../services/model-metadata-inference.js';
 
 type ModelServerInfo = {
   server_id: string;
@@ -22,11 +23,82 @@ type ModelServerInfo = {
 
 type ModelAggregate = {
   model_id: string;
+  model_ids: string[];
   display_name: string;
   context_windows: number[];
   quantisations: string[];
   servers: ModelServerInfo[];
 };
+
+function modelLabel(modelId: string, displayName: string, record?: ModelRecord): string {
+  const storedBaseName = record?.model.base_model_name?.trim();
+  const normalizedStoredBaseName = storedBaseName ? extractBaseModelName(storedBaseName) : null;
+  return normalizedStoredBaseName
+    ?? inferModelMetadata(modelId, displayName).baseModelName
+    ?? extractBaseModelName(displayName)
+    ?? displayName;
+}
+
+function canonicalModelKey(modelId: string, displayName: string, record?: ModelRecord): string {
+  return modelLabel(modelId, displayName, record).toLowerCase();
+}
+
+function isProviderPrefixedModelId(modelId: string): boolean {
+  return /^\/?[a-zA-Z0-9][a-zA-Z0-9._-]*\//.test(modelId);
+}
+
+function shouldPreferModelCandidate(current: ModelAggregate, candidate: ModelAggregate): boolean {
+  const currentPrefixed = isProviderPrefixedModelId(current.model_id);
+  const candidatePrefixed = isProviderPrefixedModelId(candidate.model_id);
+  if (currentPrefixed !== candidatePrefixed) {
+    return !candidatePrefixed;
+  }
+  return candidate.model_id.length < current.model_id.length;
+}
+
+function mergeModelAggregate(target: ModelAggregate, source: ModelAggregate): void {
+  for (const modelId of source.model_ids) {
+    if (!target.model_ids.includes(modelId)) {
+      target.model_ids.push(modelId);
+    }
+  }
+  for (const contextWindow of source.context_windows) {
+    if (!target.context_windows.includes(contextWindow)) {
+      target.context_windows.push(contextWindow);
+    }
+  }
+  for (const quantisation of source.quantisations) {
+    if (!target.quantisations.includes(quantisation)) {
+      target.quantisations.push(quantisation);
+    }
+  }
+  for (const server of source.servers) {
+    if (!target.servers.some((entry) => entry.server_id === server.server_id)) {
+      target.servers.push(server);
+    }
+  }
+}
+
+function inferredMetadataCandidates(model: ModelAggregate) {
+  return model.model_ids.map((modelId) => inferModelMetadata(modelId, model.display_name));
+}
+
+function firstInferred<T>(model: ModelAggregate, selector: (metadata: ReturnType<typeof inferModelMetadata>) => T | null | undefined): T | null {
+  for (const metadata of inferredMetadataCandidates(model)) {
+    const value = selector(metadata);
+    if (value !== null && value !== undefined && value !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+
+function bestInferredMetadata(model: ModelAggregate) {
+  const candidates = inferredMetadataCandidates(model);
+  return candidates.find((metadata) => metadata.quantizedProvider || metadata.format || metadata.quantisation.bits != null)
+    ?? candidates[0]
+    ?? inferModelMetadata(model.model_id, model.display_name);
+}
 
 function inferProviderKey(model: ModelAggregate): ModelProvider {
   const raw = `${model.model_id} ${model.display_name}`.toLowerCase();
@@ -38,6 +110,9 @@ function inferProviderKey(model: ModelAggregate): ModelProvider {
   }
   if (raw.includes('gemini') || raw.includes('google') || raw.includes('palm') || raw.includes('gemma')) {
     return 'google';
+  }
+  if (raw.includes('moonshot') || /\bkimi\b/i.test(raw)) {
+    return 'moonshot';
   }
   if (raw.includes('gpt') || raw.includes('openai')) {
     return 'openai';
@@ -75,6 +150,8 @@ function formatProviderLabel(provider: ModelProvider): string {
       return 'Qwen';
     case 'google':
       return 'Google';
+    case 'moonshot':
+      return 'Moonshot';
     case 'cohere':
       return 'Cohere';
     case 'deepseek':
@@ -166,6 +243,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
   const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
   const [selectedQuantizedProvider, setSelectedQuantizedProvider] = useState<string>('all');
   const [selectedFormat, setSelectedFormat] = useState<ModelFormat | 'all'>('all');
+  const [selectedQuantBits, setSelectedQuantBits] = useState<string>('all');
   const [selectedCapabilities, setSelectedCapabilities] = useState<Set<ModelCapabilityTag>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -246,7 +324,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
     const map = new Map<string, ModelProvider>();
     for (const record of modelRecords) {
       const existing = map.get(record.model.model_id);
-      if (!existing || existing === 'unknown') {
+      if (record.identity.provider !== 'unknown' && (!existing || existing === 'unknown')) {
         map.set(record.model.model_id, record.identity.provider);
       }
     }
@@ -267,7 +345,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
     const map = new Map<string, string>();
     for (const record of modelRecords) {
       if (!map.has(record.model.model_id)) {
-        map.set(record.model.model_id, record.model.base_model_name ?? record.model.display_name);
+        map.set(record.model.model_id, modelLabel(record.model.model_id, record.model.display_name, record));
       }
     }
     return map;
@@ -280,8 +358,16 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
         set.add(record.identity.quantized_provider);
       }
     }
+    for (const server of servers) {
+      for (const model of server.discovery.model_list.normalised) {
+        const inferred = inferModelMetadata(model.model_id, model.display_name ?? model.model_id);
+        if (inferred.quantizedProvider) {
+          set.add(inferred.quantizedProvider);
+        }
+      }
+    }
     return Array.from(set).sort();
-  }, [modelRecords]);
+  }, [modelRecords, servers]);
 
   const formats = useMemo(() => {
     const set = new Set<ModelFormat>();
@@ -290,57 +376,88 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
         set.add(record.architecture.format);
       }
     }
+    for (const server of servers) {
+      for (const model of server.discovery.model_list.normalised) {
+        const inferred = inferModelMetadata(model.model_id, model.display_name ?? model.model_id);
+        if (inferred.format) {
+          set.add(inferred.format);
+        }
+      }
+    }
     return Array.from(set).sort();
-  }, [modelRecords]);
+  }, [modelRecords, servers]);
+
+  const quantisationBits = useMemo(() => {
+    const set = new Set<number>();
+    for (const record of modelRecords) {
+      if (record.architecture.quantisation.bits != null) {
+        set.add(record.architecture.quantisation.bits);
+      }
+    }
+    for (const server of servers) {
+      for (const model of server.discovery.model_list.normalised) {
+        const inferred = inferModelMetadata(model.model_id, model.display_name ?? model.model_id);
+        if (inferred.quantisation.bits != null) {
+          set.add(inferred.quantisation.bits);
+        }
+      }
+    }
+    return Array.from(set).sort((a, b) => a - b);
+  }, [modelRecords, servers]);
 
   const models = useMemo<ModelAggregate[]>(() => {
     const map = new Map<string, ModelAggregate>();
+    const addOrMergeModel = (candidate: ModelAggregate, record?: ModelRecord) => {
+      const key = canonicalModelKey(candidate.model_id, candidate.display_name, record);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          ...candidate,
+          model_ids: [...candidate.model_ids],
+          context_windows: [...candidate.context_windows],
+          quantisations: [...candidate.quantisations],
+          servers: [...candidate.servers]
+        });
+        return;
+      }
+      if (shouldPreferModelCandidate(existing, candidate)) {
+        const merged = {
+          ...candidate,
+          model_ids: [...candidate.model_ids],
+          context_windows: [...candidate.context_windows],
+          quantisations: [...candidate.quantisations],
+          servers: [...candidate.servers]
+        };
+        mergeModelAggregate(merged, existing);
+        map.set(key, merged);
+        return;
+      }
+      mergeModelAggregate(existing, candidate);
+    };
+
     for (const server of servers) {
       const schemaFamilies = server.runtime.api.schema_family;
       for (const model of server.discovery.model_list.normalised) {
         if (!model.model_id) {
           continue;
         }
-        const existing = map.get(model.model_id);
         const displayName = model.display_name ?? model.model_id;
         const quantLabel = formatDiscoveryQuantisation(model.quantisation);
-        if (!existing) {
-          map.set(model.model_id, {
-            model_id: model.model_id,
-            display_name: displayName,
-            context_windows: model.context_window_tokens != null ? [model.context_window_tokens] : [],
-            quantisations: quantLabel ? [quantLabel] : [],
-            servers: [
-              {
-                server_id: server.inference_server.server_id,
-                display_name: server.inference_server.display_name,
-                base_url: server.endpoints.base_url,
-                schema_families: schemaFamilies
-              }
-            ]
-          });
-          continue;
-        }
-        if (existing.display_name === existing.model_id && model.display_name) {
-          existing.display_name = model.display_name;
-        }
-        if (
-          model.context_window_tokens != null &&
-          !existing.context_windows.includes(model.context_window_tokens)
-        ) {
-          existing.context_windows.push(model.context_window_tokens);
-        }
-        if (quantLabel && !existing.quantisations.includes(quantLabel)) {
-          existing.quantisations.push(quantLabel);
-        }
-        if (!existing.servers.some((entry) => entry.server_id === server.inference_server.server_id)) {
-          existing.servers.push({
-            server_id: server.inference_server.server_id,
-            display_name: server.inference_server.display_name,
-            base_url: server.endpoints.base_url,
-            schema_families: schemaFamilies
-          });
-        }
+        addOrMergeModel({
+          model_id: model.model_id,
+          model_ids: [model.model_id],
+          display_name: displayName,
+          context_windows: model.context_window_tokens != null ? [model.context_window_tokens] : [],
+          quantisations: quantLabel ? [quantLabel] : [],
+          servers: [
+            {
+              server_id: server.inference_server.server_id,
+              display_name: server.inference_server.display_name,
+              base_url: server.endpoints.base_url,
+              schema_families: schemaFamilies
+            }
+          ]
+        });
       }
     }
     // Merge in models from modelRecords not covered by discovery
@@ -354,39 +471,29 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             schema_families: server.runtime.api.schema_family
           }
         : null;
-      if (map.has(record.model.model_id)) {
-        if (serverInfo) {
-          const existing = map.get(record.model.model_id)!;
-          if (!existing.servers.some((s) => s.server_id === serverInfo.server_id)) {
-            existing.servers.push(serverInfo);
-          }
-        }
-        continue;
-      }
-      map.set(record.model.model_id, {
+      addOrMergeModel({
         model_id: record.model.model_id,
+        model_ids: [record.model.model_id],
         display_name: record.model.display_name,
         context_windows: record.limits.context_window_tokens != null ? [record.limits.context_window_tokens] : [],
         quantisations: [],
         servers: serverInfo ? [serverInfo] : []
-      });
+      }, record);
     }
-    return Array.from(map.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
+    return Array.from(map.values()).sort((a, b) => modelLabel(a.model_id, a.display_name).localeCompare(modelLabel(b.model_id, b.display_name)));
   }, [servers, modelRecords]);
 
   const providers = useMemo(() => {
     const bucket = new Set<ModelProvider>();
-    if (modelRecords.length) {
-      for (const provider of providerByModelId.values()) {
-        bucket.add(provider);
-      }
-    } else {
-      for (const model of models) {
-        bucket.add(inferProviderKey(model));
-      }
+    for (const provider of providerByModelId.values()) {
+      bucket.add(provider);
+    }
+    for (const model of models) {
+      const inferred = inferModelMetadata(model.model_id, model.display_name).provider;
+      bucket.add(providerByModelId.get(model.model_id) ?? (inferred === 'unknown' ? inferProviderKey(model) : inferred));
     }
     return Array.from(bucket).sort((a, b) => a.localeCompare(b));
-  }, [models, modelRecords.length, providerByModelId]);
+  }, [models, providerByModelId]);
 
   const filteredModels = useMemo(() => {
     return models.filter((model) => {
@@ -397,12 +504,15 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
       }
 
       if (selectedProvider !== 'all') {
-        const providerKey =
+        const recordProvider =
           selectedServerId !== 'all'
-            ? (providerByModelId.get(model.model_id)
-                ?? modelRecordMap.get(`${selectedServerId}:${model.model_id}`)?.identity.provider
-                ?? inferProviderKey(model))
-            : (providerByModelId.get(model.model_id) ?? inferProviderKey(model));
+            ? modelRecordMap.get(`${selectedServerId}:${model.model_id}`)?.identity.provider
+            : undefined;
+        const providerKey =
+          providerByModelId.get(model.model_id)
+          ?? (recordProvider && recordProvider !== 'unknown' ? recordProvider : undefined)
+          ?? firstInferred(model, (metadata) => metadata.provider !== 'unknown' ? metadata.provider : null)
+          ?? inferProviderKey(model);
         if (providerKey !== selectedProvider) {
           return false;
         }
@@ -413,7 +523,9 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
           selectedServerId !== 'all'
             ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
             : modelRecordByModelId.get(model.model_id);
-        if ((record?.identity.quantized_provider ?? null) !== selectedQuantizedProvider) {
+        const quantizedProvider = record?.identity.quantized_provider
+          ?? firstInferred(model, (metadata) => metadata.quantizedProvider);
+        if (quantizedProvider !== selectedQuantizedProvider) {
           return false;
         }
       }
@@ -423,7 +535,20 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
           selectedServerId !== 'all'
             ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
             : modelRecordByModelId.get(model.model_id);
-        if ((record?.architecture.format ?? null) !== selectedFormat) {
+        const format = record?.architecture.format ?? firstInferred(model, (metadata) => metadata.format);
+        if (format !== selectedFormat) {
+          return false;
+        }
+      }
+
+      if (selectedQuantBits !== 'all') {
+        const record =
+          selectedServerId !== 'all'
+            ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
+            : modelRecordByModelId.get(model.model_id);
+        const bits = record?.architecture.quantisation.bits
+          ?? firstInferred(model, (metadata) => metadata.quantisation.bits);
+        if (bits == null || bits.toString() !== selectedQuantBits) {
           return false;
         }
       }
@@ -433,11 +558,8 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
           selectedServerId !== 'all'
             ? (modelRecordMap.get(`${selectedServerId}:${model.model_id}`) ?? modelRecordByModelId.get(model.model_id))
             : modelRecordByModelId.get(model.model_id);
-        if (!record) {
-          return false;
-        }
         for (const cap of selectedCapabilities) {
-          if (!record.capabilities.use_case[cap]) {
+          if (!(record?.capabilities.use_case[cap] ?? firstInferred(model, (metadata) => metadata.useCase[cap]))) {
             return false;
           }
         }
@@ -454,18 +576,45 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
     selectedServerId,
     selectedQuantizedProvider,
     selectedFormat,
+    selectedQuantBits,
     selectedCapabilities
   ]);
 
+  const visibleModels = useMemo(() => {
+    const map = new Map<string, ModelAggregate>();
+    for (const model of filteredModels) {
+      const key = modelLabel(model.model_id, model.display_name).toLowerCase();
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, model);
+        continue;
+      }
+      if (shouldPreferModelCandidate(existing, model)) {
+        const merged = {
+          ...model,
+          model_ids: [...model.model_ids],
+          context_windows: [...model.context_windows],
+          quantisations: [...model.quantisations],
+          servers: [...model.servers]
+        };
+        mergeModelAggregate(merged, existing);
+        map.set(key, merged);
+        continue;
+      }
+      mergeModelAggregate(existing, model);
+    }
+    return Array.from(map.values());
+  }, [filteredModels]);
+
   useEffect(() => {
-    if (!filteredModels.length) {
+    if (!visibleModels.length) {
       setSelectedId(null);
       return;
     }
-    if (!selectedId || !filteredModels.some((model) => model.model_id === selectedId)) {
-      setSelectedId(filteredModels[0].model_id);
+    if (!selectedId || !visibleModels.some((model) => model.model_id === selectedId)) {
+      setSelectedId(visibleModels[0].model_id);
     }
-  }, [filteredModels, selectedId]);
+  }, [visibleModels, selectedId]);
 
   useEffect(() => {
     if (servers.length === 1 && selectedServerId === 'all') {
@@ -473,7 +622,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
     }
   }, [servers, selectedServerId]);
 
-  const selectedModel = filteredModels.find((model) => model.model_id === selectedId) ?? null;
+  const selectedModel = visibleModels.find((model) => model.model_id === selectedId) ?? null;
   const effectiveServerId =
     selectedModel && selectedServerId === 'all' && selectedModel.servers.length === 1
       ? selectedModel.servers[0].server_id
@@ -482,6 +631,9 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
     selectedModel && effectiveServerId !== 'all'
       ? modelRecordMap.get(`${effectiveServerId}:${selectedModel.model_id}`) ?? null
       : null;
+  const selectedInferred = selectedModel
+    ? bestInferredMetadata(selectedModel)
+    : null;
   const contextLabel = selectedModel?.context_windows.length
     ? selectedModel.context_windows.sort((a, b) => a - b).join(', ')
     : 'N/A';
@@ -489,11 +641,17 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
     ? selectedModel.quantisations.join(', ')
     : 'N/A';
   const providerLabel = selectedModel
-    ? formatProviderLabel(providerByModelId.get(selectedModel.model_id) ?? inferProviderKey(selectedModel))
+    ? formatProviderLabel(providerByModelId.get(selectedModel.model_id) ?? selectedInferred?.provider ?? inferProviderKey(selectedModel))
     : 'Unknown';
   const quantisationLabel = selectedRecord
     ? formatQuantisation(selectedRecord.architecture.quantisation)
-    : quantLabel;
+    : selectedInferred
+      ? formatQuantisation({
+          method: selectedInferred.quantisation.method,
+          bits: selectedInferred.quantisation.bits,
+          group_size: null,
+        })
+      : quantLabel;
   const discoveryQuantisation =
     selectedModel && effectiveServerId !== 'all'
       ? servers
@@ -510,6 +668,15 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
         `variant: ${selectedRecord.architecture.quantisation.variant ?? 'none'}`,
         `weight: ${selectedRecord.architecture.quantisation.weight_format ?? 'none'}`
       ]
+    : selectedInferred
+      ? [
+          `method: ${selectedInferred.quantisation.method}`,
+          `bits: ${selectedInferred.quantisation.bits ?? 'none'}`,
+          'group: none',
+          'scheme: none',
+          'variant: none',
+          'weight: none'
+        ]
     : discoveryQuantisation && typeof discoveryQuantisation !== 'string'
       ? [
           `method: ${discoveryQuantisation.method ?? 'unknown'}`,
@@ -528,6 +695,21 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
         `embeddings: ${selectedRecord.capabilities.generation.embeddings ? 'yes' : 'none'}`
       ]
     : null;
+  const capabilityUseCaseLabel = selectedRecord
+    ? [
+        `thinking: ${selectedRecord.capabilities.use_case.thinking ? 'yes' : 'none'}`,
+        `coding: ${selectedRecord.capabilities.use_case.coding ? 'yes' : 'none'}`,
+        `instruct: ${selectedRecord.capabilities.use_case.instruct ? 'yes' : 'none'}`,
+        `mixture of experts: ${selectedRecord.capabilities.use_case.mixture_of_experts ? 'yes' : 'none'}`
+      ]
+    : selectedInferred
+      ? [
+          `thinking: ${selectedInferred.useCase.thinking ? 'yes' : 'none'}`,
+          `coding: ${selectedInferred.useCase.coding ? 'yes' : 'none'}`,
+          `instruct: ${selectedInferred.useCase.instruct ? 'yes' : 'none'}`,
+          `mixture of experts: ${selectedInferred.useCase.mixture_of_experts ? 'yes' : 'none'}`
+        ]
+      : null;
   const capabilityMultimodalLabel = selectedRecord
     ? [
         `vision: ${selectedRecord.capabilities.multimodal.vision ? 'yes' : 'none'}`,
@@ -548,11 +730,12 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
       return;
     }
     const record = selectedRecord;
-    const provider = providerByModelId.get(selectedModel.model_id) ?? inferProviderKey(selectedModel);
+    const inferred = bestInferredMetadata(selectedModel);
+    const provider = providerByModelId.get(selectedModel.model_id) ?? inferred.provider ?? inferProviderKey(selectedModel);
     setUpdateForm({
       provider,
-      quantMethod: record?.architecture.quantisation.method ?? 'unknown',
-      quantBits: record?.architecture.quantisation.bits?.toString() ?? '',
+      quantMethod: record?.architecture.quantisation.method ?? inferred.quantisation.method,
+      quantBits: record?.architecture.quantisation.bits?.toString() ?? inferred.quantisation.bits?.toString() ?? '',
       quantGroupSize: record?.architecture.quantisation.group_size?.toString() ?? '',
       quantScheme: record?.architecture.quantisation.scheme ?? 'unknown',
       quantVariant: record?.architecture.quantisation.variant ?? '',
@@ -566,12 +749,12 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
       capAudio: record?.capabilities.multimodal.audio ?? false,
       capReasoning: record?.capabilities.reasoning.supported ?? false,
       capExplicit: record?.capabilities.reasoning.explicit_tokens ?? false,
-      quantizedProvider: record?.identity.quantized_provider ?? '',
-      capThinking: record?.capabilities.use_case.thinking ?? false,
-      capCoding: record?.capabilities.use_case.coding ?? false,
-      capInstruct: record?.capabilities.use_case.instruct ?? false,
-      capMoe: record?.capabilities.use_case.mixture_of_experts ?? false,
-      format: record?.architecture.format ?? ''
+      quantizedProvider: record?.identity.quantized_provider ?? inferred.quantizedProvider ?? '',
+      capThinking: record?.capabilities.use_case.thinking ?? inferred.useCase.thinking,
+      capCoding: record?.capabilities.use_case.coding ?? inferred.useCase.coding,
+      capInstruct: record?.capabilities.use_case.instruct ?? inferred.useCase.instruct,
+      capMoe: record?.capabilities.use_case.mixture_of_experts ?? inferred.useCase.mixture_of_experts,
+      format: record?.architecture.format ?? inferred.format ?? ''
     });
     setUpdateError(null);
     setShowUpdateModal(true);
@@ -745,6 +928,22 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
           </select>
         </div>
         <div className="field">
+          <label htmlFor="quant-bits-filter">Quantization</label>
+          <select
+            id="quant-bits-filter"
+            value={selectedQuantBits}
+            onChange={(event) => setSelectedQuantBits(event.target.value)}
+            disabled={quantisationBits.length === 0}
+          >
+            <option value="all">All bit-depths</option>
+            {quantisationBits.map((bits) => (
+              <option key={bits} value={bits.toString()}>
+                {bits}-bit
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
           <label>Capabilities</label>
           <div className="checkbox-grid">
             {(['thinking', 'coding', 'instruct', 'mixture_of_experts'] as ModelCapabilityTag[]).map((cap) => (
@@ -776,14 +975,16 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             id="model-filter"
             value={selectedId ?? ''}
             onChange={(event) => setSelectedId(event.target.value || null)}
-            disabled={filteredModels.length === 0}
+            disabled={visibleModels.length === 0}
           >
-            {filteredModels.length === 0 ? (
+            {visibleModels.length === 0 ? (
               <option value="">No models</option>
             ) : (
-              filteredModels.map((model) => (
+              visibleModels.map((model) => (
                 <option key={model.model_id} value={model.model_id}>
-                  {modelDisplayMap.get(model.model_id) ?? model.display_name}
+                  {modelDisplayMap.get(model.model_id)
+                    ?? inferModelMetadata(model.model_id, model.display_name).baseModelName
+                    ?? model.display_name}
                 </option>
               ))
             )}
@@ -794,9 +995,9 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
         <div className="card">
           <div className="panel-header">
             <h3>Models</h3>
-            <span className="muted">{filteredModels.length}</span>
+            <span className="muted">{visibleModels.length}</span>
           </div>
-          {filteredModels.length === 0 ? (
+          {visibleModels.length === 0 ? (
             <p className="muted">No models discovered yet.</p>
           ) : null}
           {!selectedModel ? (
@@ -807,6 +1008,14 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 <div className="detail-row">
                   <span>Provider</span>
                   <strong>{providerLabel}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Quantized provider</span>
+                  <strong>{selectedRecord?.identity.quantized_provider ?? selectedInferred?.quantizedProvider ?? 'N/A'}</strong>
+                </div>
+                <div className="detail-row">
+                  <span>Format</span>
+                  <strong>{selectedRecord?.architecture.format ?? selectedInferred?.format ?? 'N/A'}</strong>
                 </div>
                 <div className="detail-row">
                   <span>Display name</span>
@@ -839,6 +1048,20 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                   <strong>
                     {capabilityGenerationLabel ? (
                       capabilityGenerationLabel.map((line) => (
+                        <span key={line} className="detail-stack">
+                          {line}
+                        </span>
+                      ))
+                    ) : (
+                      'N/A'
+                    )}
+                  </strong>
+                </div>
+                <div className="detail-row">
+                  <span>Use cases</span>
+                  <strong>
+                    {capabilityUseCaseLabel ? (
+                      capabilityUseCaseLabel.map((line) => (
                         <span key={line} className="detail-stack">
                           {line}
                         </span>
@@ -951,6 +1174,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                   'mistral',
                   'qwen',
                   'google',
+                  'moonshot',
                   'cohere',
                   'deepseek',
                   'anthropic',
