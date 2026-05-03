@@ -26,6 +26,11 @@ describe('guessModelCharacteristics', () => {
     expect(result.parameter_count).toBe(72_000_000_000);
     expect(result.quantisation.method).toBe('awq');
   });
+
+  it('extracts Moonshot provider from Kimi model names', () => {
+    expect(guessModelCharacteristics('moonshotai/Kimi-K2-Instruct').provider).toBe('moonshot');
+    expect(guessModelCharacteristics('Kimi-Linear-48B-AWQ').provider).toBe('moonshot');
+  });
 });
 
 describe('extractBaseModelName', () => {

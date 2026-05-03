@@ -118,6 +118,37 @@ describe('models contract', () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it('accepts Moonshot as a model provider', async () => {
+    const app = createServer();
+    const serverResponse = await app.inject({
+      method: 'POST',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS,
+      payload: buildServerPayload()
+    });
+    if (serverResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${serverResponse.statusCode} ${serverResponse.body}`);
+    }
+    const server = serverResponse.json();
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/models',
+      headers: AUTH_HEADERS,
+      payload: buildModelPayload(server.inference_server.server_id, {
+        model: {
+          server_id: server.inference_server.server_id,
+          model_id: 'moonshotai/Kimi-K2-Instruct',
+          display_name: 'Kimi K2 Instruct'
+        },
+        identity: { provider: 'moonshot' }
+      })
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().identity.provider).toBe('moonshot');
+  });
+
   it('updates updated_at on changes', async () => {
     const app = createServer();
     const serverResponse = await app.inject({

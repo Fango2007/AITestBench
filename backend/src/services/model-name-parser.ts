@@ -17,6 +17,7 @@ const providerHints: Array<{ provider: ModelProvider; patterns: RegExp[] }> = [
   { provider: 'mistral', patterns: [/mistral/i, /devstral/i] },
   { provider: 'qwen', patterns: [/qwen/i] },
   { provider: 'google', patterns: [/google/i, /gemini/i] },
+  { provider: 'moonshot', patterns: [/moonshot/i, /\bkimi\b/i] },
   { provider: 'cohere', patterns: [/cohere/i, /command/i] },
   { provider: 'deepseek', patterns: [/deepseek/i] },
   { provider: 'anthropic', patterns: [/anthropic/i, /claude/i] },

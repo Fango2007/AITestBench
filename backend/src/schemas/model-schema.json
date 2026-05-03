@@ -59,7 +59,7 @@
       "properties": {
         "provider": {
           "type": "string",
-          "enum": ["openai", "meta", "mistral", "qwen", "google", "cohere", "deepseek", "anthropic", "nvidia", "zai", "custom", "unknown"]
+          "enum": ["openai", "meta", "mistral", "qwen", "google", "moonshot", "cohere", "deepseek", "anthropic", "nvidia", "zai", "custom", "unknown"]
         },
         "family": { "type": ["string", "null"] },
         "version": { "type": ["string", "null"] },

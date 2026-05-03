@@ -339,6 +339,69 @@ test.describe('US4 — Update modal with enriched metadata fields', () => {
 // ─── User Story 3: Format filter ──────────────────────────────────────────────
 
 test.describe('US3 — Format filter', () => {
+  test('discovered-only MLX model IDs populate inferred filters and update defaults', async ({ page, request }) => {
+    const server = await createInferenceServer(request);
+    const serverId = server.inference_server.server_id;
+    const modelId = '/inferencerlabs/Devstral-Small-2-24B-Instruct-2512-MLX-6.5bit';
+
+    const patchResponse = await request.patch(`${API_BASE_URL}/inference-servers/${serverId}`, {
+      data: {
+        discovery: {
+          model_list: {
+            raw: {},
+            normalised: [
+              {
+                model_id: modelId,
+                display_name: modelId,
+                context_window_tokens: 32768,
+                quantisation: null,
+              },
+              {
+                model_id: 'Devstral-Small-2-24B-Instruct',
+                display_name: 'Devstral-Small-2-24B-Instruct',
+                context_window_tokens: 32768,
+                quantisation: null,
+              },
+            ],
+          },
+        },
+      },
+      headers: authHeaders,
+    });
+    expect(patchResponse.ok()).toBe(true);
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#server-filter').selectOption(serverId);
+
+    await expect(page.locator('#provider-filter')).toContainText('Mistral');
+    await expect(page.locator('#quantized-provider-filter')).toContainText('inferencerlabs');
+    await expect(page.locator('#format-filter')).toContainText('MLX');
+    await expect(page.locator('#quant-bits-filter')).toContainText('6.5-bit');
+
+    await page.locator('#provider-filter').selectOption('mistral');
+    await page.locator('#quantized-provider-filter').selectOption('inferencerlabs');
+    await page.locator('#format-filter').selectOption('MLX');
+    await page.locator('#quant-bits-filter').selectOption('6.5');
+
+    const optionTexts = await page.locator('#model-filter option').allTextContents();
+    expect(optionTexts.filter((text) => text.includes('Devstral-Small-2-24B-Instruct'))).toHaveLength(1);
+    expect(optionTexts.some((text) => text.includes('/inferencerlabs/'))).toBe(false);
+
+    await page.getByRole('button', { name: 'Update' }).click();
+    const modal = page.locator('.modal-overlay');
+    await expect(modal.locator('#update-provider')).toHaveValue('mistral');
+    await expect(modal.locator('#update-quantized-provider')).toHaveValue('inferencerlabs');
+    await expect(modal.locator('#update-format')).toHaveValue('MLX');
+    await expect(modal.locator('#update-quant-method')).toHaveValue('mlx');
+    await expect(modal.locator('#update-quant-bits')).toHaveValue('6.5');
+    await expect(modal.locator('input[type="checkbox"][name="update-cap-coding"]')).toBeChecked();
+    await expect(modal.locator('input[type="checkbox"][name="update-cap-instruct"]')).toBeChecked();
+
+    await cleanupServer(request, serverId);
+  });
+
   test('filtering by Format = MLX shows only MLX models', async ({ page, request }) => {
     const server = await createInferenceServer(request);
     const serverId = server.inference_server.server_id;
