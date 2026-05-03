@@ -310,6 +310,7 @@ export function App() {
     setSettingsError(null);
     try {
       await clearDatabase();
+      window.dispatchEvent(new CustomEvent('database:cleared'));
       setSettingsMessage('Database cleared.');
     } catch (err) {
       setSettingsError(err instanceof Error ? err.message : 'Unable to clear database');

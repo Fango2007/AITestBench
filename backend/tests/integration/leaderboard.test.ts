@@ -208,4 +208,23 @@ describe('GET /leaderboard', () => {
     const unfiltered = await app.inject({ method: 'GET', url: '/leaderboard', headers: AUTH_HEADERS });
     expect(unfiltered.json().entries).toHaveLength(2);
   });
+
+  it('returns empty entries after clearing the database from settings', async () => {
+    const app = createServer();
+    seedEvaluation({ modelName: 'model-before-clear', scores: 5, tags: ['cleanup'] });
+
+    const populated = await app.inject({ method: 'GET', url: '/leaderboard', headers: AUTH_HEADERS });
+    expect(populated.json().entries).toHaveLength(1);
+
+    const clearResponse = await app.inject({ method: 'POST', url: '/system/clear-db', headers: AUTH_HEADERS });
+    expect(clearResponse.statusCode).toBe(200);
+
+    const cleared = await app.inject({ method: 'GET', url: '/leaderboard', headers: AUTH_HEADERS });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json().entries).toEqual([]);
+
+    const db = getDb();
+    expect(db.prepare('SELECT COUNT(*) AS count FROM evaluations').get()).toEqual({ count: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS count FROM eval_prompts').get()).toEqual({ count: 0 });
+  });
 });
