@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- Backend inference-server calls can now be routed through an optional Undici proxy configured with `AITESTBENCH_INFERENCE_PROXY` and `AITESTBENCH_INFERENCE_NO_PROXY`, without exposing proxy settings to the frontend.
+
 ### Fixed
 
 - Settings **Empty database** now clears all application SQLite tables, including evaluation prompts and evaluations that feed the leaderboard.
