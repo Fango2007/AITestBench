@@ -109,7 +109,7 @@ function normalizeOpenAiModels(payload: Record<string, unknown>) {
         quantisation: label ? normaliseQuantisationFromLabel(label) : null
       };
     })
-    .filter((entry) => entry.model_id);
+    .filter((entry) => entry.model_id && !entry.model_id.startsWith('<remote>/'));
 }
 
 function normalizeOllamaModels(payload: Record<string, unknown>) {

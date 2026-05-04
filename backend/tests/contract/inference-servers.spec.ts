@@ -175,6 +175,50 @@ describe('inference servers contract', () => {
     expect(refreshed.discovery.model_list.normalised[0].model_id).toBe('gpt-test');
   });
 
+  it('filters malformed remote-prefixed OpenAI discovery model IDs', async () => {
+    const app = createServer();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS,
+      payload: buildCreatePayload()
+    });
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${createResponse.statusCode} ${createResponse.body}`);
+    }
+    const created = createResponse.json();
+    const payload = {
+      object: 'list',
+      data: [
+        { id: '/inferencerlabs/Devstral-Small-2-24B-Instruct-2512-MLX-6.5bit', object: 'model' },
+        { id: '<remote>/inferencerlabs/Devstral-Small-2-24B-Instruct-2512-MLX-6.5bit', object: 'model' }
+      ]
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            headers: { get: () => 'application/json' },
+            json: async () => payload
+          }) as any
+      )
+    );
+
+    const refreshResponse = await app.inject({
+      method: 'POST',
+      url: `/inference-servers/${created.inference_server.server_id}/refresh-discovery`,
+      headers: AUTH_HEADERS
+    });
+    expect(refreshResponse.statusCode).toBe(200);
+    const refreshed = refreshResponse.json();
+    expect(refreshed.discovery.model_list.raw).toEqual(payload);
+    expect(refreshed.discovery.model_list.normalised.map((model: { model_id: string }) => model.model_id)).toEqual([
+      '/inferencerlabs/Devstral-Small-2-24B-Instruct-2512-MLX-6.5bit'
+    ]);
+  });
+
   it('does not wipe discovery on refresh failure', async () => {
     const app = createServer();
     const createResponse = await app.inject({
