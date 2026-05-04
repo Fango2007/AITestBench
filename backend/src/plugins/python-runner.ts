@@ -3,6 +3,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
+import { resolveInferenceProxyConfig } from '../services/inference-proxy.js';
+
 export interface PythonRunResult {
   stdout: string;
   stderr: string;
@@ -61,6 +63,29 @@ function ensureAllowedPath(modulePath: string, allowedRoots: string[]): string {
   return resolved;
 }
 
+export function buildPythonProcessEnv(
+  baseEnv: NodeJS.ProcessEnv = process.env,
+  overrides?: Record<string, string>
+): NodeJS.ProcessEnv {
+  const env = { ...baseEnv, ...(overrides ?? {}) };
+  const proxyConfig = resolveInferenceProxyConfig(env);
+  if (!proxyConfig) {
+    return env;
+  }
+
+  env.HTTP_PROXY = env.HTTP_PROXY || proxyConfig.proxy;
+  env.http_proxy = env.http_proxy || proxyConfig.proxy;
+  env.HTTPS_PROXY = env.HTTPS_PROXY || proxyConfig.proxy;
+  env.https_proxy = env.https_proxy || proxyConfig.proxy;
+
+  if (proxyConfig.noProxy) {
+    env.NO_PROXY = env.NO_PROXY || proxyConfig.noProxy;
+    env.no_proxy = env.no_proxy || proxyConfig.noProxy;
+  }
+
+  return env;
+}
+
 export function runPythonModule(
   modulePath: string,
   options: PythonRunOptions
@@ -86,7 +111,7 @@ export function runPythonModule(
     ].join(' && ');
 
     const proc = spawn('bash', ['-lc', command], {
-      env: { ...process.env, ...options.env },
+      env: buildPythonProcessEnv(process.env, options.env),
       cwd: allowedPaths[0]
     });
 
@@ -392,7 +417,7 @@ export function runPythonEntrypoint(options: PythonEntrypointOptions): Promise<P
     ].join(' && ');
 
     const proc = spawn('bash', ['-lc', command], {
-      env: { ...process.env, ...options.env },
+      env: buildPythonProcessEnv(process.env, options.env),
       cwd: allowedPaths[0]
     });
 
