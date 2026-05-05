@@ -41,3 +41,55 @@ test.describe('Evaluate page', () => {
     await expect(page.locator('.shared-prompt-area')).not.toBeVisible();
   });
 });
+
+test('Evaluate page model menu uses discovered server models when model records are empty', async ({ page }) => {
+  await page.route('**/inference-servers**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([
+        {
+          inference_server: {
+            server_id: 'srv-discovered-models',
+            display_name: 'Discovered Models Server',
+            active: true,
+            archived: false,
+            created_at: '2026-05-05T00:00:00.000Z',
+            updated_at: '2026-05-05T00:00:00.000Z',
+            archived_at: null
+          },
+          runtime: {},
+          endpoints: { base_url: 'http://localhost:11434', health_url: null, https: false },
+          auth: {},
+          capabilities: {},
+          discovery: {
+            retrieved_at: '2026-05-05T00:00:00.000Z',
+            ttl_seconds: 300,
+            model_list: {
+              raw: {},
+              normalised: [
+                {
+                  model_id: 'mistral:latest',
+                  display_name: 'Mistral Latest',
+                  context_window_tokens: null,
+                  quantisation: null
+                }
+              ]
+            }
+          },
+          raw: {}
+        }
+      ])
+    });
+  });
+  await page.route('**/models', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) });
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Evaluate' }).click();
+  await page.getByLabel('Inference server').selectOption('srv-discovered-models');
+
+  await expect(page.getByLabel('Model')).toContainText('Mistral Latest');
+  await page.getByLabel('Model').selectOption('mistral:latest');
+  await expect(page.getByLabel('Model')).toHaveValue('mistral:latest');
+});

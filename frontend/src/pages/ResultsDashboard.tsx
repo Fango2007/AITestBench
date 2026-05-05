@@ -11,13 +11,16 @@ import {
 } from '../services/dashboard-results-api.js';
 import '../styles/dashboard-results.css';
 
-function toLocalInputValue(iso: string): string {
+export function toLocalInputValue(iso: string, boundary: 'from' | 'to' = 'from'): string {
   if (!iso) {
     return '';
   }
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return '';
+  }
+  if (boundary === 'to' && (date.getSeconds() > 0 || date.getMilliseconds() > 0)) {
+    date.setMinutes(date.getMinutes() + 1, 0, 0);
   }
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -38,10 +41,87 @@ function buildInitialFilterValue(options: DashboardFilterOptions | null): Result
     model_ids: [],
     test_ids: [],
     date_from: options?.date_bounds?.min ? toLocalInputValue(options.date_bounds.min) : '',
-    date_to: options?.date_bounds?.max ? toLocalInputValue(options.date_bounds.max) : '',
+    date_to: options?.date_bounds?.max ? toLocalInputValue(options.date_bounds.max, 'to') : '',
     view_mode: 'separate',
     group_keys_text: ''
   };
+}
+
+function mergedSeriesKey(panel: DashboardPanel, seriesLabel: string): string {
+  return [
+    panel.runtime_key ?? 'unknown-runtime',
+    panel.server_version ?? 'unknown-version',
+    panel.model_id ?? 'unknown-model',
+    seriesLabel
+  ].join('|');
+}
+
+function mergedSeriesLabel(panel: DashboardPanel, seriesLabel: string): string {
+  const model = panel.model_id ?? 'unknown model';
+  return `${model} - ${seriesLabel}`;
+}
+
+export function mergePerformancePanelsForMetric(
+  performancePanels: DashboardPanel[],
+  selectedMetric: string
+): DashboardPanel | null {
+  if (!selectedMetric) {
+    return null;
+  }
+  const matching = performancePanels.filter(
+    (panel) => (panel.metric_keys[0] ?? panel.title) === selectedMetric
+  );
+  if (matching.length === 0) {
+    return null;
+  }
+
+  const first = matching[0];
+  const mergedSeries = new Map<string, { label: string; points: Array<{ x: string | number; y: number | null }> }>();
+  const mergedTests = new Set<string>();
+  const mergedMissing = new Set<string>();
+  const mergedRuntimes = new Set<string>();
+  const mergedVersions = new Set<string>();
+  const mergedModels = new Set<string>();
+
+  for (const panel of matching) {
+    mergedRuntimes.add(panel.runtime_key ?? 'unknown');
+    mergedVersions.add(panel.server_version ?? 'unknown');
+    mergedModels.add(panel.model_id ?? 'unknown');
+    for (const testId of panel.test_ids) {
+      mergedTests.add(testId);
+    }
+    for (const missing of panel.missing_fields) {
+      mergedMissing.add(missing);
+    }
+    for (const series of panel.series ?? []) {
+      const key = mergedSeriesKey(panel, series.label);
+      const entry = mergedSeries.get(key) ?? {
+        label: mergedSeriesLabel(panel, series.label),
+        points: []
+      };
+      entry.points.push(...series.points);
+      mergedSeries.set(key, entry);
+    }
+  }
+
+  const series = Array.from(mergedSeries.values()).map((entry) => ({
+    label: entry.label,
+    points: entry.points
+      .slice()
+      .sort((a, b) => String(a.x).localeCompare(String(b.x)))
+  }));
+
+  return {
+    ...first,
+    panel_id: `metric:${selectedMetric}`,
+    title: selectedMetric,
+    runtime_key: mergedRuntimes.size === 1 ? first.runtime_key : 'multiple',
+    server_version: mergedVersions.size === 1 ? first.server_version : 'multiple',
+    model_id: mergedModels.size === 1 ? first.model_id : 'multiple',
+    test_ids: Array.from(mergedTests),
+    missing_fields: Array.from(mergedMissing),
+    series
+  } as DashboardPanel;
 }
 
 export function ResultsDashboard() {
@@ -138,50 +218,7 @@ export function ResultsDashboard() {
   }, [availableMetrics, selectedMetric]);
 
   const mergedMetricPanel = useMemo(() => {
-    if (!selectedMetric) {
-      return null;
-    }
-    const matching = performancePanels.filter(
-      (panel) => (panel.metric_keys[0] ?? panel.title) === selectedMetric
-    );
-    if (matching.length === 0) {
-      return null;
-    }
-
-    const first = matching[0];
-    const mergedSeries = new Map<string, Array<{ x: string | number; y: number | null }>>();
-    const mergedTests = new Set<string>();
-    const mergedMissing = new Set<string>();
-
-    for (const panel of matching) {
-      for (const testId of panel.test_ids) {
-        mergedTests.add(testId);
-      }
-      for (const missing of panel.missing_fields) {
-        mergedMissing.add(missing);
-      }
-      for (const series of panel.series ?? []) {
-        const points = mergedSeries.get(series.label) ?? [];
-        points.push(...series.points);
-        mergedSeries.set(series.label, points);
-      }
-    }
-
-    const series = Array.from(mergedSeries.entries()).map(([label, points]) => ({
-      label,
-      points: points
-        .slice()
-        .sort((a, b) => String(a.x).localeCompare(String(b.x)))
-    }));
-
-    return {
-      ...first,
-      panel_id: `metric:${selectedMetric}`,
-      title: selectedMetric,
-      test_ids: Array.from(mergedTests),
-      missing_fields: Array.from(mergedMissing),
-      series
-    } as DashboardPanel;
+    return mergePerformancePanelsForMetric(performancePanels, selectedMetric);
   }, [performancePanels, selectedMetric]);
 
   useEffect(() => {

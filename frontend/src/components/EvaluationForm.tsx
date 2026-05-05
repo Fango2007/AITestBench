@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { InferenceConfig } from '../services/eval-inference-api.js';
 import { runEvalInference } from '../services/eval-inference-api.js';
 import type { EvaluationInput } from '../services/evaluations-api.js';
 import { createEvaluation } from '../services/evaluations-api.js';
 import type { InferenceServerRecord } from '../services/inference-servers-api.js';
-import { listInferenceServers } from '../services/inference-servers-api.js';
 import { listModels } from '../services/models-api.js';
 import type { ModelRecord } from '../services/models-api.js';
 import { RunInferenceServerSelect } from './RunInferenceServerSelect.js';
@@ -56,6 +55,7 @@ export function EvaluationForm({
   const [serverId, setServerId] = useState('');
   const [modelName, setModelName] = useState('');
   const [models, setModels] = useState<ModelRecord[]>([]);
+  const [servers, setServers] = useState<InferenceServerRecord[]>([]);
   const [promptText, setPromptText] = useState(sharedPromptText ?? '');
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
@@ -75,6 +75,15 @@ export function EvaluationForm({
   const effectivePromptText = sharedPromptText ?? promptText;
   const effectiveInferenceConfig = sharedInferenceConfig ?? inferenceConfig;
 
+  const handleServersLoaded = useCallback((loadedServers: InferenceServerRecord[]) => {
+    setServers(loadedServers);
+  }, []);
+
+  function handleServerChange(nextServerId: string) {
+    setServerId(nextServerId);
+    setModelName('');
+  }
+
   useEffect(() => {
     if (!serverId) {
       setModels([]);
@@ -84,6 +93,30 @@ export function EvaluationForm({
       .then((all) => setModels(all.filter((m) => m.model.server_id === serverId && !m.model.archived)))
       .catch(() => setModels([]));
   }, [serverId]);
+
+  const modelOptions = useMemo(() => {
+    const selectedServer = servers.find((server) => server.inference_server.server_id === serverId);
+    const options = new Map<string, { model_id: string; display_name: string }>();
+
+    for (const entry of selectedServer?.discovery.model_list.normalised ?? []) {
+      if (!entry.model_id) {
+        continue;
+      }
+      options.set(entry.model_id, {
+        model_id: entry.model_id,
+        display_name: entry.display_name ?? entry.model_id
+      });
+    }
+
+    for (const record of models) {
+      options.set(record.model.model_id, {
+        model_id: record.model.model_id,
+        display_name: record.model.base_model_name ?? record.model.display_name
+      });
+    }
+
+    return Array.from(options.values()).sort((a, b) => a.display_name.localeCompare(b.display_name));
+  }, [models, serverId, servers]);
 
   function handleInferenceConfigChange(field: keyof InferenceConfig, raw: string) {
     const updated = { ...effectiveInferenceConfig };
@@ -168,11 +201,6 @@ export function EvaluationForm({
     }
   }
 
-  const modelOptions = models.map((m) => ({
-    model_id: m.model.model_id,
-    display_name: m.model.base_model_name ?? m.model.display_name
-  }));
-
   return (
     <div className="card evaluation-form">
       {successMessage ? (
@@ -181,7 +209,7 @@ export function EvaluationForm({
 
       {stage === 'input' ? (
         <div className="evaluation-stage-input">
-          <RunInferenceServerSelect value={serverId} onChange={setServerId} />
+          <RunInferenceServerSelect value={serverId} onChange={handleServerChange} onServersLoaded={handleServersLoaded} />
           {modelOptions.length > 0 ? (
             <label>
               Model
