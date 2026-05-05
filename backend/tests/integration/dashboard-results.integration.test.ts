@@ -136,6 +136,103 @@ function seedMixedData() {
   );
 }
 
+function seedRepeatedTemplateData() {
+  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+  const schemaPath = path.resolve(moduleDir, '../../src/models/schema.sql');
+  runSchema(fs.readFileSync(schemaPath, 'utf8'));
+  resetDb();
+  const db = getDb();
+  const base = Date.now() - 60_000;
+  const times = [0, 10_000, 20_000].map((offset) => new Date(base + offset).toISOString());
+
+  db.prepare(
+    `INSERT INTO inference_servers (
+      server_id, display_name, active, archived, created_at, updated_at, runtime,
+      endpoints, auth, capabilities, discovery, raw
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    'srv-1',
+    'Local Server',
+    1,
+    0,
+    times[0],
+    times[0],
+    JSON.stringify({ api: { schema_family: ['openai-compatible'], api_version: '1.1.0' } }),
+    JSON.stringify({ base_url: 'http://localhost:8080' }),
+    JSON.stringify({}),
+    JSON.stringify({}),
+    JSON.stringify({ model_list: { normalised: [] } }),
+    JSON.stringify({})
+  );
+
+  const rows = [
+    { runId: 'run-1', testId: 'Cold_start_penalty-model-a', value: 100, startedAt: times[0] },
+    { runId: 'run-2', testId: 'Cold_start_penalty-model-a', value: 90, startedAt: times[1] },
+    { runId: 'run-3', testId: 'Cold_start_penalty-model-a-regenerated', value: 80, startedAt: times[2] }
+  ];
+
+  for (const row of rows.filter((entry, index, array) => array.findIndex((candidate) => candidate.testId === entry.testId) === index)) {
+    db.prepare(
+      `INSERT INTO active_tests (
+        id, template_id, template_version, inference_server_id, model_name,
+        status, created_at, deleted_at, version, command_preview, python_ready
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      row.testId,
+      'Cold_start_penalty',
+      '1.0.0',
+      'srv-1',
+      '/inferencerlabs/model',
+      'active',
+      row.startedAt,
+      null,
+      '1.0.0',
+      null,
+      1
+    );
+  }
+
+  for (const row of rows) {
+    db.prepare(
+      `INSERT INTO runs (
+        id, inference_server_id, suite_id, test_id, profile_id, profile_version,
+        status, started_at, ended_at, environment_snapshot, retention_days
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      row.runId,
+      'srv-1',
+      null,
+      row.testId,
+      null,
+      null,
+      'completed',
+      row.startedAt,
+      row.startedAt,
+      JSON.stringify({ effective_config: { model: '/inferencerlabs/model' } }),
+      30
+    );
+
+    db.prepare(
+      `INSERT INTO test_results (
+        id, run_id, test_id, verdict, failure_reason, metrics, artefacts, raw_events,
+        repetition_stats, started_at, ended_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      `result-${row.runId}`,
+      row.runId,
+      row.testId,
+      'pass',
+      null,
+      JSON.stringify({ cold_penalty_ms_median: row.value }),
+      JSON.stringify({}),
+      JSON.stringify([]),
+      JSON.stringify({ repetitions: 1 }),
+      row.startedAt,
+      row.startedAt
+    );
+  }
+}
+
 describe('dashboard results integration', () => {
   process.env.AITESTBENCH_API_TOKEN = 'test-token';
 
@@ -222,5 +319,25 @@ describe('dashboard results integration', () => {
     expect(body.panels).toHaveLength(1);
     expect(body.panels[0].grouped).toBe(true);
     expect(body.stats.query_duration_ms).toBeGreaterThanOrEqual(0);
+  });
+
+  it('links repeated template runs in one performance series even when generated test ids differ', async () => {
+    const app = createServer();
+    seedRepeatedTemplateData();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/dashboard-results/query',
+      headers: AUTH_HEADERS,
+      payload: {
+        test_ids: ['Cold_start_penalty'],
+        view_mode: 'separate'
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.panels).toHaveLength(1);
+    expect(body.panels[0].series).toHaveLength(1);
+    expect(body.panels[0].series[0].points).toHaveLength(3);
   });
 });

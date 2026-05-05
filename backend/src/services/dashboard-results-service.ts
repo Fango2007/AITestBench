@@ -329,6 +329,8 @@ function aggregatePanels(rows: QueryRow[]): DashboardPanel[] {
     const runtime = runtimeKey(row, runtimeSnapshot);
     const version = runtimeVersion(runtimeSnapshot);
     const model = selectedModel(envSnapshot);
+    const testKey = templateFilterKey(row);
+    const testLabel = templateFilterLabel(row);
     const performanceKeys = Object.keys(metrics ?? {}).filter(
       (key) => typeof metrics?.[key] === 'number' && isPerformanceMetricKey(key)
     );
@@ -346,7 +348,7 @@ function aggregatePanels(rows: QueryRow[]): DashboardPanel[] {
             runtime_key: runtime,
             server_version: version,
             model_id: model,
-            test_ids: [row.test_id],
+            test_ids: [testKey],
             metric_keys: [metricKey],
             unit_keys: [],
             grouped: false,
@@ -355,15 +357,15 @@ function aggregatePanels(rows: QueryRow[]): DashboardPanel[] {
           };
           performancePanels.set(key, {
             panel,
-            seriesByTest: new Map([[row.test_id, [{ x: row.run_started_at, y: metricValue }]]]),
-            testIds: new Set([row.test_id])
+            seriesByTest: new Map([[testLabel, [{ x: row.run_started_at, y: metricValue }]]]),
+            testIds: new Set([testKey])
           });
           continue;
         }
-        const points = existing.seriesByTest.get(row.test_id) ?? [];
+        const points = existing.seriesByTest.get(testLabel) ?? [];
         points.push({ x: row.run_started_at, y: metricValue });
-        existing.seriesByTest.set(row.test_id, points);
-        existing.testIds.add(row.test_id);
+        existing.seriesByTest.set(testLabel, points);
+        existing.testIds.add(testKey);
         existing.panel.missing_fields = Array.from(new Set(existing.panel.missing_fields));
       }
       continue;
@@ -381,7 +383,7 @@ function aggregatePanels(rows: QueryRow[]): DashboardPanel[] {
       });
     }
     const target = tablePanels.get(tableKey)!;
-    target.test_ids = Array.from(new Set([...target.test_ids, row.test_id]));
+    target.test_ids = Array.from(new Set([...target.test_ids, testKey]));
     target.rows = [...(target.rows ?? []), ...(basePanel.rows ?? [])];
     target.missing_fields = Array.from(new Set([...target.missing_fields, ...basePanel.missing_fields]));
   }

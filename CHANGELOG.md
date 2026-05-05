@@ -12,6 +12,9 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Fixed
 
+- Results dashboard performance graphs now link repeated runs from the same template/model into one series even when generated active test IDs differ.
+- Results dashboard merged metric graphs now keep different models as separate lines instead of collapsing same-test metrics together.
+- Results dashboard default date ranges now include the newest result even when its timestamp has seconds or milliseconds, preventing single-run dashboards from appearing empty.
 - Settings **Empty database** now clears all application SQLite tables, including evaluation prompts and evaluations that feed the leaderboard.
 - Leaderboard view now clears stale displayed rows immediately after the database is emptied from settings.
 - Architecture inspection errors now show visible, non-empty diagnostics in the model detail page instead of leaving only a red button state.
