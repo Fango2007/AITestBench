@@ -6,9 +6,15 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-05-05
+
 ### Added
 
 - Backend inference-server calls can now be routed through an optional Undici proxy configured with `AITESTBENCH_INFERENCE_PROXY` and `AITESTBENCH_INFERENCE_NO_PROXY`, without exposing proxy settings to the frontend.
+
+### Changed
+
+- CI and release workflows now run on Node.js 22 to match current backend dependency requirements.
 
 ### Fixed
 
