@@ -11,6 +11,7 @@ import { computeMetrics, MetricResult } from './metrics.js';
 import { loadPerplexityDataset } from './perplexity.js';
 import { parseSseEvents } from './sse-parser.js';
 import { logEvent } from './observability.js';
+import { backendFetch } from './inference-proxy.js';
 import { runPythonEntrypoint } from '../plugins/python-runner.js';
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
@@ -602,7 +603,7 @@ async function executeHttpTest(
   let stepError: StepErrorSnapshot | null = null;
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await backendFetch(url.toString(), {
       method,
       headers,
       body: JSON.stringify(mergedBody),

@@ -1,4 +1,5 @@
 import { getInferenceServerById } from '../models/inference-server.js';
+import { backendFetch } from './inference-proxy.js';
 import { logEvent } from './observability.js';
 
 export interface ModelPricing {
@@ -104,7 +105,7 @@ export async function runEvalInference(params: EvalInferenceParams): Promise<Eva
 
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await backendFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
