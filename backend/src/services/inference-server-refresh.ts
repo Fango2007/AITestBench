@@ -3,6 +3,7 @@ import os from 'os';
 import { InferenceServerRecord } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
 import { updateInferenceServerRecord } from './inference-servers-repository.js';
+import { backendFetch } from './inference-proxy.js';
 import { extractQuantisationLabel, normaliseQuantisationFromLabel } from './quantisation-normalizer.js';
 
 export class InferenceServerRefreshError extends Error {
@@ -174,7 +175,7 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
     const url = new URL(path, server.endpoints.base_url).toString();
     let response: Response;
     try {
-      response = await fetch(url, { headers: authHeaders });
+      response = await backendFetch(url, { headers: authHeaders });
     } catch (error) {
       errors.push(`${schemaFamily}: ${error instanceof Error ? error.message : 'Network error'}`);
       continue;

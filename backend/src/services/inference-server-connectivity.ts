@@ -1,5 +1,6 @@
 import { listInferenceServers } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
+import { backendFetch } from './inference-proxy.js';
 
 export type InferenceServerHealth = {
   server_id: string;
@@ -23,7 +24,7 @@ async function checkServer(
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const url = new URL(path, baseUrl).toString();
-      const response = await fetch(url, { method: 'GET', signal: controller.signal });
+      const response = await backendFetch(url, { method: 'GET', signal: controller.signal });
       const duration = Date.now() - startedAt;
       lastStatus = response.status;
       if (response.ok) {

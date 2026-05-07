@@ -1,23 +1,33 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const undiciMock = vi.hoisted(() => ({
   EnvHttpProxyAgent: vi.fn(function (this: { options?: unknown }, options?: unknown) {
     this.options = options;
   }),
+  fetch: vi.fn(),
   setGlobalDispatcher: vi.fn()
 }));
 
 vi.mock('undici', () => undiciMock);
 
 import {
+  backendFetch,
   configureInferenceProxyFromEnv,
   resolveInferenceProxyConfig
 } from '../../src/services/inference-proxy.js';
 
 describe('inference proxy configuration', () => {
+  const originalFetch = globalThis.fetch;
+
   beforeEach(() => {
     undiciMock.EnvHttpProxyAgent.mockClear();
+    undiciMock.fetch.mockClear();
     undiciMock.setGlobalDispatcher.mockClear();
+    globalThis.fetch = originalFetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
   it('does not configure a dispatcher when the backend-specific proxy env var is absent', () => {
@@ -52,11 +62,50 @@ describe('inference proxy configuration', () => {
     expect(undiciMock.EnvHttpProxyAgent).toHaveBeenCalledWith({
       httpProxy: 'http://proxy.example:8080',
       httpsProxy: 'http://proxy.example:8080',
-      noProxy: 'localhost,127.0.0.1'
+      noProxy: 'localhost,127.0.0.1',
+      proxyTunnel: false
     });
     expect(undiciMock.setGlobalDispatcher).toHaveBeenCalledTimes(1);
     expect(undiciMock.setGlobalDispatcher).toHaveBeenCalledWith(
       undiciMock.EnvHttpProxyAgent.mock.instances[0]
+    );
+    expect(globalThis.fetch).toBe(backendFetch);
+  });
+
+  it('does not inherit process-level NO_PROXY when the backend-specific no-proxy env var is absent', () => {
+    const configured = configureInferenceProxyFromEnv({
+      AITESTBENCH_INFERENCE_PROXY: 'http://proxy.example:8080',
+      NO_PROXY: '.local,localhost,127.0.0.1'
+    });
+
+    expect(configured).toBe(true);
+    expect(undiciMock.EnvHttpProxyAgent).toHaveBeenCalledWith({
+      httpProxy: 'http://proxy.example:8080',
+      httpsProxy: 'http://proxy.example:8080',
+      noProxy: '',
+      proxyTunnel: false
+    });
+  });
+
+  it('backendFetch passes the configured dispatcher directly to Undici fetch', async () => {
+    const fetchResponse = new Response('ok');
+    undiciMock.fetch.mockResolvedValue(fetchResponse);
+
+    configureInferenceProxyFromEnv({
+      AITESTBENCH_INFERENCE_PROXY: 'http://proxy.example:8080'
+    });
+
+    const response = await backendFetch('http://ai-mac-studio.local:8081/v1/models', {
+      method: 'GET'
+    });
+
+    expect(response).toBe(fetchResponse);
+    expect(undiciMock.fetch).toHaveBeenCalledWith(
+      'http://ai-mac-studio.local:8081/v1/models',
+      {
+        method: 'GET',
+        dispatcher: undiciMock.EnvHttpProxyAgent.mock.instances[0]
+      }
     );
   });
 });
