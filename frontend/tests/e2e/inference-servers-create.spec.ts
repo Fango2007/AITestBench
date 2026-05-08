@@ -8,11 +8,13 @@ test('creates a new inference server from the dashboard', async ({ page, request
 
   await page.goto('/');
 
-  await page.getByRole('button', { name: '+ Add server' }).click();
+  await page.locator('.catalog-header-actions').getByRole('button', { name: '+ Add server' }).click();
 
-  const createForm = page
-    .locator('form')
+  const createDrawer = page
+    .getByRole('dialog')
     .filter({ has: page.getByRole('heading', { name: 'Add inference server' }) });
+  await expect(createDrawer).toBeVisible();
+  const createForm = createDrawer.locator('form');
 
   await createForm.getByLabel('Display name').fill(displayName);
   await createForm.getByLabel('Base URL').fill(baseUrl);

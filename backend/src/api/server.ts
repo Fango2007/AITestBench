@@ -8,6 +8,7 @@ import { reloadTests } from '../services/test-service.js';
 import { registerAuth } from './middleware/auth.js';
 import { registerResultsRoutes } from './routes/results.js';
 import { registerRunsRoutes } from './routes/runs.js';
+import { registerRunGroupsRoutes } from './routes/run-groups.js';
 import { registerSuitesRoutes } from './routes/suites.js';
 import { registerInferenceServersRoutes } from './routes/inference-servers.js';
 import { registerTestsRoutes } from './routes/tests.js';
@@ -87,6 +88,7 @@ export function createServer() {
   registerInferenceServersRoutes(app);
   registerTestsRoutes(app);
   registerRunsRoutes(app);
+  registerRunGroupsRoutes(app);
   registerSuitesRoutes(app);
   registerProfilesRoutes(app);
   registerModelsRoutes(app);

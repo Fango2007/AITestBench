@@ -5,12 +5,11 @@ import packageInfo from '../package.json';
 import { MergedPageHeader } from './components/MergedPageHeader.js';
 import { Sidebar } from './components/Sidebar.js';
 import { Catalog } from './pages/Catalog.js';
-import { CompareRuns } from './pages/CompareRuns.js';
 import { Evaluate } from './pages/Evaluate.js';
 import { Leaderboard } from './pages/Leaderboard.js';
 import { ResultsDashboard } from './pages/ResultsDashboard.js';
 import { RunHistory } from './pages/RunHistory.js';
-import { RunSingle } from './pages/RunSingle.js';
+import { RunUnified } from './pages/RunUnified.js';
 import { Templates } from './pages/Templates.js';
 import { legacyRedirectSearch, normalizeResultsTab, resultsSearch } from './navigation.js';
 import { apiGet } from './services/api.js';
@@ -79,8 +78,7 @@ function ResultsRoute({ runCount }: { runCount: number | null }) {
 }
 
 function RunRoute() {
-  const [searchParams] = useSearchParams();
-  return searchParams.get('legacy') === 'compare' ? <CompareRuns /> : <RunSingle />;
+  return <RunUnified />;
 }
 
 export function App() {

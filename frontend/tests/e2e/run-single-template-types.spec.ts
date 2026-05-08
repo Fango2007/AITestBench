@@ -109,7 +109,7 @@ test('supports JSON and Python template types', async ({ page, request }) => {
     );
     await page.goto('/run');
     await serversResponse;
-    await expect(page.getByRole('heading', { name: 'Run Single Test' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Run', exact: true })).toBeVisible();
 
     const inferenceServerSelect = page.getByRole('combobox', { name: 'Inference server', exact: true });
     await expect(inferenceServerSelect).toBeVisible();
@@ -132,6 +132,7 @@ test('supports JSON and Python template types', async ({ page, request }) => {
       await inferenceServerSelect.selectOption({ label: fallbackLabel });
     }
     await page.getByRole('textbox', { name: 'Model', exact: true }).fill('gpt-4o-mini');
+    await page.getByRole('button', { name: 'Add model', exact: true }).click();
     const templatesSelect = page.getByRole('listbox', { name: 'Templates', exact: true });
     const availableTemplateLabels = await templatesSelect.evaluate((element) => {
       if (!(element instanceof HTMLSelectElement)) {
@@ -147,11 +148,9 @@ test('supports JSON and Python template types', async ({ page, request }) => {
       { label: jsonTemplateLabel! },
       { label: pythonTemplateLabel! }
     ]);
-    await page.getByRole('button', { name: 'Generate Active Tests' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Active Tests' })).toBeVisible();
-    await expect(page.getByText('Sandbox ready')).toBeVisible();
-    await expect(page.getByText('Runnable Command Preview')).toBeVisible();
+    await expect(page.getByTitle('gpt-4o-mini')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Run · 1 models × 2 templates/ })).toBeEnabled();
   } finally {
     await cleanupTemplateIds(request, [jsonTemplateId, pythonTemplateId]);
     await archiveInferenceServer(request, server.inference_server.server_id);

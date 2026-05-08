@@ -39,7 +39,6 @@ export function legacyRedirectSearch(target: string, currentSearch = ''): { path
     case 'run-single':
       return { pathname: '/run', search: currentSearch };
     case 'compare':
-      params.set('legacy', 'compare');
       return { pathname: '/run', search: `?${params.toString()}` };
     case 'dashboard':
       params.set('tab', 'dashboard');

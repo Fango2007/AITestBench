@@ -128,7 +128,8 @@ async function seedHfModel(
 async function navigateToModelDetail(page: import('@playwright/test').Page, serverId: string, modelId: string) {
   await page.goto(`/catalog?tab=models&servers=${encodeURIComponent(serverId)}`);
   await page.waitForLoadState('networkidle');
-  const card = page.locator('.catalog-model-card').filter({ hasText: 'Llama-3.1-8B' });
+  const expectedModelText = modelId.replace(/^\/+/, '').split('/').filter(Boolean).pop() ?? modelId;
+  const card = page.locator('.catalog-model-card').filter({ hasText: expectedModelText });
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Inspect' }).click();
   await page.waitForLoadState('networkidle');
