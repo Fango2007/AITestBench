@@ -48,7 +48,7 @@ export function InferenceServerList({
             <div className="actions icon-actions">
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => onInspect(server)}
                 aria-label="Inspect"
                 title="Inspect"
@@ -65,7 +65,7 @@ export function InferenceServerList({
               </button>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => onEdit(server)}
                 aria-label="Edit"
                 title="Edit"
@@ -83,7 +83,7 @@ export function InferenceServerList({
               {!server.inference_server.archived ? (
                 <button
                   type="button"
-                  className="icon-button"
+                  className="icon-btn"
                   onClick={() => onArchive(server)}
                   aria-label="Archive"
                   title="Archive"
@@ -102,7 +102,7 @@ export function InferenceServerList({
               ) : (
                 <button
                   type="button"
-                  className="icon-button"
+                  className="icon-btn"
                   onClick={() => onUnarchive(server)}
                   aria-label="Unarchive"
                   title="Unarchive"
@@ -121,7 +121,7 @@ export function InferenceServerList({
               )}
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => onDelete(server)}
                 aria-label="Delete"
                 title="Delete"

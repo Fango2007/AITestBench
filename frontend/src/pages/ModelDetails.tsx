@@ -109,7 +109,7 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
   return (
     <section className="page">
       <div className="page-header">
-        <button type="button" className="icon-button" onClick={onBack} aria-label="Back to models">
+        <button type="button" className="btn btn--ghost btn--sm" onClick={onBack}>
           ← Back
         </button>
         <h2>{displayName}</h2>

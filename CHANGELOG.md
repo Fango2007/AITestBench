@@ -6,6 +6,10 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Changed
+
+- Frontend styling now loads the new design-system foundation tokens, vendored IBM Plex fonts, and shared component primitives for cards, buttons, inputs, health pills, metrics, and architecture-tree surfaces.
+
 ### Fixed
 
 - Backend proxy support now sends plain HTTP outbound requests to the configured proxy in absolute-form while retaining CONNECT tunneling for HTTPS targets, routes backend outbound fetches through the configured Undici dispatcher directly, and no longer lets process-level `NO_PROXY` bypass backend proxy routing unless `AITESTBENCH_INFERENCE_NO_PROXY` is set.

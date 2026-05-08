@@ -17,7 +17,7 @@
   grid-template-columns: repeat(3, minmax(180px, 220px));
 }
 
-.dashboard-filters .field {
+.dashboard-filters .form-field {
   margin-bottom: 0;
 }
 
@@ -54,7 +54,7 @@
 
 .table-scroll th,
 .table-scroll td {
-  border-bottom: 1px solid #e1dbcf;
+  border-bottom: 1px solid var(--border-table-row);
   text-align: left;
   padding: 6px 8px;
   font-size: 13px;

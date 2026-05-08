@@ -14,10 +14,10 @@ export function formatParams(n: number): string {
 // ─── Layer type color coding ──────────────────────────────────────────────────
 
 function layerColor(type: string): string {
-  if (/norm|layernorm|batchnorm|groupnorm|rmsnorm/i.test(type)) return 'var(--color-warning)';
-  if (/relu|gelu|silu|tanh|sigmoid|activation/i.test(type)) return 'var(--color-success)';
-  if (/attention|multiheadattention|linear|embedding|conv2d/i.test(type)) return 'var(--color-info)';
-  return 'var(--color-muted)';
+  if (/norm|layernorm|batchnorm|groupnorm|rmsnorm/i.test(type)) return 'var(--warning-dot)';
+  if (/relu|gelu|silu|tanh|sigmoid|activation/i.test(type)) return 'var(--ok)';
+  if (/attention|multiheadattention|linear|embedding|conv2d/i.test(type)) return 'var(--gold-5)';
+  return 'var(--ink-3)';
 }
 
 // ─── Flatten visible nodes ────────────────────────────────────────────────────

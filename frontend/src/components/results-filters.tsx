@@ -31,7 +31,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
   return (
     <div className="dashboard-filters" aria-label="Results filters">
       <div className="dashboard-filters-row dashboard-filters-row-3">
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-runtime-filter">Runtime</label>
           <select
             id="results-runtime-filter"
@@ -48,7 +48,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
           </select>
         </div>
 
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-version-filter">Server Version</label>
           <select
             id="results-version-filter"
@@ -65,7 +65,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
           </select>
         </div>
 
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-model-filter">Model</label>
           <select
             id="results-model-filter"
@@ -84,7 +84,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
       </div>
 
       <div className="dashboard-filters-row dashboard-filters-row-4">
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-tests-filter">Tests</label>
           <select
             id="results-tests-filter"
@@ -103,7 +103,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
       </div>
 
       <div className="dashboard-filters-row dashboard-filters-row-3">
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-date-from-filter">Date From</label>
           <input
             id="results-date-from-filter"
@@ -114,7 +114,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
           />
         </div>
 
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-date-to-filter">Date To</label>
           <input
             id="results-date-to-filter"
@@ -124,7 +124,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
             disabled={disabled}
           />
         </div>
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-view-mode-filter">View Mode</label>
           <select
             id="results-view-mode-filter"
@@ -139,7 +139,7 @@ export function ResultsFilters({ options, value, onChange, loading }: ResultsFil
       </div>
 
       {value.view_mode === 'grouped' ? (
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="results-group-keys-filter">Group Keys (comma-separated)</label>
           <input
             id="results-group-keys-filter"

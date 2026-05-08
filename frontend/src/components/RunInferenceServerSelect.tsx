@@ -38,7 +38,7 @@ export function RunInferenceServerSelect({
   }, [servers, value, onChange]);
 
   return (
-    <div className="field">
+    <div className="form-field">
       <label>
         Inference server
         <select value={value} onChange={(event) => onChange(event.target.value)}>
