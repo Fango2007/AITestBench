@@ -80,8 +80,7 @@ test('results dashboard filter and render flow', async ({ page }) => {
     });
   });
 
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Results dashboard' }).click();
+  await page.goto('/results?tab=dashboard');
 
   await expect(page.getByRole('heading', { name: 'Results Dashboard' })).toBeVisible();
   await expect(page.getByLabel('Runtime')).toBeVisible();

@@ -87,8 +87,7 @@ test.describe('US1 — Quantized Provider filter and clean model names', () => {
       quantized_provider: 'inferencerlabs'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     const quantizedSelect = page.locator('#quantized-provider-filter');
@@ -113,8 +112,7 @@ test.describe('US1 — Quantized Provider filter and clean model names', () => {
       quantized_provider: 'lmstudio-community'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     const modelSelect = page.locator('#model-filter');
@@ -142,8 +140,7 @@ test.describe('US1 — Quantized Provider filter and clean model names', () => {
       quantized_provider: 'inferencerlabs'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     const quantizedSelect = page.locator('#quantized-provider-filter');
@@ -176,8 +173,7 @@ test.describe('US2 — Capability tags filter', () => {
       use_case: { thinking: false, coding: false, instruct: false, mixture_of_experts: false }
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('input[type="checkbox"][value="thinking"]').check();
@@ -204,8 +200,7 @@ test.describe('US2 — Capability tags filter', () => {
       use_case: { thinking: true, coding: false, instruct: false, mixture_of_experts: false }
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('input[type="checkbox"][value="thinking"]').check();
@@ -228,8 +223,7 @@ test.describe('US2 — Capability tags filter', () => {
       display_name: 'No Tags Model'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('input[type="checkbox"][value="thinking"]').check();
@@ -253,8 +247,7 @@ test.describe('US4 — Update modal with enriched metadata fields', () => {
       display_name: 'Update Test Model'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#server-filter').selectOption(serverId);
@@ -284,8 +277,7 @@ test.describe('US4 — Update modal with enriched metadata fields', () => {
       display_name: 'Cap Test Model'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#server-filter').selectOption(serverId);
@@ -315,8 +307,7 @@ test.describe('US4 — Update modal with enriched metadata fields', () => {
       display_name: 'Reload Test'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#server-filter').selectOption(serverId);
@@ -370,8 +361,7 @@ test.describe('US3 — Format filter', () => {
     });
     expect(patchResponse.ok()).toBe(true);
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
     await page.locator('#server-filter').selectOption(serverId);
 
@@ -417,8 +407,7 @@ test.describe('US3 — Format filter', () => {
       format: 'GGUF'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#format-filter').selectOption('MLX');
@@ -439,8 +428,7 @@ test.describe('US3 — Format filter', () => {
       display_name: 'No Format Model'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#format-filter').selectOption('MLX');
@@ -466,8 +454,7 @@ test.describe('US3 — Format filter', () => {
       format: 'GGUF'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#format-filter').selectOption('MLX');
@@ -497,8 +484,7 @@ test.describe('US3 — Format filter', () => {
       quantized_provider: 'lmstudio-community'
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Models', exact: true }).click();
+    await page.goto('/catalog?tab=models');
     await page.waitForLoadState('networkidle');
 
     await page.locator('#quantized-provider-filter').selectOption('lmstudio-community');

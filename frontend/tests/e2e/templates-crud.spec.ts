@@ -40,8 +40,7 @@ test('creates, updates, and deletes templates from the dashboard', async ({ page
   );
 
   try {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Templates' }).click();
+    await page.goto('/templates');
     const createForm = page
       .locator('form')
       .filter({ has: page.getByRole('heading', { name: 'Create template' }) });

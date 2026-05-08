@@ -66,14 +66,13 @@ test('instantiates templates in Run', async ({ page, request }) => {
       })
       .toBe(serverDisplayName);
 
-    await page.goto('/');
     const serversResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'GET' &&
         response.url().includes('/inference-servers') &&
         response.ok()
     );
-    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await page.goto('/run');
     await serversResponse;
 
     const inferenceServerSelect = page.getByRole('combobox', { name: 'Inference server', exact: true });

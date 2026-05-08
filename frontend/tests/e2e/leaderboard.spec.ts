@@ -65,16 +65,14 @@ async function getOrCreateServer(request: APIRequestContext): Promise<string> {
 
 test.describe('Leaderboard page — empty state', () => {
   test('shows informative empty state message and CTA when no evaluations', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
     await expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible();
     await expect(page.getByText('No evaluations yet.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create your first evaluation' })).toBeVisible();
   });
 
   test('CTA navigates to Evaluate page', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
     const cta = page.getByRole('button', { name: 'Create your first evaluation' });
     if (await cta.isVisible()) {
       await cta.click();
@@ -89,8 +87,7 @@ test.describe('Leaderboard page — populated state', () => {
     const serverId = await getOrCreateServer(request);
     await seedEvaluation(request, { serverId, modelName: 'e2e-model-leaderboard' });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
 
     await expect(
       page.locator('.leaderboard-table tbody').getByText('e2e-model-leaderboard')
@@ -100,8 +97,7 @@ test.describe('Leaderboard page — populated state', () => {
   test('SC-003: leaderboard updates within 3s after evaluations:saved event', async ({ page, request }) => {
     const serverId = await getOrCreateServer(request);
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
     await page.waitForLoadState('networkidle');
 
     const modelName = `e2e-sc003-${Date.now()}`;
@@ -123,8 +119,7 @@ test.describe('Leaderboard filters', () => {
   test('apply date range — only in-range evaluations reflected', async ({ page, request }) => {
     const serverId = await getOrCreateServer(request);
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
 
     await page.locator('input[type="date"]').first().fill('2030-01-01');
     await page.locator('input[type="date"]').last().fill('2030-12-31');
@@ -138,8 +133,7 @@ test.describe('Leaderboard filters', () => {
     const modelName = `e2e-filter-clear-${Date.now()}`;
     await seedEvaluation(request, { serverId, modelName });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
 
     await page.locator('input[type="date"]').first().fill('2030-01-01');
     await page.getByRole('button', { name: 'Apply' }).click();
@@ -152,8 +146,7 @@ test.describe('Leaderboard filters', () => {
   });
 
   test('filter-specific empty state is distinct from generic empty state', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Leaderboard', exact: true }).click();
+    await page.goto('/results?tab=leaderboard');
 
     await page.locator('input[type="date"]').first().fill('2030-01-01');
     await page.getByRole('button', { name: 'Apply' }).click();

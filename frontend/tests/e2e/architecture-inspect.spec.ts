@@ -126,8 +126,7 @@ async function seedHfModel(
 }
 
 async function navigateToModelDetail(page: import('@playwright/test').Page, serverId: string, modelId: string) {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Models', exact: true }).click();
+  await page.goto('/catalog?tab=models');
   await page.waitForLoadState('networkidle');
   await page.locator('#server-filter').selectOption(serverId);
   await page.locator('#model-filter').selectOption(modelId);
