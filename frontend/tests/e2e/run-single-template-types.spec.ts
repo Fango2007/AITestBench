@@ -101,14 +101,13 @@ test('supports JSON and Python template types', async ({ page, request }) => {
       })
       .toBe(serverDisplayName);
 
-    await page.goto('/');
     const serversResponse = page.waitForResponse(
       (response) =>
         response.request().method() === 'GET' &&
         response.url().includes('/inference-servers') &&
         response.ok()
     );
-    await page.getByRole('button', { name: 'Run', exact: true }).click();
+    await page.goto('/run');
     await serversResponse;
     await expect(page.getByRole('heading', { name: 'Run Single Test' })).toBeVisible();
 

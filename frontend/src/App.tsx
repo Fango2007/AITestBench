@@ -1,92 +1,142 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 
+import packageInfo from '../package.json';
+import { MergedPageHeader } from './components/MergedPageHeader.js';
+import { Sidebar } from './components/Sidebar.js';
 import { CompareRuns } from './pages/CompareRuns.js';
 import { Evaluate } from './pages/Evaluate.js';
+import { InferenceServers } from './pages/InferenceServers.js';
 import { Leaderboard } from './pages/Leaderboard.js';
 import { ModelDetails } from './pages/ModelDetails.js';
 import { Models } from './pages/Models.js';
+import { ResultsDashboard } from './pages/ResultsDashboard.js';
+import { RunHistory } from './pages/RunHistory.js';
 import { RunSingle } from './pages/RunSingle.js';
 import { Templates } from './pages/Templates.js';
-import { InferenceServers } from './pages/InferenceServers.js';
-import { ResultsDashboard } from './pages/ResultsDashboard.js';
+import { catalogSearch, legacyRedirectSearch, normalizeCatalogTab, normalizeResultsTab, resultsSearch } from './navigation.js';
 import { apiGet } from './services/api.js';
-import { InferenceServerRecord, listInferenceServers } from './services/inference-servers-api.js';
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from './services/connectivity-api.js';
-import { EnvEntry, clearDatabase, listEnvEntries, setEnvEntry } from './services/system-api.js';
+import { InferenceServerRecord, listInferenceServers } from './services/inference-servers-api.js';
+import { clearDatabase, EnvEntry, listEnvEntries, setEnvEntry } from './services/system-api.js';
+import { listTemplates } from './services/templates-api.js';
 
-type View = 'servers' | 'run-single' | 'templates' | 'models' | 'models-detail' | 'compare' | 'results-dashboard' | 'evaluate' | 'leaderboard';
-
-type ModelDetailState = { serverId: string; modelId: string };
-
-type SystemMetrics = {
-  cpu: {
-    usage_percent: number | null;
-    cores: number;
-    load_1m: number;
-    load_5m: number;
-    load_15m: number;
-  };
-  memory: {
-    total_bytes: number;
-    free_bytes: number;
-    used_bytes: number;
-    used_percent: number;
-  };
-  gpu: {
-    available: boolean;
-    utilization_percent: number | null;
-    memory_used_mb: number | null;
-    memory_total_mb: number | null;
-  };
+type SystemHealthMetrics = {
   db: {
     ok: boolean;
   };
 };
 
-type LlmParams = Record<string, unknown> | null;
-const PARAM_OVERRIDES_KEY = 'aitestbench:param-overrides';
-
-function formatBytes(value: number): string {
-  if (value <= 0) {
-    return '0 B';
-  }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-  const scaled = value / Math.pow(1024, index);
-  return `${scaled.toFixed(index >= 2 ? 1 : 0)} ${units[index]}`;
+function LegacyRedirect({ target }: { target: string }) {
+  const location = useLocation();
+  return <Navigate to={legacyRedirectSearch(target, location.search)} replace />;
 }
 
-function pickParamValue(params: LlmParams, keys: string[]): unknown {
-  if (!params) {
-    return null;
-  }
-  for (const key of keys) {
-    const value = params[key];
-    if (value !== undefined && value !== null) {
-      return value;
+function CatalogRoute({ servers, connectivity }: { servers: InferenceServerRecord[]; connectivity: Record<string, InferenceServerHealth> }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const activeTab = normalizeCatalogTab(searchParams.get('tab'));
+  const selectedServerId = searchParams.get('serverId');
+  const selectedModelId = searchParams.get('modelId');
+
+  useEffect(() => {
+    if (searchParams.get('tab') === activeTab) {
+      return;
     }
-  }
-  return null;
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', activeTab);
+    setSearchParams(next, { replace: true });
+  }, [activeTab, searchParams, setSearchParams]);
+
+  const reachable = servers.filter((server) => connectivity[server.inference_server.server_id]?.ok).length;
+
+  return (
+    <>
+      <MergedPageHeader
+        title="Catalog"
+        subtitle={`Servers and models · ${reachable} reachable`}
+        tabs={[
+          { id: 'servers', label: 'Servers', sub: `${servers.length} servers` },
+          { id: 'models', label: 'Models' }
+        ]}
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          const next = new URLSearchParams(searchParams);
+          next.set('tab', tab);
+          setSearchParams(next);
+        }}
+      />
+      {activeTab === 'servers' ? (
+        <InferenceServers />
+      ) : selectedServerId && selectedModelId ? (
+        <ModelDetails
+          serverId={selectedServerId}
+          modelId={selectedModelId}
+          onBack={() => navigate({ pathname: '/catalog', search: catalogSearch('models') })}
+        />
+      ) : (
+        <Models
+          onModelSelect={(serverId, modelId) => {
+            navigate({ pathname: '/catalog', search: catalogSearch('models', { serverId, modelId }) });
+          }}
+        />
+      )}
+    </>
+  );
 }
 
-function formatNumericParam(value: unknown, digits = 2): string {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const fixed = value.toFixed(digits);
-    return digits > 0 ? fixed.replace(/\.0+$/, '') : fixed;
-  }
-  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
-    return value;
-  }
-  return 'N/A';
+function ResultsRoute({ runCount }: { runCount: number | null }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const activeTab = normalizeResultsTab(searchParams.get('tab'));
+
+  useEffect(() => {
+    if (searchParams.get('tab') === activeTab) {
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', activeTab);
+    setSearchParams(next, { replace: true });
+  }, [activeTab, searchParams, setSearchParams]);
+
+  return (
+    <>
+      <MergedPageHeader
+        title="Results"
+        subtitle={`${runCount ?? 0} recorded runs`}
+        tabs={[
+          { id: 'dashboard', label: 'Dashboard' },
+          { id: 'leaderboard', label: 'Leaderboard' },
+          { id: 'history', label: 'History', sub: `${runCount ?? 0} runs` }
+        ]}
+        activeTab={activeTab}
+        onTabChange={(tab) => setSearchParams({ tab })}
+      />
+      {activeTab === 'leaderboard' ? (
+        <Leaderboard
+          setView={(view) => {
+            if (view === 'evaluate') {
+              navigate('/evaluate');
+            }
+          }}
+        />
+      ) : activeTab === 'history' ? (
+        <RunHistory />
+      ) : (
+        <ResultsDashboard />
+      )}
+    </>
+  );
+}
+
+function RunRoute() {
+  const [searchParams] = useSearchParams();
+  return searchParams.get('legacy') === 'compare' ? <CompareRuns /> : <RunSingle />;
 }
 
 export function App() {
-  const [view, setView] = useState<View>('servers');
-  const [modelDetail, setModelDetail] = useState<ModelDetailState | null>(null);
   const [healthStatus, setHealthStatus] = useState<'unknown' | 'up' | 'down'>('unknown');
-  const [systemMetrics, setSystemMetrics] = useState<SystemMetrics | null>(null);
-  const [metricsError, setMetricsError] = useState(false);
-  const [paramOverrides, setParamOverrides] = useState<Record<string, unknown> | null>(null);
+  const [dbStatus, setDbStatus] = useState<'unknown' | 'up' | 'down'>('unknown');
   const [showSettings, setShowSettings] = useState(false);
   const [settingsEntries, setSettingsEntries] = useState<EnvEntry[]>([]);
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -97,6 +147,8 @@ export function App() {
   const [servers, setServers] = useState<InferenceServerRecord[]>([]);
   const [serversError, setServersError] = useState(false);
   const [connectivity, setConnectivity] = useState<Record<string, InferenceServerHealth>>({});
+  const [templateCount, setTemplateCount] = useState<number | null>(null);
+  const [runCount, setRunCount] = useState<number | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -123,22 +175,27 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const loadOverrides = () => {
-      const raw = localStorage.getItem(PARAM_OVERRIDES_KEY);
-      if (!raw) {
-        setParamOverrides(null);
-        return;
-      }
+    let isActive = true;
+    const checkDatabase = async () => {
       try {
-        setParamOverrides(JSON.parse(raw) as Record<string, unknown>);
+        const data = await apiGet<SystemHealthMetrics>('/system/metrics');
+        if (isActive) {
+          setDbStatus(data.db.ok ? 'up' : 'down');
+        }
       } catch {
-        setParamOverrides(null);
+        if (isActive) {
+          setDbStatus('down');
+        }
       }
     };
-    loadOverrides();
-    const handleUpdate = () => loadOverrides();
-    window.addEventListener('param-overrides:updated', handleUpdate);
-    return () => window.removeEventListener('param-overrides:updated', handleUpdate);
+
+    checkDatabase();
+    const intervalId = window.setInterval(checkDatabase, 15000);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   useEffect(() => {
@@ -200,18 +257,39 @@ export function App() {
       }
     };
 
-    const handleServersUpdated = () => {
-      fetchServers();
-    };
-
     fetchServers();
     const intervalId = window.setInterval(fetchServers, 10000);
-    window.addEventListener('inference-servers:updated', handleServersUpdated);
+    window.addEventListener('inference-servers:updated', fetchServers);
 
     return () => {
       isActive = false;
       window.clearInterval(intervalId);
-      window.removeEventListener('inference-servers:updated', handleServersUpdated);
+      window.removeEventListener('inference-servers:updated', fetchServers);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const refreshCounts = async () => {
+      const [templatesResult, runsResult] = await Promise.allSettled([
+        listTemplates(),
+        apiGet<Record<string, unknown>[]>('/runs')
+      ]);
+      if (!isActive) {
+        return;
+      }
+      setTemplateCount(templatesResult.status === 'fulfilled' ? templatesResult.value.length : null);
+      setRunCount(runsResult.status === 'fulfilled' ? runsResult.value.length : null);
+    };
+
+    refreshCounts();
+    const intervalId = window.setInterval(refreshCounts, 30000);
+    window.addEventListener('database:cleared', refreshCounts);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('database:cleared', refreshCounts);
     };
   }, []);
 
@@ -230,77 +308,18 @@ export function App() {
       .finally(() => setSettingsBusy(false));
   }, [showSettings]);
 
-  useEffect(() => {
-    let isActive = true;
-    const fetchMetrics = async () => {
-      try {
-        const data = await apiGet<SystemMetrics>('/system/metrics');
-        if (isActive) {
-          setSystemMetrics(data);
-          setMetricsError(false);
-        }
-      } catch {
-        if (isActive) {
-          setMetricsError(true);
-        }
+  const sidebarHealth = useMemo(() => {
+    const failed = servers.filter((server) => connectivity[server.inference_server.server_id]?.ok === false).length;
+    return {
+      backend: healthStatus,
+      database: dbStatus,
+      servers: {
+        total: servers.length,
+        failed,
+        unavailable: serversError
       }
     };
-
-    fetchMetrics();
-    const intervalId = window.setInterval(fetchMetrics, 5000);
-
-    return () => {
-      isActive = false;
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  const cpuValue =
-    systemMetrics?.cpu.usage_percent != null ? `${systemMetrics.cpu.usage_percent.toFixed(1)}%` : 'N/A';
-  const memoryValue = systemMetrics
-    ? `${formatBytes(systemMetrics.memory.used_bytes)} / ${formatBytes(systemMetrics.memory.total_bytes)}`
-    : 'N/A';
-  const memoryPercent =
-    systemMetrics?.memory.used_percent != null ? `${systemMetrics.memory.used_percent.toFixed(1)}%` : null;
-  const gpuValue =
-    systemMetrics?.gpu.available && systemMetrics.gpu.utilization_percent != null
-      ? `${systemMetrics.gpu.utilization_percent.toFixed(0)}%`
-      : 'N/A';
-  const gpuMemoryValue =
-    systemMetrics?.gpu.available && systemMetrics.gpu.memory_used_mb != null && systemMetrics.gpu.memory_total_mb != null
-      ? `${systemMetrics.gpu.memory_used_mb.toFixed(0)} / ${systemMetrics.gpu.memory_total_mb.toFixed(0)} MB`
-      : null;
-  const dbStatus = systemMetrics ? (systemMetrics.db.ok ? 'up' : 'down') : 'unknown';
-  const llmParams = paramOverrides ?? null;
-  const temperatureValue = formatNumericParam(
-    pickParamValue(paramOverrides ?? llmParams, ['temperature', 'temp']),
-    2
-  );
-  const topPValue = formatNumericParam(
-    pickParamValue(paramOverrides ?? llmParams, ['top_p', 'topP']),
-    2
-  );
-  const topKValue = formatNumericParam(
-    pickParamValue(paramOverrides ?? llmParams, ['top_k', 'topK']),
-    0
-  );
-  const contextWindowValue = formatNumericParam(
-    pickParamValue(paramOverrides ?? llmParams, [
-      'context_window',
-      'context_window_tokens',
-      'max_context_tokens',
-      'context_length'
-    ]),
-    0
-  );
-  const streamValue = (() => {
-    const value = pickParamValue(paramOverrides ?? llmParams, ['stream']);
-    if (typeof value === 'boolean') {
-      return value ? 'On' : 'Off';
-    }
-    return 'N/A';
-  })();
-  const navClass = (active: boolean) => (active ? 'nav-btn is-active' : 'nav-btn');
+  }, [connectivity, dbStatus, healthStatus, servers, serversError]);
 
   async function handleClearDb() {
     const confirmed = window.confirm('Clear all database tables? This cannot be undone.');
@@ -350,294 +369,31 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div>
-          <div className="brand-row">
-            <p className="eyebrow">AITestBench</p>
-          </div>
-        </div>
-        <div className="header-metrics">
-          <div className="metric-card">
-            <div className="metric-card__row">
-              <span>CPU</span>
-              <strong>{metricsError ? 'Unavailable' : cpuValue}</strong>
-            </div>
-            <div className="metric-card__row">
-              <span>Memory</span>
-              <strong>
-                {metricsError ? 'Unavailable' : memoryValue}
-                {!metricsError && memoryPercent ? ` (${memoryPercent})` : ''}
-              </strong>
-            </div>
-            <div className="metric-card__row">
-              <span>GPU</span>
-              <strong>
-                {metricsError ? 'Unavailable' : gpuValue}
-                {!metricsError && gpuMemoryValue ? ` · ${gpuMemoryValue}` : ''}
-              </strong>
-            </div>
-          </div>
-          <div className="metric-card">
-            <div className="header-status">
-              <div className={`health health--${healthStatus}`}>
-                <span className="health__dot" aria-hidden="true" />
-                <span>
-                  Backend:{' '}
-                  {healthStatus === 'up'
-                    ? 'Online'
-                    : healthStatus === 'down'
-                      ? 'Offline'
-                      : 'Checking'}
-                </span>
-              </div>
-              <div className={`health health--${dbStatus}`}>
-                <span className="health__dot" aria-hidden="true" />
-                <span>
-                  DB:{' '}
-                  {dbStatus === 'up' ? 'Online' : dbStatus === 'down' ? 'Offline' : 'Checking'}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="metric-card">
-            <div className="param-grid">
-              <div className="metric-card__row">
-                <span>Temperature</span>
-                <strong>{temperatureValue}</strong>
-              </div>
-              <div className="metric-card__row">
-                <span>Top P</span>
-                <strong>{topPValue}</strong>
-              </div>
-              <div className="metric-card__row">
-                <span>Top K</span>
-                <strong>{topKValue}</strong>
-              </div>
-              <div className="metric-card__row">
-                <span>Context Window</span>
-                <strong>{contextWindowValue}</strong>
-              </div>
-              <div className="metric-card__row">
-                <span>Stream</span>
-                <strong>{streamValue}</strong>
-              </div>
-            </div>
-            <p className="status-rail-footnote">
-              {paramOverrides ? 'Overrides from Run Single' : 'No overrides set'}
-            </p>
-          </div>
-          <div className="metric-card">
-            {serversError ? (
-              <div className="health health--failed">
-                <span className="health__dot" aria-hidden="true" />
-                <span>Servers unavailable</span>
-              </div>
-            ) : servers.length === 0 ? (
-              <div className="health health--pending">
-                <span className="health__dot" aria-hidden="true" />
-                <span>No servers</span>
-              </div>
-            ) : (
-              <div className="header-servers-list">
-                {servers.map((server) => {
-                  const health = connectivity[server.inference_server.server_id];
-                  const statusClass = health ? (health.ok ? 'ok' : 'failed') : 'pending';
-                  const responseLabel =
-                    health?.response_time_ms != null ? ` (${health.response_time_ms} ms)` : '';
-                  return (
-                    <div key={server.inference_server.server_id} className={`health health--${statusClass}`}>
-                      <span className="health__dot" aria-hidden="true" />
-                      <span>{`${server.inference_server.display_name}${responseLabel}`}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-      <div className="app-body">
-        <aside className="app-nav">
-          <div className="nav-section">
-            <button
-              type="button"
-              className={navClass(view === 'servers')}
-              onClick={() => setView('servers')}
-              aria-label="Inference servers"
-              title="Inference servers"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="5" width="16" height="6" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                <rect x="4" y="13" width="16" height="6" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'models')}
-              onClick={() => setView('models')}
-              aria-label="Models"
-              title="Models"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M5 7c0-2 7-4 7-4s7 2 7 4-7 4-7 4-7-2-7-4z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M5 12c0 2 7 4 7 4s7-2 7-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M5 17c0 2 7 4 7 4s7-2 7-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'templates')}
-              onClick={() => setView('templates')}
-              aria-label="Templates"
-              title="Templates"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M6 4h9l3 3v13H6V4z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-                <path d="M9 9h6M9 13h6M9 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'run-single')}
-              onClick={() => setView('run-single')}
-              aria-label="Run"
-              title="Run"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M8 5l11 7-11 7V5z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'compare')}
-              onClick={() => setView('compare')}
-              aria-label="Compare"
-              title="Compare"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 7h14M5 12h10M5 17h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'results-dashboard')}
-              onClick={() => setView('results-dashboard')}
-              aria-label="Results dashboard"
-              title="Results dashboard"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 18h16M7 14l3-3 2 2 4-5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'evaluate')}
-              onClick={() => setView('evaluate')}
-              aria-label="Evaluate"
-              title="Evaluate"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 20l6-6m0 0l2-5 3 3 5-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                <circle cx="10" cy="14" r="1" fill="currentColor" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className={navClass(view === 'leaderboard')}
-              onClick={() => setView('leaderboard')}
-              aria-label="Leaderboard"
-              title="Leaderboard"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3l2 5h5l-4 3 1 5-4-3-4 3 1-5-4-3h5z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
-              </svg>
-            </button>
-          </div>
-          <div className="nav-footer">
-            <button
-              type="button"
-              className={navClass(showSettings)}
-              onClick={() => setShowSettings(true)}
-              aria-label="Settings"
-              title="Settings"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M4 12l2.2-.5a6.9 6.9 0 0 1 1-2L6 7l2-2 2.5 1.2a6.9 6.9 0 0 1 2-.8L12 3h2l.5 2.4a6.9 6.9 0 0 1 2 .8L19 5l2 2-1.2 2.5a6.9 6.9 0 0 1 .8 2L23 12v2l-2.4.5a6.9 6.9 0 0 1-.8 2L21 19l-2 2-2.5-1.2a6.9 6.9 0 0 1-2 .8L14 23h-2l-.5-2.4a6.9 6.9 0 0 1-2-.8L7 21l-2-2 1.2-2.5a6.9 6.9 0 0 1-.8-2L3 14v-2l2.4-.5a6.9 6.9 0 0 1 .8-2L5 7l2-2 2.5 1.2a6.9 6.9 0 0 1 2-.8L12 3h2"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
-        </aside>
-        <main className="app-main">
-          {view === 'servers' ? (
-            <InferenceServers />
-          ) : view === 'run-single' ? (
-            <RunSingle />
-          ) : view === 'templates' ? (
-            <Templates />
-          ) : view === 'models' ? (
-            <Models
-              onModelSelect={(serverId, modelId) => {
-                setModelDetail({ serverId, modelId });
-                setView('models-detail');
-              }}
-            />
-          ) : view === 'models-detail' && modelDetail ? (
-            <ModelDetails
-              serverId={modelDetail.serverId}
-              modelId={modelDetail.modelId}
-              onBack={() => setView('models')}
-            />
-          ) : view === 'results-dashboard' ? (
-            <ResultsDashboard />
-          ) : view === 'evaluate' ? (
-            <Evaluate />
-          ) : view === 'leaderboard' ? (
-            <Leaderboard setView={(v) => setView(v as View)} />
-          ) : (
-            <CompareRuns />
-          )}
-        </main>
-      </div>
+      <Sidebar
+        version={packageInfo.version}
+        health={sidebarHealth}
+        templateCount={templateCount}
+        runCount={runCount}
+        onSettings={() => setShowSettings(true)}
+      />
+      <main className="app-main">
+        <Routes>
+          <Route path="/" element={<Navigate to="/catalog?tab=servers" replace />} />
+          <Route path="/catalog" element={<CatalogRoute servers={servers} connectivity={connectivity} />} />
+          <Route path="/templates" element={<Templates />} />
+          <Route path="/run" element={<RunRoute />} />
+          <Route path="/results" element={<ResultsRoute runCount={runCount} />} />
+          <Route path="/runs/:id" element={<Navigate to={{ pathname: '/results', search: resultsSearch('history') }} replace />} />
+          <Route path="/evaluate" element={<Evaluate />} />
+          <Route path="/servers" element={<LegacyRedirect target="servers" />} />
+          <Route path="/models" element={<LegacyRedirect target="models" />} />
+          <Route path="/run-single" element={<LegacyRedirect target="run-single" />} />
+          <Route path="/compare" element={<LegacyRedirect target="compare" />} />
+          <Route path="/dashboard" element={<LegacyRedirect target="dashboard" />} />
+          <Route path="/leaderboard" element={<LegacyRedirect target="leaderboard" />} />
+          <Route path="*" element={<Navigate to="/catalog?tab=servers" replace />} />
+        </Routes>
+      </main>
       {showSettings ? (
         <div className="modal-overlay" role="dialog" aria-modal="true">
           <div className="modal-card settings-card">
@@ -658,7 +414,7 @@ export function App() {
               <h4>Database</h4>
               <p className="muted">Clear all tables in the current SQLite database.</p>
               <button type="button" onClick={handleClearDb} disabled={settingsBusy}>
-                {settingsBusy ? 'Working…' : 'Empty database'}
+                {settingsBusy ? 'Working...' : 'Empty database'}
               </button>
             </div>
             <div className="divider" />

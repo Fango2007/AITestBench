@@ -2,8 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Evaluate page', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Evaluate' }).click();
+    await page.goto('/evaluate');
     await expect(page.getByRole('heading', { name: 'Evaluate' })).toBeVisible();
   });
 
@@ -117,8 +116,7 @@ test('Evaluate page model menu uses discovered server models when model records 
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) });
   });
 
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Evaluate' }).click();
+  await page.goto('/evaluate');
   const formSelects = page.locator('.evaluation-form select');
   const serverSelect = formSelects.first();
   const modelSelect = formSelects.nth(1);
