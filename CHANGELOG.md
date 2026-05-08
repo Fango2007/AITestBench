@@ -9,6 +9,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 ### Added
 
 - Backend run groups now persist grouped Run executions, instantiate selected templates per target, launch child runs concurrently, expose `/run-groups` create/read/cancel endpoints, and isolate per-target failures.
+- Results now has a run-backed `/results-view/query` API and `/results-view/runs/:runId` detail API for the merged Dashboard/History experience, including filter metadata, scorecards, chart series, recent runs, dense history rows, and drawer data.
+- Evaluation detail is now available at `GET /evaluations/:evaluationId` so leaderboard rows can open a detail drawer for the representative evaluation.
 
 ### Changed
 
@@ -16,6 +18,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - The frontend shell now uses React Router with a 220px always-expanded five-item sidebar, URL-backed Catalog/Results sub-tabs, legacy route redirects, and sidebar health/count status instead of the former global metric-card header.
 - Catalog now replaces the legacy Inference Servers and Models bodies with a merged Servers/Models funnel, URL-backed server/model filters, server health view, slide-over add/edit drawer, card grids, and a full-width model inspector layout.
 - Run now uses a unified 1-8 model workflow with query-backed model chips, shared template/options controls, single-target detail rendering, multi-target comparison columns, and summary aggregation.
+- Results now uses a single merged Dashboard/Leaderboard/History page with a shared 240px filter rail, URL-owned tab/filter/sort/pagination/detail state, export/share/reset actions, run detail drawers for Dashboard and History, and evaluation detail drawers for Leaderboard.
+- Leaderboard remains backed by `evaluations` while accepting server, model, score range, sort, and group query parameters, including grouping by server and `inference_config.quantization_level`.
 - Inference server authentication can now use stored raw bearer/custom-header tokens for backend probes and runs while preserving the existing `token_env` fallback.
 
 ### Fixed

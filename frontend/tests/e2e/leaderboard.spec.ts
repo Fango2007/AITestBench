@@ -64,37 +64,34 @@ async function getOrCreateServer(request: APIRequestContext): Promise<string> {
 }
 
 test.describe('Leaderboard page — empty state', () => {
-  test('shows informative empty state message and CTA when no evaluations', async ({ page }) => {
+  test('renders the merged Results leaderboard tab and shared filter rail when no evaluations match', async ({ page }) => {
     await page.goto('/results?tab=leaderboard');
-    await expect(page.getByRole('heading', { name: 'Leaderboard' })).toBeVisible();
-    await expect(page.getByText('No evaluations yet.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create your first evaluation' })).toBeVisible();
-  });
-
-  test('CTA navigates to Evaluate page', async ({ page }) => {
-    await page.goto('/results?tab=leaderboard');
-    const cta = page.getByRole('button', { name: 'Create your first evaluation' });
-    if (await cta.isVisible()) {
-      await cta.click();
-      await expect(page.getByRole('heading', { name: 'Evaluate' })).toBeVisible();
-    }
+    await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Leaderboard' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('[aria-label="Results filters"]')).toBeVisible();
+    await expect(page.getByLabel('Sort by')).toBeVisible();
+    await expect(page.getByLabel('Group by')).toBeVisible();
+    await expect(page.getByText('No evaluations match the selected filters.')).toBeVisible();
   });
 });
 
 // T035 [US2] — populated state
 test.describe('Leaderboard page — populated state', () => {
-  test('shows model entry after evaluation is saved', async ({ page, request }) => {
+  test('shows a ranked model row after evaluation is saved and opens the evaluation drawer', async ({ page, request }) => {
     const serverId = await getOrCreateServer(request);
     await seedEvaluation(request, { serverId, modelName: 'e2e-model-leaderboard' });
 
     await page.goto('/results?tab=leaderboard');
 
-    await expect(
-      page.locator('.leaderboard-table tbody').getByText('e2e-model-leaderboard')
-    ).toBeVisible({ timeout: 5000 });
+    const row = page.locator('.results-leader-row').filter({ hasText: 'e2e-model-leaderboard' });
+    await expect(row).toBeVisible({ timeout: 5000 });
+    await expect(row.getByText('Score')).toBeVisible();
+    await row.click();
+    await expect(page.getByText('Evaluation detail')).toBeVisible();
+    await expect(page.getByText('Test answer')).toBeVisible();
   });
 
-  test('SC-003: leaderboard updates within 3s after evaluations:saved event', async ({ page, request }) => {
+  test('leaderboard updates within 3s after evaluations:saved event', async ({ page, request }) => {
     const serverId = await getOrCreateServer(request);
 
     await page.goto('/results?tab=leaderboard');
@@ -106,7 +103,7 @@ test.describe('Leaderboard page — populated state', () => {
 
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('evaluations:saved')));
     await expect(
-      page.locator('.leaderboard-table tbody').getByText(modelName)
+      page.locator('.results-leader-row').filter({ hasText: modelName })
     ).toBeVisible({ timeout: 3000 });
 
     const elapsed = Date.now() - t0;
@@ -116,42 +113,41 @@ test.describe('Leaderboard page — populated state', () => {
 
 // T039 [US3] — filter test cases
 test.describe('Leaderboard filters', () => {
-  test('apply date range — only in-range evaluations reflected', async ({ page, request }) => {
+  test('shared date range rail filters evaluation-backed leaderboard entries', async ({ page, request }) => {
     const serverId = await getOrCreateServer(request);
+    const modelName = `e2e-filter-rail-${Date.now()}`;
+    await seedEvaluation(request, { serverId, modelName });
 
     await page.goto('/results?tab=leaderboard');
+    await expect(page.locator('.results-leader-row').filter({ hasText: modelName })).toBeVisible();
 
-    await page.locator('input[type="date"]').first().fill('2030-01-01');
-    await page.locator('input[type="date"]').last().fill('2030-12-31');
-    await page.getByRole('button', { name: 'Apply' }).click();
-
+    await page.getByLabel('From').fill('2030-01-01T00:00');
+    await page.getByLabel('To').fill('2030-12-31T23:59');
     await expect(page.getByText('No evaluations match the selected filters.')).toBeVisible({ timeout: 3000 });
   });
 
-  test('clear filters — restores full unfiltered results within 1s (SC-005)', async ({ page, request }) => {
+  test('Reset filters restores the leaderboard view within 1s', async ({ page, request }) => {
     const serverId = await getOrCreateServer(request);
     const modelName = `e2e-filter-clear-${Date.now()}`;
     await seedEvaluation(request, { serverId, modelName });
 
     await page.goto('/results?tab=leaderboard');
 
-    await page.locator('input[type="date"]').first().fill('2030-01-01');
-    await page.getByRole('button', { name: 'Apply' }).click();
+    await page.getByLabel('From').fill('2030-01-01T00:00');
+    await page.getByLabel('To').fill('2030-12-31T23:59');
     await expect(page.getByText('No evaluations match the selected filters.')).toBeVisible();
 
     const t0 = Date.now();
-    await page.getByRole('button', { name: 'Clear' }).click();
-    await expect(page.locator('.leaderboard-table')).toBeVisible({ timeout: 1000 });
+    await page.getByRole('button', { name: 'Reset filters' }).click();
+    await expect(page.locator('.results-leader-row').filter({ hasText: modelName })).toBeVisible({ timeout: 1000 });
     expect(Date.now() - t0).toBeLessThan(1000);
   });
 
-  test('filter-specific empty state is distinct from generic empty state', async ({ page }) => {
+  test('sort and group controls are URL-backed on the merged leaderboard tab', async ({ page }) => {
     await page.goto('/results?tab=leaderboard');
-
-    await page.locator('input[type="date"]').first().fill('2030-01-01');
-    await page.getByRole('button', { name: 'Apply' }).click();
-
-    await expect(page.getByText('No evaluations match the selected filters.')).toBeVisible();
-    await expect(page.getByText('No evaluations yet.')).not.toBeVisible();
+    await page.getByLabel('Sort by').selectOption('latency');
+    await expect(page).toHaveURL(/leader_sort=latency/);
+    await page.getByLabel('Group by').selectOption('quantization');
+    await expect(page).toHaveURL(/group_by=quantization/);
   });
 });

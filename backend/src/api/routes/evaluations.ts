@@ -1,6 +1,9 @@
 import { FastifyInstance } from 'fastify';
 
 import { EvaluationValidationError, createEvaluation, listEvaluations } from '../../services/evaluation-service.js';
+import * as evalPromptModel from '../../models/eval-prompt.js';
+import * as evaluationModel from '../../models/evaluation.js';
+import { getDb } from '../../models/db.js';
 
 export function registerEvaluationsRoutes(app: FastifyInstance): void {
   app.post('/evaluations', async (request, reply) => {
@@ -63,5 +66,30 @@ export function registerEvaluationsRoutes(app: FastifyInstance): void {
     });
 
     reply.code(200).send(result);
+  });
+
+  app.get('/evaluations/:evaluationId', async (request, reply) => {
+    const { evaluationId } = request.params as { evaluationId: string };
+    const evaluation = evaluationModel.getById(evaluationId);
+    if (!evaluation) {
+      reply.code(404).send({ error: 'Evaluation not found' });
+      return;
+    }
+    const prompt = evalPromptModel.getById(evaluation.prompt_id);
+    const server = getDb()
+      .prepare('SELECT server_id, display_name FROM inference_servers WHERE server_id = ?')
+      .get(evaluation.server_id) as { server_id: string; display_name: string } | undefined;
+    reply.code(200).send({
+      evaluation,
+      prompt,
+      server: server ?? null,
+      composite_score:
+        (evaluation.accuracy_score +
+          evaluation.relevance_score +
+          evaluation.coherence_score +
+          evaluation.completeness_score +
+          evaluation.helpfulness_score) /
+        5
+    });
   });
 }
