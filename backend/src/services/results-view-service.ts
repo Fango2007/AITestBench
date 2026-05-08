@@ -1,0 +1,667 @@
+import { getDb } from '../models/db.js';
+import { parseJson } from '../models/repositories.js';
+
+const DEFAULT_WINDOW_DAYS = 30;
+const DEFAULT_HISTORY_LIMIT = 50;
+const MAX_HISTORY_LIMIT = 200;
+const MAX_SOURCE_ROWS = 10000;
+
+type SortBy = 'started_at' | 'status' | 'model' | 'server' | 'template' | 'score' | 'latency' | 'cost';
+type SortDir = 'asc' | 'desc';
+
+type RuntimeSnapshot = {
+  server_software?: { version?: string | null };
+  api?: { api_version?: string | null; schema_family?: string[] };
+  version?: string | null;
+};
+
+type EnvironmentSnapshot = {
+  effective_config?: { model?: string | null };
+  model?: string | null;
+};
+
+type ResultDocument = {
+  test?: { tags?: string[]; type?: string | null };
+  steps?: Array<Record<string, unknown>>;
+  summary?: Record<string, unknown>;
+  selected_model?: { id?: string | null } | null;
+};
+
+type ResultsViewRow = {
+  run_id: string;
+  inference_server_id: string;
+  run_status: string;
+  run_started_at: string;
+  run_ended_at: string | null;
+  environment_snapshot: string | null;
+  server_display_name: string | null;
+  server_runtime: string | null;
+  result_id: string | null;
+  test_result_test_id: string | null;
+  run_test_id: string | null;
+  template_id: string | null;
+  test_definition_name: string | null;
+  runner_type: string | null;
+  verdict: string | null;
+  failure_reason: string | null;
+  metrics: string | null;
+  artefacts: string | null;
+  raw_events: string | null;
+  result_started_at: string | null;
+  result_ended_at: string | null;
+  document: string | null;
+};
+
+export interface ResultsFilterState {
+  date_from: string;
+  date_to: string;
+  server_ids: string[];
+  model_names: string[];
+  template_ids: string[];
+  statuses: string[];
+  tags: string[];
+  score_min: number | null;
+  score_max: number | null;
+  sort_by: SortBy;
+  sort_dir: SortDir;
+  page: number;
+  page_size: number;
+}
+
+export interface ResultsHistoryRow {
+  run_id: string;
+  status: 'pass' | 'fail' | 'partial' | 'streaming';
+  started_at: string;
+  ended_at: string | null;
+  duration_ms: number | null;
+  server_id: string;
+  server_name: string;
+  model_name: string;
+  template_id: string;
+  template_label: string;
+  score: number | null;
+  latency_ms: number | null;
+  cost: number | null;
+  tags: string[];
+  result_count: number;
+}
+
+export interface ResultsDashboardView {
+  scorecards: {
+    total_runs: number;
+    pass_rate: number | null;
+    median_latency_ms: number | null;
+    median_cost: number | null;
+  };
+  pass_rate_series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>;
+  latency_series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>;
+  recent_runs: ResultsHistoryRow[];
+}
+
+export interface ResultsRunDetail {
+  run: ResultsHistoryRow;
+  raw_run: Record<string, unknown>;
+  results: Array<Record<string, unknown>>;
+  documents: Array<Record<string, unknown>>;
+}
+
+export interface ResultsViewResponse {
+  filters_applied: ResultsFilterState;
+  filter_options: {
+    servers: Array<{ id: string; label: string; count: number }>;
+    models: Array<{ id: string; label: string; count: number }>;
+    templates: Array<{ id: string; label: string; kind: string; count: number }>;
+    statuses: Array<{ id: string; label: string; count: number }>;
+    tags: Array<{ id: string; label: string; count: number }>;
+    date_bounds: { min: string | null; max: string | null };
+  };
+  dashboard: ResultsDashboardView;
+  history: {
+    rows: ResultsHistoryRow[];
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
+}
+
+type RunAccumulator = {
+  run_id: string;
+  inference_server_id: string;
+  run_status: string;
+  run_started_at: string;
+  run_ended_at: string | null;
+  environment_snapshot: EnvironmentSnapshot | null;
+  server_display_name: string | null;
+  server_runtime: RuntimeSnapshot | null;
+  results: Array<{
+    id: string;
+    test_id: string;
+    template_id: string;
+    template_label: string;
+    kind: string;
+    verdict: string | null;
+    failure_reason: string | null;
+    metrics: Record<string, unknown> | null;
+    artefacts: Record<string, unknown> | null;
+    raw_events: unknown;
+    started_at: string | null;
+    ended_at: string | null;
+    document: ResultDocument | null;
+  }>;
+};
+
+function defaultRange(now = new Date()): { date_from: string; date_to: string } {
+  const to = new Date(now);
+  const from = new Date(now);
+  from.setUTCDate(from.getUTCDate() - DEFAULT_WINDOW_DAYS);
+  return { date_from: from.toISOString(), date_to: to.toISOString() };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return Array.from(new Set(value.filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean)));
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return Array.from(new Set(value.split(',').map((entry) => entry.trim()).filter(Boolean)));
+  }
+  return [];
+}
+
+function normalizeNumber(value: unknown, fallback: number | null): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+  return fallback;
+}
+
+function normalizeInput(payload: Record<string, unknown> | undefined): { ok: true; value: ResultsFilterState } | { ok: false; error: string; code: string } {
+  const body = payload ?? {};
+  const range = defaultRange();
+  const date_from = typeof body.date_from === 'string' && body.date_from.trim() ? body.date_from : range.date_from;
+  const date_to = typeof body.date_to === 'string' && body.date_to.trim() ? body.date_to : range.date_to;
+  const fromMs = Date.parse(date_from);
+  const toMs = Date.parse(date_to);
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs > toMs) {
+    return { ok: false, code: 'INVALID_DATE_RANGE', error: 'date_from and date_to must be valid ISO dates in ascending order' };
+  }
+
+  const score_min = normalizeNumber(body.score_min, null);
+  const score_max = normalizeNumber(body.score_max, null);
+  if ((score_min !== null && (score_min < 0 || score_min > 100)) || (score_max !== null && (score_max < 0 || score_max > 100))) {
+    return { ok: false, code: 'INVALID_SCORE_RANGE', error: 'score_min and score_max must be between 0 and 100' };
+  }
+
+  const sortBy = body.sort_by;
+  const sort_by: SortBy =
+    sortBy === 'status' || sortBy === 'model' || sortBy === 'server' || sortBy === 'template' || sortBy === 'score' || sortBy === 'latency' || sortBy === 'cost'
+      ? sortBy
+      : 'started_at';
+  const sort_dir: SortDir = body.sort_dir === 'asc' ? 'asc' : 'desc';
+  const page = Math.max(1, Math.trunc(normalizeNumber(body.page, 1) ?? 1));
+  const page_size = Math.min(MAX_HISTORY_LIMIT, Math.max(1, Math.trunc(normalizeNumber(body.page_size, DEFAULT_HISTORY_LIMIT) ?? DEFAULT_HISTORY_LIMIT)));
+
+  return {
+    ok: true,
+    value: {
+      date_from,
+      date_to,
+      server_ids: normalizeStringArray(body.server_ids),
+      model_names: normalizeStringArray(body.model_names),
+      template_ids: normalizeStringArray(body.template_ids),
+      statuses: normalizeStringArray(body.statuses),
+      tags: normalizeStringArray(body.tags),
+      score_min,
+      score_max,
+      sort_by,
+      sort_dir,
+      page,
+      page_size
+    }
+  };
+}
+
+function safeJson<T>(value: string | null): T | null {
+  try {
+    return parseJson<T>(value);
+  } catch {
+    return null;
+  }
+}
+
+function selectedModel(snapshot: EnvironmentSnapshot | null, document: ResultDocument | null): string {
+  return snapshot?.effective_config?.model?.trim() || snapshot?.model?.trim() || document?.selected_model?.id?.trim() || 'unknown';
+}
+
+function templateLabel(name: string | null, testId: string): string {
+  if (!name?.trim()) {
+    return testId;
+  }
+  return name.replace(/\s*\([^)]*\)\s*$/, '').trim() || name.trim();
+}
+
+function templateKey(row: ResultsViewRow): string {
+  return row.template_id?.trim() || templateLabel(row.test_definition_name, row.test_result_test_id ?? row.run_test_id ?? 'unknown');
+}
+
+function metricNumber(metrics: Record<string, unknown> | null, keys: string[]): number | null {
+  if (!metrics) {
+    return null;
+  }
+  for (const key of keys) {
+    const value = metrics[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function latency(metrics: Record<string, unknown> | null): number | null {
+  const preferred = metricNumber(metrics, ['latency_ms', 'total_ms', 'duration_ms', 'ttfb_ms']);
+  if (preferred !== null) {
+    return preferred;
+  }
+  if (!metrics) {
+    return null;
+  }
+  const entry = Object.entries(metrics).find(([key, value]) => /latency|duration|total_ms|ttfb/i.test(key) && typeof value === 'number' && Number.isFinite(value));
+  return entry ? (entry[1] as number) : null;
+}
+
+function cost(metrics: Record<string, unknown> | null, artefacts: Record<string, unknown> | null): number | null {
+  return metricNumber(metrics, ['estimated_cost', 'cost', 'cost_usd']) ?? metricNumber(artefacts, ['estimated_cost', 'cost', 'cost_usd']);
+}
+
+function verdictScore(verdict: string | null): number | null {
+  if (verdict === 'pass') {
+    return 100;
+  }
+  if (verdict === 'fail' || verdict === 'error') {
+    return 0;
+  }
+  if (verdict === 'skip' || verdict === 'skipped') {
+    return 50;
+  }
+  return null;
+}
+
+function median(values: Array<number | null>): number | null {
+  const sorted = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value)).sort((a, b) => a - b);
+  if (sorted.length === 0) {
+    return null;
+  }
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function durationMs(startedAt: string, endedAt: string | null): number | null {
+  if (!endedAt) {
+    return null;
+  }
+  const start = Date.parse(startedAt);
+  const end = Date.parse(endedAt);
+  return Number.isFinite(start) && Number.isFinite(end) ? Math.max(0, end - start) : null;
+}
+
+function resultTags(result: RunAccumulator['results'][number]): string[] {
+  return Array.from(new Set((result.document?.test?.tags ?? []).filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)));
+}
+
+function rowStatus(run: RunAccumulator): ResultsHistoryRow['status'] {
+  if (run.run_status === 'running' || run.run_status === 'queued') {
+    return 'streaming';
+  }
+  const verdicts = run.results.map((result) => result.verdict).filter(Boolean);
+  if (verdicts.length === 0) {
+    return run.run_status === 'completed' ? 'partial' : 'fail';
+  }
+  const passes = verdicts.filter((verdict) => verdict === 'pass').length;
+  if (passes === verdicts.length) {
+    return 'pass';
+  }
+  if (passes > 0) {
+    return 'partial';
+  }
+  return 'fail';
+}
+
+function toHistoryRow(run: RunAccumulator): ResultsHistoryRow {
+  const firstResult = run.results[0];
+  const allLatencies = run.results.map((result) => latency(result.metrics));
+  const allCosts = run.results.map((result) => cost(result.metrics, result.artefacts));
+  const scores = run.results.map((result) => verdictScore(result.verdict));
+  const tags = Array.from(new Set(run.results.flatMap(resultTags)));
+  const document = firstResult?.document ?? null;
+  const model = selectedModel(run.environment_snapshot, document);
+  return {
+    run_id: run.run_id,
+    status: rowStatus(run),
+    started_at: run.run_started_at,
+    ended_at: run.run_ended_at,
+    duration_ms: durationMs(run.run_started_at, run.run_ended_at),
+    server_id: run.inference_server_id,
+    server_name: run.server_display_name ?? run.inference_server_id,
+    model_name: model,
+    template_id: firstResult?.template_id ?? run.results[0]?.test_id ?? run.run_id,
+    template_label: firstResult?.template_label ?? run.results[0]?.test_id ?? 'unknown',
+    score: median(scores),
+    latency_ms: median(allLatencies),
+    cost: allCosts.reduce((sum, value) => sum + (value ?? 0), 0) || null,
+    tags,
+    result_count: run.results.length
+  };
+}
+
+function fetchRows(filters: ResultsFilterState): ResultsViewRow[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT
+      r.id AS run_id,
+      r.inference_server_id,
+      r.status AS run_status,
+      r.started_at AS run_started_at,
+      r.ended_at AS run_ended_at,
+      r.environment_snapshot,
+      i.display_name AS server_display_name,
+      i.runtime AS server_runtime,
+      tr.id AS result_id,
+      tr.test_id AS test_result_test_id,
+      r.test_id AS run_test_id,
+      at.template_id,
+      td.name AS test_definition_name,
+      td.runner_type,
+      tr.verdict,
+      tr.failure_reason,
+      tr.metrics,
+      tr.artefacts,
+      tr.raw_events,
+      tr.started_at AS result_started_at,
+      tr.ended_at AS result_ended_at,
+      trd.document
+    FROM runs r
+    LEFT JOIN inference_servers i ON i.server_id = r.inference_server_id
+    LEFT JOIN test_results tr ON tr.run_id = r.id
+    LEFT JOIN active_tests at ON at.id = COALESCE(tr.test_id, r.test_id)
+    LEFT JOIN test_definitions td ON td.id = COALESCE(tr.test_id, r.test_id)
+    LEFT JOIN test_result_documents trd ON trd.test_result_id = tr.id
+    WHERE r.started_at >= ? AND r.started_at <= ?
+    ORDER BY r.started_at DESC
+    LIMIT ${MAX_SOURCE_ROWS}
+  `).all(filters.date_from, filters.date_to) as ResultsViewRow[];
+}
+
+function fetchRowsForRun(runId: string): ResultsViewRow[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT
+      r.id AS run_id,
+      r.inference_server_id,
+      r.status AS run_status,
+      r.started_at AS run_started_at,
+      r.ended_at AS run_ended_at,
+      r.environment_snapshot,
+      i.display_name AS server_display_name,
+      i.runtime AS server_runtime,
+      tr.id AS result_id,
+      tr.test_id AS test_result_test_id,
+      r.test_id AS run_test_id,
+      at.template_id,
+      td.name AS test_definition_name,
+      td.runner_type,
+      tr.verdict,
+      tr.failure_reason,
+      tr.metrics,
+      tr.artefacts,
+      tr.raw_events,
+      tr.started_at AS result_started_at,
+      tr.ended_at AS result_ended_at,
+      trd.document
+    FROM runs r
+    LEFT JOIN inference_servers i ON i.server_id = r.inference_server_id
+    LEFT JOIN test_results tr ON tr.run_id = r.id
+    LEFT JOIN active_tests at ON at.id = COALESCE(tr.test_id, r.test_id)
+    LEFT JOIN test_definitions td ON td.id = COALESCE(tr.test_id, r.test_id)
+    LEFT JOIN test_result_documents trd ON trd.test_result_id = tr.id
+    WHERE r.id = ?
+    ORDER BY tr.started_at ASC
+  `).all(runId) as ResultsViewRow[];
+}
+
+function materializeRuns(rows: ResultsViewRow[]): RunAccumulator[] {
+  const byRun = new Map<string, RunAccumulator>();
+  for (const row of rows) {
+    const run = byRun.get(row.run_id) ?? {
+      run_id: row.run_id,
+      inference_server_id: row.inference_server_id,
+      run_status: row.run_status,
+      run_started_at: row.run_started_at,
+      run_ended_at: row.run_ended_at,
+      environment_snapshot: safeJson<EnvironmentSnapshot>(row.environment_snapshot),
+      server_display_name: row.server_display_name,
+      server_runtime: safeJson<RuntimeSnapshot>(row.server_runtime),
+      results: []
+    };
+    if (row.result_id) {
+      const testId = row.test_result_test_id ?? row.run_test_id ?? row.result_id;
+      const document = safeJson<ResultDocument>(row.document);
+      run.results.push({
+        id: row.result_id,
+        test_id: testId,
+        template_id: templateKey(row),
+        template_label: templateLabel(row.test_definition_name, testId),
+        kind: row.runner_type === 'python' || document?.test?.type?.includes('python') ? 'PY' : 'JSON',
+        verdict: row.verdict,
+        failure_reason: row.failure_reason,
+        metrics: safeJson<Record<string, unknown>>(row.metrics),
+        artefacts: safeJson<Record<string, unknown>>(row.artefacts),
+        raw_events: safeJson<unknown>(row.raw_events),
+        started_at: row.result_started_at,
+        ended_at: row.result_ended_at,
+        document
+      });
+    }
+    byRun.set(row.run_id, run);
+  }
+  return Array.from(byRun.values());
+}
+
+function matchesFilters(row: ResultsHistoryRow, filters: ResultsFilterState): boolean {
+  if (filters.server_ids.length > 0 && !filters.server_ids.includes(row.server_id)) {
+    return false;
+  }
+  if (filters.model_names.length > 0 && !filters.model_names.includes(row.model_name)) {
+    return false;
+  }
+  if (filters.template_ids.length > 0 && !filters.template_ids.includes(row.template_id)) {
+    return false;
+  }
+  if (filters.statuses.length > 0 && !filters.statuses.includes(row.status)) {
+    return false;
+  }
+  if (filters.score_min !== null && (row.score === null || row.score < filters.score_min)) {
+    return false;
+  }
+  if (filters.score_max !== null && (row.score === null || row.score > filters.score_max)) {
+    return false;
+  }
+  if (filters.tags.length > 0) {
+    const lowerTags = row.tags.map((tag) => tag.toLowerCase());
+    const matches = filters.tags.some((tag) => lowerTags.some((candidate) => candidate.includes(tag.toLowerCase())));
+    if (!matches) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sortRows(rows: ResultsHistoryRow[], filters: ResultsFilterState): ResultsHistoryRow[] {
+  const multiplier = filters.sort_dir === 'asc' ? 1 : -1;
+  const value = (row: ResultsHistoryRow): string | number => {
+    switch (filters.sort_by) {
+      case 'status':
+        return row.status;
+      case 'model':
+        return row.model_name;
+      case 'server':
+        return row.server_name;
+      case 'template':
+        return row.template_label;
+      case 'score':
+        return row.score ?? -1;
+      case 'latency':
+        return row.latency_ms ?? Number.MAX_SAFE_INTEGER;
+      case 'cost':
+        return row.cost ?? Number.MAX_SAFE_INTEGER;
+      case 'started_at':
+      default:
+        return Date.parse(row.started_at) || 0;
+    }
+  };
+  return rows.slice().sort((a, b) => {
+    const left = value(a);
+    const right = value(b);
+    if (typeof left === 'number' && typeof right === 'number') {
+      return (left - right) * multiplier;
+    }
+    return String(left).localeCompare(String(right)) * multiplier;
+  });
+}
+
+function countOptions(rows: ResultsHistoryRow[]) {
+  const count = <T extends string>(values: T[]) => {
+    const map = new Map<T, number>();
+    for (const value of values) {
+      map.set(value, (map.get(value) ?? 0) + 1);
+    }
+    return map;
+  };
+  const servers = new Map<string, { label: string; count: number }>();
+  const templates = new Map<string, { label: string; kind: string; count: number }>();
+  for (const row of rows) {
+    const server = servers.get(row.server_id) ?? { label: row.server_name, count: 0 };
+    server.count += 1;
+    servers.set(row.server_id, server);
+    const template = templates.get(row.template_id) ?? { label: row.template_label, kind: 'JSON', count: 0 };
+    template.count += 1;
+    templates.set(row.template_id, template);
+  }
+  return {
+    servers: Array.from(servers.entries()).map(([id, entry]) => ({ id, label: entry.label, count: entry.count })),
+    models: Array.from(count(rows.map((row) => row.model_name)).entries()).map(([id, total]) => ({ id, label: id, count: total })),
+    templates: Array.from(templates.entries()).map(([id, entry]) => ({ id, label: entry.label, kind: entry.kind, count: entry.count })),
+    statuses: Array.from(count(rows.map((row) => row.status)).entries()).map(([id, total]) => ({ id, label: id, count: total })),
+    tags: Array.from(count(rows.flatMap((row) => row.tags)).entries()).map(([id, total]) => ({ id, label: id, count: total }))
+  };
+}
+
+function dayBucket(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+function dashboard(rows: ResultsHistoryRow[]): ResultsDashboardView {
+  const total = rows.length;
+  const passRate = total > 0 ? (rows.filter((row) => row.status === 'pass').length / total) * 100 : null;
+  const byModelDay = new Map<string, { pass: number; total: number; latency: Array<{ x: string; y: number | null }> }>();
+  for (const row of rows) {
+    const key = `${row.model_name}|${dayBucket(row.started_at)}`;
+    const bucket = byModelDay.get(key) ?? { pass: 0, total: 0, latency: [] };
+    bucket.total += 1;
+    if (row.status === 'pass') {
+      bucket.pass += 1;
+    }
+    bucket.latency.push({ x: row.started_at, y: row.latency_ms });
+    byModelDay.set(key, bucket);
+  }
+  const passSeries = new Map<string, Array<{ x: string; y: number | null }>>();
+  const latencySeries = new Map<string, Array<{ x: string; y: number | null }>>();
+  for (const [key, bucket] of byModelDay.entries()) {
+    const [model, day] = key.split('|');
+    const passPoints = passSeries.get(model) ?? [];
+    passPoints.push({ x: day, y: bucket.total > 0 ? (bucket.pass / bucket.total) * 100 : null });
+    passSeries.set(model, passPoints);
+  }
+  for (const row of rows) {
+    const points = latencySeries.get(row.model_name) ?? [];
+    points.push({ x: row.started_at, y: row.latency_ms });
+    latencySeries.set(row.model_name, points);
+  }
+  return {
+    scorecards: {
+      total_runs: total,
+      pass_rate: passRate,
+      median_latency_ms: median(rows.map((row) => row.latency_ms)),
+      median_cost: median(rows.map((row) => row.cost))
+    },
+    pass_rate_series: Array.from(passSeries.entries()).map(([label, points]) => ({ label, points: points.sort((a, b) => a.x.localeCompare(b.x)) })),
+    latency_series: Array.from(latencySeries.entries()).map(([label, points]) => ({ label, points: points.sort((a, b) => a.x.localeCompare(b.x)) })),
+    recent_runs: rows.slice().sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 8)
+  };
+}
+
+export function queryResultsView(payload: Record<string, unknown> | undefined): { ok: true; value: ResultsViewResponse } | { ok: false; code: string; error: string } {
+  const normalized = normalizeInput(payload);
+  if (!normalized.ok) {
+    return normalized;
+  }
+  const runs = materializeRuns(fetchRows(normalized.value));
+  const allRows = runs.map(toHistoryRow);
+  const options = countOptions(allRows);
+  const filteredRows = allRows.filter((row) => matchesFilters(row, normalized.value));
+  const sortedRows = sortRows(filteredRows, normalized.value);
+  const start = (normalized.value.page - 1) * normalized.value.page_size;
+  const pageRows = sortedRows.slice(start, start + normalized.value.page_size);
+  const dates = allRows.map((row) => row.started_at).sort();
+
+  return {
+    ok: true,
+    value: {
+      filters_applied: normalized.value,
+      filter_options: {
+        ...options,
+        date_bounds: { min: dates[0] ?? null, max: dates[dates.length - 1] ?? null }
+      },
+      dashboard: dashboard(filteredRows),
+      history: {
+        rows: pageRows,
+        page: normalized.value.page,
+        page_size: normalized.value.page_size,
+        total: filteredRows.length,
+        total_pages: Math.max(1, Math.ceil(filteredRows.length / normalized.value.page_size))
+      }
+    }
+  };
+}
+
+export function getResultsRunDetail(runId: string): ResultsRunDetail | null {
+  const rows = materializeRuns(fetchRowsForRun(runId));
+  const run = rows[0];
+  if (!run) {
+    return null;
+  }
+  const db = getDb();
+  const rawRun = db.prepare('SELECT * FROM runs WHERE id = ?').get(runId) as Record<string, unknown>;
+  return {
+    run: toHistoryRow(run),
+    raw_run: { ...rawRun, environment_snapshot: safeJson<Record<string, unknown>>((rawRun.environment_snapshot as string | null) ?? null) },
+    results: run.results.map((result) => ({
+      id: result.id,
+      test_id: result.test_id,
+      template_id: result.template_id,
+      template_label: result.template_label,
+      kind: result.kind,
+      verdict: result.verdict,
+      failure_reason: result.failure_reason,
+      metrics: result.metrics,
+      artefacts: result.artefacts,
+      raw_events: result.raw_events,
+      started_at: result.started_at,
+      ended_at: result.ended_at
+    })),
+    documents: run.results.map((result) => result.document ?? {})
+  };
+}

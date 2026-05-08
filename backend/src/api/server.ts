@@ -7,6 +7,7 @@ import { getDb, resolvedDbPath, runSchema } from '../models/db.js';
 import { reloadTests } from '../services/test-service.js';
 import { registerAuth } from './middleware/auth.js';
 import { registerResultsRoutes } from './routes/results.js';
+import { registerResultsViewRoutes } from './routes/results-view.js';
 import { registerRunsRoutes } from './routes/runs.js';
 import { registerRunGroupsRoutes } from './routes/run-groups.js';
 import { registerSuitesRoutes } from './routes/suites.js';
@@ -93,6 +94,7 @@ export function createServer() {
   registerProfilesRoutes(app);
   registerModelsRoutes(app);
   registerResultsRoutes(app);
+  registerResultsViewRoutes(app);
   registerTemplatesRoutes(app);
   registerDashboardResultsRoutes(app);
   registerEvalInferenceRoutes(app);

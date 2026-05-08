@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 
 import packageInfo from '../package.json';
-import { MergedPageHeader } from './components/MergedPageHeader.js';
 import { Sidebar } from './components/Sidebar.js';
 import { Catalog } from './pages/Catalog.js';
 import { Evaluate } from './pages/Evaluate.js';
-import { Leaderboard } from './pages/Leaderboard.js';
-import { ResultsDashboard } from './pages/ResultsDashboard.js';
-import { RunHistory } from './pages/RunHistory.js';
+import { ResultsUnified } from './pages/ResultsUnified.js';
 import { RunUnified } from './pages/RunUnified.js';
 import { Templates } from './pages/Templates.js';
 import { legacyRedirectSearch, normalizeResultsTab, resultsSearch } from './navigation.js';
@@ -35,7 +32,6 @@ function CatalogRoute({ servers, connectivity }: { servers: InferenceServerRecor
 
 function ResultsRoute({ runCount }: { runCount: number | null }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const activeTab = normalizeResultsTab(searchParams.get('tab'));
 
   useEffect(() => {
@@ -47,34 +43,7 @@ function ResultsRoute({ runCount }: { runCount: number | null }) {
     setSearchParams(next, { replace: true });
   }, [activeTab, searchParams, setSearchParams]);
 
-  return (
-    <>
-      <MergedPageHeader
-        title="Results"
-        subtitle={`${runCount ?? 0} recorded runs`}
-        tabs={[
-          { id: 'dashboard', label: 'Dashboard' },
-          { id: 'leaderboard', label: 'Leaderboard' },
-          { id: 'history', label: 'History', sub: `${runCount ?? 0} runs` }
-        ]}
-        activeTab={activeTab}
-        onTabChange={(tab) => setSearchParams({ tab })}
-      />
-      {activeTab === 'leaderboard' ? (
-        <Leaderboard
-          setView={(view) => {
-            if (view === 'evaluate') {
-              navigate('/evaluate');
-            }
-          }}
-        />
-      ) : activeTab === 'history' ? (
-        <RunHistory />
-      ) : (
-        <ResultsDashboard />
-      )}
-    </>
-  );
+  return <ResultsUnified runCount={runCount} />;
 }
 
 function RunRoute() {

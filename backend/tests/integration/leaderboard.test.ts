@@ -34,9 +34,21 @@ function seedEvaluation(opts: {
   scores?: number;
   tags?: string[];
   createdAt?: string;
+  latencyMs?: number;
+  estimatedCost?: number;
+  quantization?: string | null;
 }) {
   const db = getDb();
-  const { modelName, serverId = 'srv-lb-int', scores = 3, tags = [], createdAt = new Date().toISOString() } = opts;
+  const {
+    modelName,
+    serverId = 'srv-lb-int',
+    scores = 3,
+    tags = [],
+    createdAt = new Date().toISOString(),
+    latencyMs = null,
+    estimatedCost = null,
+    quantization = null
+  } = opts;
   const promptId = crypto.randomUUID();
   db.prepare('INSERT INTO eval_prompts (id, text, tags, created_at) VALUES (?, ?, ?, ?)').run(
     promptId,
@@ -48,16 +60,20 @@ function seedEvaluation(opts: {
   db.prepare(`
     INSERT INTO evaluations (
       id, prompt_id, model_name, server_id, inference_config, answer_text,
+      latency_ms, estimated_cost,
       accuracy_score, relevance_score, coherence_score, completeness_score, helpfulness_score,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     evalId, promptId, modelName, serverId,
-    JSON.stringify({ temperature: null, top_p: null, max_tokens: null, quantization_level: null }),
+    JSON.stringify({ temperature: null, top_p: null, max_tokens: null, quantization_level: quantization }),
     'Answer',
+    latencyMs,
+    estimatedCost,
     scores, scores, scores, scores, scores,
     createdAt
   );
+  return evalId;
 }
 
 describe('GET /leaderboard', () => {
@@ -226,5 +242,43 @@ describe('GET /leaderboard', () => {
     const db = getDb();
     expect(db.prepare('SELECT COUNT(*) AS count FROM evaluations').get()).toEqual({ count: 0 });
     expect(db.prepare('SELECT COUNT(*) AS count FROM eval_prompts').get()).toEqual({ count: 0 });
+  });
+
+  it('applies server, model, score, sort and group filters without changing evaluation backing', async () => {
+    const app = createServer();
+    seedServer('srv-alt');
+    seedEvaluation({ modelName: 'model-a', serverId: 'srv-lb-int', scores: 5, latencyMs: 200, quantization: 'Q4' });
+    seedEvaluation({ modelName: 'model-b', serverId: 'srv-alt', scores: 2, latencyMs: 50, quantization: 'Q8' });
+
+    const filtered = await app.inject({
+      method: 'GET',
+      url: '/leaderboard?server_ids=srv-lb-int&model_names=model-a&score_min=90&sort_by=latency&group_by=server',
+      headers: AUTH_HEADERS
+    });
+
+    expect(filtered.statusCode).toBe(200);
+    const body = filtered.json();
+    expect(body.entries).toHaveLength(1);
+    expect(body.entries[0].group_by).toBe('server');
+    expect(body.entries[0].server_id).toBe('srv-lb-int');
+    expect(body.entries[0].representative_evaluation_id).toBeTruthy();
+  });
+
+  it('groups leaderboard entries by quantization level', async () => {
+    const app = createServer();
+    seedEvaluation({ modelName: 'model-a', scores: 5, quantization: 'Q4' });
+    seedEvaluation({ modelName: 'model-b', scores: 4, quantization: 'Q4' });
+    seedEvaluation({ modelName: 'model-c', scores: 3, quantization: 'Q8' });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/leaderboard?group_by=quantization',
+      headers: AUTH_HEADERS
+    });
+
+    expect(response.statusCode).toBe(200);
+    const labels = response.json().entries.map((entry: { group_label: string }) => entry.group_label);
+    expect(labels).toContain('Q4');
+    expect(labels).toContain('Q8');
   });
 });
