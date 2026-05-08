@@ -42,6 +42,7 @@ export interface RunResultRecord {
 }
 
 export interface CreateRunInput {
+  run_id?: string | null;
   inference_server_id: string;
   test_id?: string | null;
   suite_id?: string | null;
@@ -259,6 +260,9 @@ export function resolveOverrides(input: CreateRunInput): Record<string, unknown>
   };
 }
 function buildRunId(input: CreateRunInput): string {
+  if (input.run_id) {
+    return input.run_id;
+  }
   const key = `${input.inference_server_id}:${input.test_id ?? input.suite_id}:${Date.now()}`;
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 20);
 }

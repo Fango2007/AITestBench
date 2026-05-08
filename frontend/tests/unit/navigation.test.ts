@@ -40,7 +40,7 @@ test('legacy redirects map old routes to new route contract', () => {
   expect(legacyRedirectSearch('run-single')).toEqual({ pathname: '/run', search: '' });
   expect(legacyRedirectSearch('compare', '?modelId=org%2Fmodel')).toEqual({
     pathname: '/run',
-    search: '?modelId=org%2Fmodel&legacy=compare'
+    search: '?modelId=org%2Fmodel'
   });
   expect(legacyRedirectSearch('dashboard')).toEqual({ pathname: '/results', search: '?tab=dashboard' });
   expect(legacyRedirectSearch('leaderboard')).toEqual({ pathname: '/results', search: '?tab=leaderboard' });

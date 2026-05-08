@@ -11,11 +11,15 @@ test('edits an inference server', async ({ page, request }) => {
   const serverCard = page.locator('.catalog-server-card').filter({ hasText: created.inference_server.display_name });
   await expect(serverCard).toBeVisible();
   await serverCard.click();
-  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  const detailRail = page.locator('.catalog-detail-rail').filter({ hasText: created.inference_server.display_name });
+  await expect(detailRail).toBeVisible();
+  await detailRail.getByRole('button', { name: 'Edit', exact: true }).click();
 
-  const editForm = page
-    .locator('form')
+  const editDrawer = page
+    .getByRole('dialog')
     .filter({ has: page.getByRole('heading', { name: new RegExp(`Edit · ${created.inference_server.display_name}`) }) });
+  await expect(editDrawer).toBeVisible();
+  const editForm = editDrawer.locator('form');
 
   await editForm.getByLabel('Display name').fill(updatedName);
   await editForm.getByRole('button', { name: 'Save & re-probe' }).click();

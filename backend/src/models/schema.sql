@@ -103,6 +103,37 @@ CREATE TABLE IF NOT EXISTS runs (
   FOREIGN KEY (suite_id) REFERENCES suites(id)
 );
 
+CREATE TABLE IF NOT EXISTS run_groups (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  selected_template_ids TEXT NOT NULL,
+  test_overrides TEXT,
+  profile_id TEXT,
+  profile_version TEXT,
+  created_at TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS run_group_items (
+  id TEXT PRIMARY KEY,
+  group_id TEXT NOT NULL,
+  child_run_id TEXT NOT NULL,
+  inference_server_id TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  stable_letter TEXT NOT NULL,
+  accent_index INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  failure_reason TEXT,
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  ended_at TEXT,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (group_id) REFERENCES run_groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (inference_server_id) REFERENCES inference_servers(server_id)
+);
+
 CREATE TABLE IF NOT EXISTS active_tests (
   id TEXT PRIMARY KEY,
   template_id TEXT NOT NULL,
@@ -159,6 +190,8 @@ CREATE TABLE IF NOT EXISTS metric_samples (
 );
 
 CREATE INDEX IF NOT EXISTS idx_runs_inference_server ON runs(inference_server_id);
+CREATE INDEX IF NOT EXISTS idx_run_group_items_group ON run_group_items(group_id);
+CREATE INDEX IF NOT EXISTS idx_run_group_items_child_run ON run_group_items(child_run_id);
 CREATE INDEX IF NOT EXISTS idx_results_run ON test_results(run_id);
 CREATE INDEX IF NOT EXISTS idx_result_documents_run ON test_result_documents(run_id);
 CREATE INDEX IF NOT EXISTS idx_metrics_result ON metric_samples(test_result_id);

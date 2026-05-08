@@ -6,11 +6,16 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- Backend run groups now persist grouped Run executions, instantiate selected templates per target, launch child runs concurrently, expose `/run-groups` create/read/cancel endpoints, and isolate per-target failures.
+
 ### Changed
 
 - Frontend styling now loads the new design-system foundation tokens, vendored IBM Plex fonts, and shared component primitives for cards, buttons, inputs, health pills, metrics, and architecture-tree surfaces.
 - The frontend shell now uses React Router with a 220px always-expanded five-item sidebar, URL-backed Catalog/Results sub-tabs, legacy route redirects, and sidebar health/count status instead of the former global metric-card header.
 - Catalog now replaces the legacy Inference Servers and Models bodies with a merged Servers/Models funnel, URL-backed server/model filters, server health view, slide-over add/edit drawer, card grids, and a full-width model inspector layout.
+- Run now uses a unified 1-8 model workflow with query-backed model chips, shared template/options controls, single-target detail rendering, multi-target comparison columns, and summary aggregation.
 - Inference server authentication can now use stored raw bearer/custom-header tokens for backend probes and runs while preserving the existing `token_env` fallback.
 
 ### Fixed

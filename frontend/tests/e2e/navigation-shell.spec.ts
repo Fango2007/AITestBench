@@ -42,7 +42,7 @@ test('legacy routes redirect to the new IA contract', async ({ page }) => {
     ['/servers', /\/catalog\?tab=servers/],
     ['/models', /\/catalog\?tab=models/],
     ['/run-single', /\/run$/],
-    ['/compare', /\/run\?legacy=compare/],
+    ['/compare', /\/run$/],
     ['/dashboard', /\/results\?tab=dashboard/],
     ['/leaderboard', /\/results\?tab=leaderboard/]
   ] as const) {

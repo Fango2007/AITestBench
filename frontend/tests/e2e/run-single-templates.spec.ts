@@ -96,6 +96,7 @@ test('instantiates templates in Run', async ({ page, request }) => {
       await inferenceServerSelect.selectOption({ label: fallbackLabel });
     }
     await page.getByRole('textbox', { name: 'Model', exact: true }).fill('gpt-4o-mini');
+    await page.getByRole('button', { name: 'Add model', exact: true }).click();
     const templatesSelect = page.getByRole('listbox', { name: 'Templates', exact: true });
     const availableTemplateLabels = await templatesSelect.evaluate((element) => {
       if (!(element instanceof HTMLSelectElement)) {
@@ -106,11 +107,9 @@ test('instantiates templates in Run', async ({ page, request }) => {
     const templateOptionLabel = availableTemplateLabels.find((label) => label.includes(templateName));
     expect(templateOptionLabel).toBeTruthy();
     await templatesSelect.selectOption({ label: templateOptionLabel! });
-    await page.getByRole('button', { name: 'Generate Active Tests' }).click();
 
-    await expect(page.getByRole('heading', { name: 'Active Tests' })).toBeVisible();
-    await expect(page.locator('.list-item').filter({ hasText: templateName })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Run', exact: true }).last()).toBeEnabled();
+    await expect(page.getByTitle('gpt-4o-mini')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Run · 1 models × 1 templates/ })).toBeEnabled();
   } finally {
     await cleanupTemplateIds(request, [templateId]);
     await archiveInferenceServer(request, server.inference_server.server_id);

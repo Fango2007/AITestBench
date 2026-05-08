@@ -66,12 +66,12 @@ function RegLightRow({
 
 export function Sidebar({ version, health, templateCount, runCount, onSettings }: SidebarProps) {
   return (
-    <aside className="sidebar" aria-label="Primary navigation">
+    <aside className="sidebar">
       <div className="sidebar-brand">
         <strong>AITestBench</strong>
         <span>v{version}</span>
       </div>
-      <nav className="sidebar-nav">
+      <nav className="sidebar-nav" aria-label="Primary navigation">
         {navItems.map((item) => (
           <NavLink
             key={item.section}
