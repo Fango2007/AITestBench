@@ -7,9 +7,9 @@ test('archives an inference server', async ({ page, request }) => {
 
   await page.goto('/');
 
-  const serverTab = page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name });
-  await expect(serverTab).toBeVisible();
-  await serverTab.click();
+  const serverCard = page.locator('.catalog-server-card').filter({ hasText: created.inference_server.display_name });
+  await expect(serverCard).toBeVisible();
+  await serverCard.click();
 
   const [archiveResponse] = await Promise.all([
     page.waitForResponse(
@@ -21,6 +21,5 @@ test('archives an inference server', async ({ page, request }) => {
   ]);
   expect(archiveResponse.ok()).toBeTruthy();
 
-  await expect(page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name })).toContainText('Archived');
   await expect(page.getByRole('button', { name: 'Unarchive', exact: true })).toBeVisible();
 });

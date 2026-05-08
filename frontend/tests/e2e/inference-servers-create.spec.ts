@@ -8,23 +8,17 @@ test('creates a new inference server from the dashboard', async ({ page, request
 
   await page.goto('/');
 
-  await page.getByRole('button', { name: 'Add inference server' }).click();
+  await page.getByRole('button', { name: '+ Add server' }).click();
 
   const createForm = page
     .locator('form')
-    .filter({ has: page.getByRole('heading', { name: 'Create inference server' }) });
+    .filter({ has: page.getByRole('heading', { name: 'Add inference server' }) });
 
   await createForm.getByLabel('Display name').fill(displayName);
   await createForm.getByLabel('Base URL').fill(baseUrl);
-  await createForm.getByRole('button', { name: 'Create' }).click();
+  await createForm.getByRole('button', { name: 'Create & test connection' }).click();
 
-  const serverTab = page.locator('.details-tabs button').filter({ hasText: displayName });
-  await expect(serverTab).toBeVisible();
-  await serverTab.click();
-  const inferenceServerRow = page.locator('.detail-row').filter({
-    has: page.getByText('Inference Server', { exact: true })
-  });
-  await expect(inferenceServerRow.getByText(displayName, { exact: true })).toBeVisible();
+  await expect(page.locator('.catalog-server-card').filter({ hasText: displayName })).toBeVisible();
 
   const created = await findInferenceServerByName(request, displayName);
   if (created) {

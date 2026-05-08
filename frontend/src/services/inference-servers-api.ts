@@ -42,6 +42,8 @@ export interface InferenceServerRecord {
     type: AuthType;
     header_name: string;
     token_env: string | null;
+    token?: string | null;
+    token_present?: boolean;
   };
   capabilities: {
     server: { streaming: boolean; models_endpoint: boolean };

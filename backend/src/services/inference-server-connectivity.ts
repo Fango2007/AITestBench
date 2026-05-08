@@ -1,5 +1,6 @@
 import { listInferenceServers } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
+import { buildInferenceServerAuthHeaders } from './inference-server-auth.js';
 import { backendFetch } from './inference-proxy.js';
 
 export type InferenceServerHealth = {
@@ -15,7 +16,8 @@ const DEFAULT_TIMEOUT_MS = 5000;
 async function checkServer(
   baseUrl: string,
   paths: string[],
-  timeoutMs: number
+  timeoutMs: number,
+  headers: Record<string, string>
 ): Promise<{ ok: boolean; status_code: number | null; response_time_ms: number | null }> {
   const startedAt = Date.now();
   let lastStatus: number | null = null;
@@ -24,7 +26,7 @@ async function checkServer(
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const url = new URL(path, baseUrl).toString();
-      const response = await backendFetch(url, { method: 'GET', signal: controller.signal });
+      const response = await backendFetch(url, { method: 'GET', headers, signal: controller.signal });
       const duration = Date.now() - startedAt;
       lastStatus = response.status;
       if (response.ok) {
@@ -60,7 +62,8 @@ export async function checkInferenceServerHealth(): Promise<InferenceServerHealt
       const { ok, status_code, response_time_ms } = await checkServer(
         server.endpoints.base_url,
         probePaths,
-        timeoutMs
+        timeoutMs,
+        buildInferenceServerAuthHeaders(server)
       );
       return {
         server_id: server.inference_server.server_id,

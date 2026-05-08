@@ -11,10 +11,22 @@ import {
   unarchiveInferenceServer,
   updateInferenceServerRecord
 } from '../../services/inference-servers-repository.js';
-import { deleteInferenceServer } from '../../models/inference-server.js';
+import { InferenceServerRecord, deleteInferenceServer } from '../../models/inference-server.js';
 import { InferenceServerRefreshError, refreshDiscovery, refreshRuntime } from '../../services/inference-server-refresh.js';
 import { checkInferenceServerHealth } from '../../services/inference-server-connectivity.js';
 import { inferenceServerCreateSchema, inferenceServerUpdateSchema } from '../inference-servers-schemas.js';
+
+function sanitizeServer(server: InferenceServerRecord): InferenceServerRecord {
+  const { token, ...auth } = server.auth;
+  return {
+    ...server,
+    auth: {
+      ...auth,
+      token: null,
+      token_present: Boolean(token)
+    }
+  };
+}
 
 export function registerInferenceServersRoutes(app: FastifyInstance): void {
   app.get('/inference-servers', async (request) => {
@@ -33,13 +45,13 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
     if (query.schema_family) {
       filters.schema_family = query.schema_family;
     }
-    return fetchInferenceServers(filters);
+    return fetchInferenceServers(filters).map(sanitizeServer);
   });
 
   app.post('/inference-servers', { schema: inferenceServerCreateSchema }, async (request, reply) => {
     try {
       const server = createInferenceServerRecord(request.body as Record<string, unknown>);
-      reply.code(201).send(server);
+      reply.code(201).send(sanitizeServer(server));
     } catch (error) {
       if (error instanceof InvalidBaseUrlError || error instanceof InvalidInferenceServerError) {
         reply.code(400).send({ error: error.message });
@@ -56,7 +68,7 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
       reply.code(404).send({ error: 'Inference server not found' });
       return;
     }
-    reply.send(server);
+    reply.send(sanitizeServer(server));
   });
 
   app.patch('/inference-servers/:serverId', { schema: inferenceServerUpdateSchema }, async (request, reply) => {
@@ -67,7 +79,7 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
         reply.code(404).send({ error: 'Inference server not found' });
         return;
       }
-      reply.send(server);
+      reply.send(sanitizeServer(server));
     } catch (error) {
       if (error instanceof InvalidBaseUrlError || error instanceof InvalidInferenceServerError) {
         reply.code(400).send({ error: error.message });
@@ -84,7 +96,7 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
       reply.code(404).send({ error: 'Inference server not found' });
       return;
     }
-    reply.send(server);
+    reply.send(sanitizeServer(server));
   });
 
   app.post('/inference-servers/:serverId/unarchive', async (request, reply) => {
@@ -94,7 +106,7 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
       reply.code(404).send({ error: 'Inference server not found' });
       return;
     }
-    reply.send(server);
+    reply.send(sanitizeServer(server));
   });
 
   app.delete('/inference-servers/:serverId', async (request, reply) => {
@@ -129,7 +141,7 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
       reply.code(500).send({ error: 'Unable to refresh runtime' });
       return;
     }
-    reply.send(refreshed);
+    reply.send(sanitizeServer(refreshed));
   });
 
   app.post('/inference-servers/:serverId/refresh-discovery', async (request, reply) => {
@@ -141,7 +153,7 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
     }
     try {
       const refreshed = await refreshDiscovery(server);
-      reply.send(refreshed);
+      reply.send(sanitizeServer(refreshed));
     } catch (error) {
       if (error instanceof InferenceServerRefreshError) {
         reply.code(502).send({ error: error.details });

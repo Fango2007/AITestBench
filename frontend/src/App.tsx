@@ -4,17 +4,15 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } fr
 import packageInfo from '../package.json';
 import { MergedPageHeader } from './components/MergedPageHeader.js';
 import { Sidebar } from './components/Sidebar.js';
+import { Catalog } from './pages/Catalog.js';
 import { CompareRuns } from './pages/CompareRuns.js';
 import { Evaluate } from './pages/Evaluate.js';
-import { InferenceServers } from './pages/InferenceServers.js';
 import { Leaderboard } from './pages/Leaderboard.js';
-import { ModelDetails } from './pages/ModelDetails.js';
-import { Models } from './pages/Models.js';
 import { ResultsDashboard } from './pages/ResultsDashboard.js';
 import { RunHistory } from './pages/RunHistory.js';
 import { RunSingle } from './pages/RunSingle.js';
 import { Templates } from './pages/Templates.js';
-import { catalogSearch, legacyRedirectSearch, normalizeCatalogTab, normalizeResultsTab, resultsSearch } from './navigation.js';
+import { legacyRedirectSearch, normalizeResultsTab, resultsSearch } from './navigation.js';
 import { apiGet } from './services/api.js';
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from './services/connectivity-api.js';
 import { InferenceServerRecord, listInferenceServers } from './services/inference-servers-api.js';
@@ -33,56 +31,7 @@ function LegacyRedirect({ target }: { target: string }) {
 }
 
 function CatalogRoute({ servers, connectivity }: { servers: InferenceServerRecord[]; connectivity: Record<string, InferenceServerHealth> }) {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const activeTab = normalizeCatalogTab(searchParams.get('tab'));
-  const selectedServerId = searchParams.get('serverId');
-  const selectedModelId = searchParams.get('modelId');
-
-  useEffect(() => {
-    if (searchParams.get('tab') === activeTab) {
-      return;
-    }
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', activeTab);
-    setSearchParams(next, { replace: true });
-  }, [activeTab, searchParams, setSearchParams]);
-
-  const reachable = servers.filter((server) => connectivity[server.inference_server.server_id]?.ok).length;
-
-  return (
-    <>
-      <MergedPageHeader
-        title="Catalog"
-        subtitle={`Servers and models · ${reachable} reachable`}
-        tabs={[
-          { id: 'servers', label: 'Servers', sub: `${servers.length} servers` },
-          { id: 'models', label: 'Models' }
-        ]}
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          const next = new URLSearchParams(searchParams);
-          next.set('tab', tab);
-          setSearchParams(next);
-        }}
-      />
-      {activeTab === 'servers' ? (
-        <InferenceServers />
-      ) : selectedServerId && selectedModelId ? (
-        <ModelDetails
-          serverId={selectedServerId}
-          modelId={selectedModelId}
-          onBack={() => navigate({ pathname: '/catalog', search: catalogSearch('models') })}
-        />
-      ) : (
-        <Models
-          onModelSelect={(serverId, modelId) => {
-            navigate({ pathname: '/catalog', search: catalogSearch('models', { serverId, modelId }) });
-          }}
-        />
-      )}
-    </>
-  );
+  return <Catalog serversSnapshot={servers} connectivitySnapshot={connectivity} />;
 }
 
 function ResultsRoute({ runCount }: { runCount: number | null }) {

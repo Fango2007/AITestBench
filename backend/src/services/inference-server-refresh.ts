@@ -3,6 +3,7 @@ import os from 'os';
 import { InferenceServerRecord } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
 import { updateInferenceServerRecord } from './inference-servers-repository.js';
+import { buildInferenceServerAuthHeaders } from './inference-server-auth.js';
 import { backendFetch } from './inference-proxy.js';
 import { extractQuantisationLabel, normaliseQuantisationFromLabel } from './quantisation-normalizer.js';
 
@@ -49,29 +50,6 @@ function parseOsArch(arch: string): 'arm64' | 'x86_64' | 'unknown' {
     return 'x86_64';
   }
   return 'unknown';
-}
-
-function buildAuthHeaders(server: InferenceServerRecord): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const tokenEnv = server.auth.token_env;
-  const token = tokenEnv ? process.env[tokenEnv] : null;
-  if (!token) {
-    return headers;
-  }
-  const headerName = server.auth.header_name || 'Authorization';
-  if (server.auth.type === 'none') {
-    return headers;
-  }
-  if (server.auth.type === 'bearer' || server.auth.type === 'oauth') {
-    headers[headerName] = `Bearer ${token}`;
-    return headers;
-  }
-  if (server.auth.type === 'basic') {
-    headers[headerName] = `Basic ${token}`;
-    return headers;
-  }
-  headers[headerName] = token;
-  return headers;
 }
 
 export function refreshRuntime(server: InferenceServerRecord): InferenceServerRecord | null {
@@ -150,7 +128,7 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
     });
   }
 
-  const authHeaders = buildAuthHeaders(server);
+  const authHeaders = buildInferenceServerAuthHeaders(server);
   const rawPayloads: Record<string, unknown> = {};
   const modelMap = new Map<
     string,
