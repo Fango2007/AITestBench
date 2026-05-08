@@ -696,7 +696,7 @@ export function RunSingle() {
           </button>
         </div>
         <div className="divider" />
-        <div className="field">
+        <div className="form-field">
           <h3>Active Tests</h3>
           {activeTestsForSelection.length === 0 ? (
             <p className="muted">No active tests generated for this server and model yet.</p>
@@ -823,7 +823,7 @@ export function RunSingle() {
               <h3>Assistant message</h3>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => setShowAssistantMessage(false)}
                 aria-label="Close"
               >

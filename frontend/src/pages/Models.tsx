@@ -863,7 +863,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
       {modelRecordsError ? <div className="error">{modelRecordsError}</div> : null}
       {loading ? <p className="muted">Loading models…</p> : null}
       <div className="filters-row">
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="provider-filter">Provider</label>
           <select
             id="provider-filter"
@@ -879,7 +879,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             ))}
           </select>
         </div>
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="server-filter">Inference server</label>
           <select
             id="server-filter"
@@ -895,7 +895,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             ))}
           </select>
         </div>
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="quantized-provider-filter">Quantized provider</label>
           <select
             id="quantized-provider-filter"
@@ -911,7 +911,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             ))}
           </select>
         </div>
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="format-filter">Format</label>
           <select
             id="format-filter"
@@ -927,7 +927,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             ))}
           </select>
         </div>
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="quant-bits-filter">Quantization</label>
           <select
             id="quant-bits-filter"
@@ -943,7 +943,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             ))}
           </select>
         </div>
-        <div className="field">
+        <div className="form-field">
           <label>Capabilities</label>
           <div className="checkbox-grid">
             {(['thinking', 'coding', 'instruct', 'mixture_of_experts'] as ModelCapabilityTag[]).map((cap) => (
@@ -969,7 +969,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
             ))}
           </div>
         </div>
-        <div className="field">
+        <div className="form-field">
           <label htmlFor="model-filter">Model</label>
           <select
             id="model-filter"
@@ -1148,7 +1148,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
               <h3>Update model</h3>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => setShowUpdateModal(false)}
                 aria-label="Close"
               >
@@ -1156,7 +1156,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
               </button>
             </div>
             {updateError ? <div className="error">{updateError}</div> : null}
-            <div className="field">
+            <div className="form-field">
               <label htmlFor="update-provider">Provider</label>
               <select
                 id="update-provider"
@@ -1189,7 +1189,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 ))}
               </select>
             </div>
-            <div className="field">
+            <div className="form-field">
               <label htmlFor="update-quantized-provider">Quantized provider</label>
               <input
                 id="update-quantized-provider"
@@ -1200,7 +1200,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 placeholder="lmstudio-community"
               />
             </div>
-            <div className="field">
+            <div className="form-field">
               <label htmlFor="update-format">Format</label>
               <select
                 id="update-format"
@@ -1217,7 +1217,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 ))}
               </select>
             </div>
-            <div className="field">
+            <div className="form-field">
               <label>Use case capabilities</label>
               <div className="checkbox-grid">
                 <label className="checkbox">
@@ -1266,10 +1266,10 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 </label>
               </div>
             </div>
-            <div className="field">
+            <div className="form-field">
               <label>Quantisation</label>
               <div className="quantisation-grid">
-                <div className="field quant-method">
+                <div className="form-field quant-method">
                   <label htmlFor="update-quant-method">Method</label>
                   <select
                     id="update-quant-method"
@@ -1288,7 +1288,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                     ))}
                   </select>
                 </div>
-                <div className="field compact quant-bits">
+                <div className="form-field compact quant-bits">
                   <label htmlFor="update-quant-bits">Bits</label>
                   <input
                     id="update-quant-bits"
@@ -1300,7 +1300,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                     }
                   />
                 </div>
-                <div className="field quant-scheme">
+                <div className="form-field quant-scheme">
                   <label htmlFor="update-quant-scheme">Scheme</label>
                   <select
                     id="update-quant-scheme"
@@ -1316,7 +1316,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                     ))}
                   </select>
                 </div>
-                <div className="field quant-variant">
+                <div className="form-field quant-variant">
                   <label htmlFor="update-quant-variant">Variant</label>
                   <select
                     id="update-quant-variant"
@@ -1333,7 +1333,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                     ))}
                   </select>
                 </div>
-                <div className="field compact quant-group">
+                <div className="form-field compact quant-group">
                   <label htmlFor="update-quant-group">Group</label>
                   <input
                     id="update-quant-group"
@@ -1345,7 +1345,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                     }
                   />
                 </div>
-                <div className="field quant-weight">
+                <div className="form-field quant-weight">
                   <label htmlFor="update-quant-weight">Weight format</label>
                   <input
                     id="update-quant-weight"
@@ -1358,7 +1358,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 </div>
               </div>
             </div>
-            <div className="field">
+            <div className="form-field">
               <label htmlFor="update-context-window">Context window (tokens)</label>
               <input
                 id="update-context-window"
@@ -1370,7 +1370,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 }
               />
             </div>
-            <div className="field">
+            <div className="form-field">
               <label>Generation capabilities</label>
               <div className="checkbox-grid">
                 <label className="checkbox">
@@ -1415,7 +1415,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 </label>
               </div>
             </div>
-            <div className="field">
+            <div className="form-field">
               <label>Multimodal capabilities</label>
               <div className="checkbox-grid">
                 <label className="checkbox">
@@ -1440,7 +1440,7 @@ export function Models({ onModelSelect }: ModelsProps = {}) {
                 </label>
               </div>
             </div>
-            <div className="field">
+            <div className="form-field">
               <label>Reasoning capabilities</label>
               <div className="checkbox-grid">
                 <label className="checkbox">

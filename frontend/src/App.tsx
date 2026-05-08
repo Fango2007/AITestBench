@@ -300,6 +300,7 @@ export function App() {
     }
     return 'N/A';
   })();
+  const navClass = (active: boolean) => (active ? 'nav-btn is-active' : 'nav-btn');
 
   async function handleClearDb() {
     const confirmed = window.confirm('Clear all database tables? This cannot be undone.');
@@ -356,19 +357,19 @@ export function App() {
           </div>
         </div>
         <div className="header-metrics">
-          <div className="metrics-card">
-            <div className="metrics-row">
+          <div className="metric-card">
+            <div className="metric-card__row">
               <span>CPU</span>
               <strong>{metricsError ? 'Unavailable' : cpuValue}</strong>
             </div>
-            <div className="metrics-row">
+            <div className="metric-card__row">
               <span>Memory</span>
               <strong>
                 {metricsError ? 'Unavailable' : memoryValue}
                 {!metricsError && memoryPercent ? ` (${memoryPercent})` : ''}
               </strong>
             </div>
-            <div className="metrics-row">
+            <div className="metric-card__row">
               <span>GPU</span>
               <strong>
                 {metricsError ? 'Unavailable' : gpuValue}
@@ -376,10 +377,10 @@ export function App() {
               </strong>
             </div>
           </div>
-          <div className="metrics-card">
+          <div className="metric-card">
             <div className="header-status">
-              <div className={`health-indicator ${healthStatus}`}>
-                <span className="health-dot" aria-hidden="true" />
+              <div className={`health health--${healthStatus}`}>
+                <span className="health__dot" aria-hidden="true" />
                 <span>
                   Backend:{' '}
                   {healthStatus === 'up'
@@ -389,8 +390,8 @@ export function App() {
                       : 'Checking'}
                 </span>
               </div>
-              <div className={`health-indicator ${dbStatus}`}>
-                <span className="health-dot" aria-hidden="true" />
+              <div className={`health health--${dbStatus}`}>
+                <span className="health__dot" aria-hidden="true" />
                 <span>
                   DB:{' '}
                   {dbStatus === 'up' ? 'Online' : dbStatus === 'down' ? 'Offline' : 'Checking'}
@@ -398,25 +399,25 @@ export function App() {
               </div>
             </div>
           </div>
-          <div className="metrics-card">
+          <div className="metric-card">
             <div className="param-grid">
-              <div className="metrics-row">
+              <div className="metric-card__row">
                 <span>Temperature</span>
                 <strong>{temperatureValue}</strong>
               </div>
-              <div className="metrics-row">
+              <div className="metric-card__row">
                 <span>Top P</span>
                 <strong>{topPValue}</strong>
               </div>
-              <div className="metrics-row">
+              <div className="metric-card__row">
                 <span>Top K</span>
                 <strong>{topKValue}</strong>
               </div>
-              <div className="metrics-row">
+              <div className="metric-card__row">
                 <span>Context Window</span>
                 <strong>{contextWindowValue}</strong>
               </div>
-              <div className="metrics-row">
+              <div className="metric-card__row">
                 <span>Stream</span>
                 <strong>{streamValue}</strong>
               </div>
@@ -425,15 +426,15 @@ export function App() {
               {paramOverrides ? 'Overrides from Run Single' : 'No overrides set'}
             </p>
           </div>
-          <div className="metrics-card">
+          <div className="metric-card">
             {serversError ? (
-              <div className="health-indicator failed">
-                <span className="health-dot" aria-hidden="true" />
+              <div className="health health--failed">
+                <span className="health__dot" aria-hidden="true" />
                 <span>Servers unavailable</span>
               </div>
             ) : servers.length === 0 ? (
-              <div className="health-indicator pending">
-                <span className="health-dot" aria-hidden="true" />
+              <div className="health health--pending">
+                <span className="health__dot" aria-hidden="true" />
                 <span>No servers</span>
               </div>
             ) : (
@@ -444,8 +445,8 @@ export function App() {
                   const responseLabel =
                     health?.response_time_ms != null ? ` (${health.response_time_ms} ms)` : '';
                   return (
-                    <div key={server.inference_server.server_id} className={`health-indicator ${statusClass}`}>
-                      <span className="health-dot" aria-hidden="true" />
+                    <div key={server.inference_server.server_id} className={`health health--${statusClass}`}>
+                      <span className="health__dot" aria-hidden="true" />
                       <span>{`${server.inference_server.display_name}${responseLabel}`}</span>
                     </div>
                   );
@@ -460,7 +461,7 @@ export function App() {
           <div className="nav-section">
             <button
               type="button"
-              className={view === 'servers' ? 'active' : undefined}
+              className={navClass(view === 'servers')}
               onClick={() => setView('servers')}
               aria-label="Inference servers"
               title="Inference servers"
@@ -472,7 +473,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'models' ? 'active' : undefined}
+              className={navClass(view === 'models')}
               onClick={() => setView('models')}
               aria-label="Models"
               title="Models"
@@ -500,7 +501,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'templates' ? 'active' : undefined}
+              className={navClass(view === 'templates')}
               onClick={() => setView('templates')}
               aria-label="Templates"
               title="Templates"
@@ -518,7 +519,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'run-single' ? 'active' : undefined}
+              className={navClass(view === 'run-single')}
               onClick={() => setView('run-single')}
               aria-label="Run"
               title="Run"
@@ -535,7 +536,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'compare' ? 'active' : undefined}
+              className={navClass(view === 'compare')}
               onClick={() => setView('compare')}
               aria-label="Compare"
               title="Compare"
@@ -546,7 +547,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'results-dashboard' ? 'active' : undefined}
+              className={navClass(view === 'results-dashboard')}
               onClick={() => setView('results-dashboard')}
               aria-label="Results dashboard"
               title="Results dashboard"
@@ -557,7 +558,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'evaluate' ? 'active' : undefined}
+              className={navClass(view === 'evaluate')}
               onClick={() => setView('evaluate')}
               aria-label="Evaluate"
               title="Evaluate"
@@ -569,7 +570,7 @@ export function App() {
             </button>
             <button
               type="button"
-              className={view === 'leaderboard' ? 'active' : undefined}
+              className={navClass(view === 'leaderboard')}
               onClick={() => setView('leaderboard')}
               aria-label="Leaderboard"
               title="Leaderboard"
@@ -582,7 +583,7 @@ export function App() {
           <div className="nav-footer">
             <button
               type="button"
-              className={showSettings ? 'active' : undefined}
+              className={navClass(showSettings)}
               onClick={() => setShowSettings(true)}
               aria-label="Settings"
               title="Settings"
@@ -644,7 +645,7 @@ export function App() {
               <h3>Settings</h3>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => setShowSettings(false)}
                 aria-label="Close"
               >

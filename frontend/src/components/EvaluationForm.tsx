@@ -246,8 +246,8 @@ export function EvaluationForm({
               />
             </label>
           ) : (
-            <div className="field">
-              <span className="field-label">Prompt (shared)</span>
+            <div className="form-field">
+              <span className="form-field-label">Prompt (shared)</span>
               <p className="muted">{effectivePromptText}</p>
             </div>
           )}
@@ -335,13 +335,13 @@ export function EvaluationForm({
         </div>
       ) : (
         <div className="evaluation-stage-score">
-          <div className="field">
-            <span className="field-label">Answer</span>
+          <div className="form-field">
+            <span className="form-field-label">Answer</span>
             <pre className="answer-text">{metrics?.answer_text}</pre>
           </div>
 
           {metrics ? (
-            <div className="metrics-row">
+            <div className="metric-card__row">
               <span>Input tokens: <strong>{formatMetric(metrics.input_tokens)}</strong></span>
               <span>Output tokens: <strong>{formatMetric(metrics.output_tokens)}</strong></span>
               <span>Total tokens: <strong>{formatMetric(metrics.total_tokens)}</strong></span>

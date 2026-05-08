@@ -304,7 +304,7 @@ export function InferenceServers() {
               <h3>Add inference server</h3>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => setShowCreateModal(false)}
                 aria-label="Close"
               >
@@ -328,7 +328,7 @@ export function InferenceServers() {
               <h3>Edit inference server</h3>
               <button
                 type="button"
-                className="icon-button"
+                className="icon-btn"
                 onClick={() => setEditing(null)}
                 aria-label="Close"
               >
