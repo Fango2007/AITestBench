@@ -10,10 +10,13 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Frontend styling now loads the new design-system foundation tokens, vendored IBM Plex fonts, and shared component primitives for cards, buttons, inputs, health pills, metrics, and architecture-tree surfaces.
 - The frontend shell now uses React Router with a 220px always-expanded five-item sidebar, URL-backed Catalog/Results sub-tabs, legacy route redirects, and sidebar health/count status instead of the former global metric-card header.
+- Catalog now replaces the legacy Inference Servers and Models bodies with a merged Servers/Models funnel, URL-backed server/model filters, server health view, slide-over add/edit drawer, card grids, and a full-width model inspector layout.
+- Inference server authentication can now use stored raw bearer/custom-header tokens for backend probes and runs while preserving the existing `token_env` fallback.
 
 ### Fixed
 
 - Backend proxy support now sends plain HTTP outbound requests to the configured proxy in absolute-form while retaining CONNECT tunneling for HTTPS targets, routes backend outbound fetches through the configured Undici dispatcher directly, and no longer lets process-level `NO_PROXY` bypass backend proxy routing unless `AITESTBENCH_INFERENCE_NO_PROXY` is set.
+- Inference server API responses now mask stored raw auth tokens and expose only token presence metadata.
 
 ## [0.3.2] - 2026-05-05
 

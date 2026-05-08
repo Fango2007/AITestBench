@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { apiGet, apiPost } from '../services/api.js';
 import { RunInferenceServerSelect } from '../components/RunInferenceServerSelect.js';
@@ -60,6 +61,7 @@ function inspectTemplateParams(template: TemplateRecord | undefined): ParamFlags
 }
 
 export function RunSingle() {
+  const [searchParams] = useSearchParams();
   const [inferenceServerId, setInferenceServerId] = useState('');
   const [servers, setServers] = useState<InferenceServerRecord[]>([]);
   const [model, setModel] = useState('');
@@ -86,6 +88,16 @@ export function RunSingle() {
   const handleServersLoaded = useCallback((data: InferenceServerRecord[]) => {
     setServers(data);
   }, []);
+  useEffect(() => {
+    const serverId = searchParams.get('serverId');
+    const modelId = searchParams.get('modelId');
+    if (serverId) {
+      setInferenceServerId(serverId);
+    }
+    if (modelId) {
+      setModel(modelId);
+    }
+  }, [searchParams]);
   const formatPercent = (value: unknown) => {
     if (typeof value === 'number' && Number.isFinite(value)) {
       return `${(value * 100).toFixed(1)}%`;

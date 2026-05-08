@@ -12,6 +12,7 @@ import { validateTemplateContent } from './template-validation.js';
 import { createActiveTest, listActiveTests as listActiveTestRecords, deleteActiveTest } from '../models/active-test.js';
 import { upsertTestDefinition } from '../models/test-definition.js';
 import { getInferenceServerById } from '../models/inference-server.js';
+import { authHeaderPreview } from './inference-server-auth.js';
 
 export interface TemplateInput {
   id: string;
@@ -230,15 +231,8 @@ function buildCommandPreview(
 
   const server = getInferenceServerById(inferenceServerId);
   const baseUrl = server?.endpoints.base_url ?? 'http://localhost:8080';
-  if (server?.auth.token_env) {
-    const headerName = server.auth.header_name || 'Authorization';
-    if (server.auth.type === 'bearer' || server.auth.type === 'oauth') {
-      headers[headerName] = `Bearer $${server.auth.token_env}`;
-    } else if (server.auth.type === 'basic') {
-      headers[headerName] = `Basic $${server.auth.token_env}`;
-    } else if (server.auth.type === 'custom') {
-      headers[headerName] = `$${server.auth.token_env}`;
-    }
+  if (server) {
+    Object.assign(headers, authHeaderPreview(server));
   }
 
   const url = new URL(requestUrl || path, baseUrl).toString();

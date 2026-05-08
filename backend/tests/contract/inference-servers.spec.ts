@@ -67,6 +67,38 @@ describe('inference servers contract', () => {
     expect(servers).toHaveLength(1);
   });
 
+  it('stores raw auth tokens without returning them in API payloads', async () => {
+    const app = createServer();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS,
+      payload: buildCreatePayload({
+        auth: {
+          type: 'bearer',
+          header_name: 'Authorization',
+          token: 'secret-token-value',
+          token_env: null
+        }
+      })
+    });
+    expect(createResponse.statusCode).toBe(201);
+    const created = createResponse.json();
+    expect(created.auth.token).toBeNull();
+    expect(created.auth.token_present).toBe(true);
+
+    const listResponse = await app.inject({
+      method: 'GET',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS
+    });
+    expect(listResponse.statusCode).toBe(200);
+    const [listed] = listResponse.json();
+    expect(listed.auth.token).toBeNull();
+    expect(listed.auth.token_present).toBe(true);
+    expect(JSON.stringify(listed)).not.toContain('secret-token-value');
+  });
+
   it('validates enums and rejects invalid values', async () => {
     const app = createServer();
     const response = await app.inject({

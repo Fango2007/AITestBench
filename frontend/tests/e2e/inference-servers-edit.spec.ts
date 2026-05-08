@@ -8,24 +8,20 @@ test('edits an inference server', async ({ page, request }) => {
 
   await page.goto('/');
 
-  const serverTab = page.locator('.details-tabs button').filter({ hasText: created.inference_server.display_name });
-  await expect(serverTab).toBeVisible();
-  await serverTab.click();
-  await page.getByRole('button', { name: 'Update', exact: true }).click();
+  const serverCard = page.locator('.catalog-server-card').filter({ hasText: created.inference_server.display_name });
+  await expect(serverCard).toBeVisible();
+  await serverCard.click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
 
   const editForm = page
     .locator('form')
-    .filter({ has: page.getByRole('heading', { name: 'Edit inference server' }) });
+    .filter({ has: page.getByRole('heading', { name: new RegExp(`Edit · ${created.inference_server.display_name}`) }) });
 
   await editForm.getByLabel('Display name').fill(updatedName);
-  await editForm.getByRole('button', { name: 'Save' }).click();
+  await editForm.getByRole('button', { name: 'Save & re-probe' }).click();
+  await editForm.getByRole('button', { name: /Save anyway|Save & open in Catalog/ }).click();
 
-  const updatedTab = page.locator('.details-tabs button').filter({ hasText: updatedName });
-  await expect(updatedTab).toBeVisible();
-  const nameRow = page.locator('.detail-row').filter({
-    has: page.getByText('Inference Server', { exact: true })
-  });
-  await expect(nameRow).toContainText(updatedName);
+  await expect(page.locator('.catalog-server-card').filter({ hasText: updatedName })).toBeVisible();
 
   const updated = (await findInferenceServerByName(request, updatedName)) ?? created;
   await archiveInferenceServer(request, updated.inference_server.server_id);

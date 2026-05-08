@@ -12,6 +12,7 @@ import { loadPerplexityDataset } from './perplexity.js';
 import { parseSseEvents } from './sse-parser.js';
 import { logEvent } from './observability.js';
 import { backendFetch } from './inference-proxy.js';
+import { buildInferenceServerAuthHeaders } from './inference-server-auth.js';
 import { runPythonEntrypoint } from '../plugins/python-runner.js';
 
 export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled';
@@ -127,29 +128,6 @@ interface Assertion {
   type: string;
   target?: string;
   expected?: unknown;
-}
-
-function buildAuthHeaders(server: InferenceServerRecord): Record<string, string> {
-  const headers: Record<string, string> = {};
-  if (server.auth.type === 'none') {
-    return headers;
-  }
-  const tokenEnv = server.auth.token_env;
-  const token = tokenEnv ? process.env[tokenEnv] : null;
-  if (!token) {
-    return headers;
-  }
-  const headerName = server.auth.header_name || 'Authorization';
-  if (server.auth.type === 'bearer' || server.auth.type === 'oauth') {
-    headers[headerName] = `Bearer ${token}`;
-    return headers;
-  }
-  if (server.auth.type === 'basic') {
-    headers[headerName] = `Basic ${token}`;
-    return headers;
-  }
-  headers[headerName] = token;
-  return headers;
 }
 
 function replacePlaceholders(value: unknown, replacements: Record<string, string>): unknown {
@@ -1044,7 +1022,7 @@ export async function executeRun(request: RunExecutionRequest): Promise<RunExecu
       test_id: testId
     });
 
-    const authHeaders = buildAuthHeaders(server);
+    const authHeaders = buildInferenceServerAuthHeaders(server);
     let result: Omit<TestExecutionResult, 'test_id'>;
     if (definition.runner_type === 'python') {
       result = await executePythonTest({ ...definition, spec_path: definition.spec_path! }, server, request.effective_config ?? null, abortSignal);

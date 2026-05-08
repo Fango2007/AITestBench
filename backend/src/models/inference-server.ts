@@ -46,6 +46,8 @@ export interface AuthInfo {
   type: AuthType;
   header_name: string;
   token_env: string | null;
+  token?: string | null;
+  token_present?: boolean;
 }
 
 export interface CapabilitiesInfo {
@@ -115,7 +117,7 @@ function defaultEndpoints(): EndpointsInfo {
 }
 
 function defaultAuth(): AuthInfo {
-  return { type: 'none', header_name: 'Authorization', token_env: null };
+  return { type: 'none', header_name: 'Authorization', token_env: null, token: null };
 }
 
 function defaultCapabilities(): CapabilitiesInfo {
@@ -167,7 +169,7 @@ function mapRow(row: {
     },
     runtime: (parseJson(row.runtime ?? '') as RuntimeInfo) ?? defaultRuntime(),
     endpoints: (parseJson(row.endpoints ?? '') as EndpointsInfo) ?? defaultEndpoints(),
-    auth: (parseJson(row.auth ?? '') as AuthInfo) ?? defaultAuth(),
+    auth: { ...defaultAuth(), ...((parseJson(row.auth ?? '') as AuthInfo) ?? {}) },
     capabilities: (parseJson(row.capabilities ?? '') as CapabilitiesInfo) ?? defaultCapabilities(),
     discovery: (parseJson(row.discovery ?? '') as DiscoveryInfo) ?? defaultDiscovery(),
     raw: (parseJson(row.raw ?? '') as Record<string, unknown>) ?? {}

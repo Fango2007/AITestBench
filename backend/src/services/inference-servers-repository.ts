@@ -148,7 +148,7 @@ function defaultEndpoints(baseUrl: string): EndpointsInfo {
 }
 
 function defaultAuth(): AuthInfo {
-  return { type: 'none', header_name: 'Authorization', token_env: null };
+  return { type: 'none', header_name: 'Authorization', token_env: null, token: null };
 }
 
 function defaultDiscovery(): DiscoveryInfo {
@@ -347,7 +347,7 @@ export function updateInferenceServerRecord(
       ...identityUpdates
     },
     endpoints: { ...existing.endpoints, ...updates.endpoints },
-    auth: { ...existing.auth, ...updates.auth },
+    auth: { ...defaultAuth(), ...existing.auth, ...updates.auth },
     runtime: mergeRuntime(existing.runtime, updates.runtime, schemaFamilyList),
     capabilities: mergeCapabilities(existing.capabilities, updates.capabilities),
     discovery: mergeDiscovery(existing.discovery, updates.discovery),

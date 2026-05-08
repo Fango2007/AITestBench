@@ -126,11 +126,11 @@ async function seedHfModel(
 }
 
 async function navigateToModelDetail(page: import('@playwright/test').Page, serverId: string, modelId: string) {
-  await page.goto('/catalog?tab=models');
+  await page.goto(`/catalog?tab=models&servers=${encodeURIComponent(serverId)}`);
   await page.waitForLoadState('networkidle');
-  await page.locator('#server-filter').selectOption(serverId);
-  await page.locator('#model-filter').selectOption(modelId);
-  await page.getByRole('button', { name: 'View details' }).click();
+  const card = page.locator('.catalog-model-card').filter({ hasText: 'Llama-3.1-8B' });
+  await expect(card).toBeVisible();
+  await card.getByRole('button', { name: 'Inspect' }).click();
   await page.waitForLoadState('networkidle');
 }
 

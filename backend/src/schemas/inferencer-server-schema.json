@@ -142,7 +142,9 @@
       "properties": {
         "type": { "type": "string", "enum": ["none", "bearer", "basic", "oauth", "custom"] },
         "header_name": { "type": "string" },
-        "token_env": { "type": ["string", "null"] }
+        "token_env": { "type": ["string", "null"] },
+        "token": { "type": ["string", "null"] },
+        "token_present": { "type": "boolean" }
       }
     },
     "capabilities": {
