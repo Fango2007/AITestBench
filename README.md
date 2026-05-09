@@ -37,7 +37,7 @@ tree with parameter totals without downloading model weights.
 
 ## Prerequisites
 
-- Node.js 20 LTS (Node 25 also works in this repo)
+- Node.js `>=22.19 <26`; Node 25 is the repo default in `.nvmrc`
 - npm 9+
 - Python 3.10+ (for Python test runners and model architecture inspection)
 - SQLite (bundled with macOS/Linux)

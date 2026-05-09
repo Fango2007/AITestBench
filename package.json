@@ -6,8 +6,11 @@
     "backend",
     "frontend"
   ],
+  "engines": {
+    "node": ">=22.19 <26"
+  },
   "dependencies": {
-    "better-sqlite3": "^12.5.0",
+    "better-sqlite3": "^12.9.0",
     "fastify": "^5.6.2"
   },
   "scripts": {
