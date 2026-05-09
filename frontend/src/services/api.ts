@@ -30,6 +30,9 @@ export async function apiPost<T>(path: string, payload: unknown): Promise<T> {
   if (!response.ok) {
     throw new Error(await parseError(response));
   }
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
 }
 

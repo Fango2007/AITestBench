@@ -7,6 +7,7 @@ interface TemplateEditorProps {
   onSave: (input: TemplateInput, isUpdate: boolean) => Promise<void>;
   error?: string | null;
   busy?: boolean;
+  initialType?: TemplateType;
 }
 
 const DEFAULT_JSON = `{
@@ -47,7 +48,7 @@ const DEFAULT_PYTHON_TEMPLATE = `{
   }
 }`;
 
-export function TemplateEditor({ template, onSave, error, busy }: TemplateEditorProps) {
+export function TemplateEditor({ template, onSave, error, busy, initialType = 'json' }: TemplateEditorProps) {
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState<TemplateType>('json');
@@ -65,10 +66,10 @@ export function TemplateEditor({ template, onSave, error, busy }: TemplateEditor
     }
     setId('');
     setName('');
-    setType('json');
+    setType(initialType);
     setVersion('1.0.0');
-    setContent(DEFAULT_JSON);
-  }, [template]);
+    setContent(initialType === 'python' ? DEFAULT_PYTHON_TEMPLATE : DEFAULT_JSON);
+  }, [initialType, template]);
 
   const isUpdate = Boolean(template);
 
@@ -93,7 +94,7 @@ export function TemplateEditor({ template, onSave, error, busy }: TemplateEditor
   }
 
   return (
-    <form onSubmit={handleSubmit} className="card">
+    <form onSubmit={handleSubmit} className="template-editor-card">
       <h2>{isUpdate ? 'Edit template' : 'Create template'}</h2>
       {error ? <div className="error">{error}</div> : null}
       <label>

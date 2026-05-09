@@ -1,128 +1,114 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-test.describe('Evaluate page', () => {
-  test.beforeEach(async ({ page }) => {
+const detail = {
+  test_result_id: 'queue-result-1',
+  run_id: 'run-queue-1',
+  test_id: 'template-queue-active',
+  template_id: 'tool-calling',
+  template_label: 'Tool calling',
+  model_name: 'mistral:latest',
+  server_id: 'srv-local',
+  server_name: 'Local Server',
+  verdict: 'pass',
+  status: 'pending',
+  started_at: '2026-05-09T10:00:00.000Z',
+  ended_at: '2026-05-09T10:00:01.000Z',
+  inference_config: { temperature: 0.2, top_p: 0.9, max_tokens: 128, quantization_level: 'Q4', stream: true },
+  prompt_text: 'What is the weather in Paris?',
+  answer_text: 'Paris is rainy.',
+  metrics: { latency_ms: 42, total_tokens: 16 },
+  artefacts: { response_body: 'Paris is rainy.' },
+  raw_events: [],
+  document: { prompt: 'What is the weather in Paris?' },
+  evaluation_id: null,
+  skipped_at: null
+};
+
+async function mockPresets(page: Page) {
+  await page.route('**/inference-param-presets', async (route) => {
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ items: [] }) });
+  });
+}
+
+test.describe('Evaluate queue', () => {
+  test('shows the queue empty state', async ({ page }) => {
+    await mockPresets(page);
+    await page.route('**/evaluation-queue?status=pending', async (route) => {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({ counts: { pending: 0, done: 0, skipped: 0 }, items: [] })
+      });
+    });
+
     await page.goto('/evaluate');
+
     await expect(page.getByRole('heading', { name: 'Evaluate' })).toBeVisible();
+    await expect(page.getByText('Params')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'All caught up' })).toBeVisible();
   });
 
-  test('shows the evaluation form with all required inputs', async ({ page }) => {
-    await expect(page.locator('.evaluation-form select').first()).toBeVisible();
-    await expect(page.getByPlaceholder('Enter your prompt...')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Run Inference' })).toBeVisible();
-  });
+  test('scores, skips, and advances queue items', async ({ page }) => {
+    await mockPresets(page);
+    let pending = [detail];
+    let done = 0;
+    let skipped = 0;
 
-  test('validation flow — Run button is disabled without server, model, and prompt', async ({ page }) => {
-    const runButton = page.getByRole('button', { name: 'Run Inference' });
-    await expect(runButton).toBeDisabled();
-  });
+    await page.route('**/evaluation-queue**', async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const parts = url.pathname.split('/').filter(Boolean);
 
-  // T040 [US4] — Compare mode
-  test('compare mode — activates with toggle and shows two forms', async ({ page }) => {
-    await page.getByRole('button', { name: 'Compare Mode' }).click();
-    await expect(page.locator('.shared-prompt-area')).toBeVisible();
-    await expect(page.locator('.evaluation-form')).toHaveCount(2);
-  });
+      if (request.method() === 'GET' && parts.length === 1) {
+        const status = url.searchParams.get('status') ?? 'pending';
+        const items = status === 'pending' ? pending : [];
+        await route.fulfill({
+          contentType: 'application/json',
+          body: JSON.stringify({ counts: { pending: pending.length, done, skipped }, items })
+        });
+        return;
+      }
 
-  test('compare mode — can add up to 4 models', async ({ page }) => {
-    await page.getByRole('button', { name: 'Compare Mode' }).click();
-    await page.getByRole('button', { name: '+' }).click();
-    await expect(page.locator('.evaluation-form')).toHaveCount(3);
-    await page.getByRole('button', { name: '+' }).click();
-    await expect(page.locator('.evaluation-form')).toHaveCount(4);
-    await expect(page.getByRole('button', { name: '+' })).toBeDisabled();
-  });
+      if (request.method() === 'GET' && parts[1] === detail.test_result_id) {
+        await route.fulfill({ contentType: 'application/json', body: JSON.stringify(detail) });
+        return;
+      }
 
-  test('compare mode — toggle off returns to single form', async ({ page }) => {
-    await page.getByRole('button', { name: 'Compare Mode' }).click();
-    await page.getByRole('button', { name: 'Single Mode' }).click();
-    await expect(page.locator('.evaluation-form')).toHaveCount(1);
-    await expect(page.locator('.shared-prompt-area')).not.toBeVisible();
-  });
-});
+      if (request.method() === 'POST' && parts[2] === 'score') {
+        pending = [];
+        done = 1;
+        await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'eval-1', source_test_result_id: detail.test_result_id }) });
+        return;
+      }
 
-test('Evaluate page model menu uses discovered server models when model records are empty', async ({ page }) => {
-  const serverPayload = [
-    {
-      inference_server: {
-        server_id: 'srv-discovered-models',
-        display_name: 'Discovered Models Server',
-        active: true,
-        archived: false,
-        created_at: '2026-05-05T00:00:00.000Z',
-        updated_at: '2026-05-05T00:00:00.000Z',
-        archived_at: null
-      },
-      runtime: {
-        retrieved_at: '2026-05-05T00:00:00.000Z',
-        source: 'server',
-        server_software: { name: 'Test Runtime', version: null, build: null },
-        api: { schema_family: ['openai-compatible'], api_version: null },
-        platform: {
-          os: { name: 'unknown', version: null, arch: 'unknown' },
-          container: { type: 'none', image: null }
-        },
-        hardware: {
-          cpu: { model: null, cores: null },
-          gpu: [],
-          ram_mb: null
-        }
-      },
-      endpoints: { base_url: 'http://localhost:11434', health_url: null, https: false },
-      auth: { type: 'none', header_name: 'Authorization', token_env: null },
-      capabilities: {
-        server: { streaming: false, models_endpoint: true },
-        generation: { text: true, json_schema_output: false, tools: false, embeddings: false },
-        multimodal: {
-          vision: { input_images: false, output_images: false },
-          audio: { input_audio: false, output_audio: false }
-        },
-        reasoning: { exposed: false, token_budget_configurable: false },
-        concurrency: { parallel_requests: false, parallel_tool_calls: false, max_concurrent_requests: null },
-        enforcement: 'server'
-      },
-      discovery: {
-        retrieved_at: '2026-05-05T00:00:00.000Z',
-        ttl_seconds: 300,
-        model_list: {
-          raw: {},
-          normalised: [
-            {
-              model_id: 'mistral:latest',
-              display_name: 'Mistral Latest',
-              context_window_tokens: null,
-              quantisation: null
-            }
-          ]
-        }
-      },
-      raw: {}
-    }
-  ];
+      if (request.method() === 'POST' && parts[2] === 'skip') {
+        pending = [];
+        skipped = 1;
+        await route.fulfill({ status: 204 });
+        return;
+      }
 
-  await page.route('**/inference-servers?*', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify(serverPayload)
+      await route.fallback();
     });
-  });
-  await page.route('**/inference-servers', async (route) => {
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify(serverPayload)
-    });
-  });
-  await page.route('**/models', async (route) => {
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) });
-  });
 
-  await page.goto('/evaluate');
-  const formSelects = page.locator('.evaluation-form select');
-  const serverSelect = formSelects.first();
-  const modelSelect = formSelects.nth(1);
+    await page.goto('/evaluate');
+    await expect(page.locator('.evaluate-queue-list').getByText('mistral:latest', { exact: true })).toBeVisible();
+    await expect(page.locator('.run-detail-columns section').nth(1).getByText('Paris is rainy.', { exact: true })).toBeVisible();
 
-  await serverSelect.selectOption('srv-discovered-models');
-  await expect(modelSelect).toContainText('Mistral Latest');
-  await modelSelect.selectOption('mistral:latest');
-  await expect(modelSelect).toHaveValue('mistral:latest');
+    await page.keyboard.press('5');
+    await expect(page.locator('.score-row').first()).toContainText('5/5');
+    await page.getByRole('button', { name: 'Save & Next' }).click();
+    await expect(page.getByRole('heading', { name: 'All caught up' })).toBeVisible();
+
+    pending = [detail];
+    done = 0;
+    await page.getByRole('button', { name: 'Refresh' }).click();
+    await expect(page.locator('.evaluate-queue-list').getByText('mistral:latest', { exact: true })).toBeVisible();
+    await expect(page.locator('.run-detail-columns section').nth(1).getByText('Paris is rainy.', { exact: true })).toBeVisible();
+    const skipResponse = page.waitForResponse((response) => (
+      response.url().includes(`/evaluation-queue/${detail.test_result_id}/skip`) && response.status() === 204
+    ));
+    await page.locator('.evaluate-rubric').getByRole('button', { name: 'Skip', exact: true }).click();
+    await skipResponse;
+    await expect(page.getByRole('heading', { name: 'All caught up' })).toBeVisible();
+  });
 });

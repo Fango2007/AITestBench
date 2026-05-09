@@ -196,6 +196,17 @@ CREATE INDEX IF NOT EXISTS idx_results_run ON test_results(run_id);
 CREATE INDEX IF NOT EXISTS idx_result_documents_run ON test_result_documents(run_id);
 CREATE INDEX IF NOT EXISTS idx_metrics_result ON metric_samples(test_result_id);
 
+CREATE TABLE IF NOT EXISTS inference_param_presets (
+  id                  TEXT PRIMARY KEY,
+  name                TEXT NOT NULL,
+  parameters          TEXT NOT NULL,
+  created_at          TEXT NOT NULL,
+  updated_at          TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inference_param_presets_name
+  ON inference_param_presets(name);
+
 CREATE TABLE IF NOT EXISTS test_templates (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -264,15 +275,23 @@ CREATE TABLE IF NOT EXISTS evaluations (
   completeness_score  INTEGER NOT NULL CHECK (completeness_score BETWEEN 1 AND 5),
   helpfulness_score   INTEGER NOT NULL CHECK (helpfulness_score BETWEEN 1 AND 5),
   note                TEXT,
+  source_test_result_id TEXT,
   created_at          TEXT NOT NULL,
   FOREIGN KEY (prompt_id)  REFERENCES eval_prompts(id),
-  FOREIGN KEY (server_id)  REFERENCES inference_servers(server_id)
+  FOREIGN KEY (server_id)  REFERENCES inference_servers(server_id),
+  FOREIGN KEY (source_test_result_id) REFERENCES test_results(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_evaluations_model_name  ON evaluations(model_name);
 CREATE INDEX IF NOT EXISTS idx_evaluations_prompt_id   ON evaluations(prompt_id);
 CREATE INDEX IF NOT EXISTS idx_evaluations_created_at  ON evaluations(created_at);
 CREATE INDEX IF NOT EXISTS idx_evaluations_server_id   ON evaluations(server_id);
+CREATE TABLE IF NOT EXISTS evaluation_queue_skips (
+  test_result_id TEXT PRIMARY KEY,
+  reason         TEXT,
+  skipped_at     TEXT NOT NULL,
+  FOREIGN KEY (test_result_id) REFERENCES test_results(id) ON DELETE CASCADE
+);
 
 CREATE TABLE IF NOT EXISTS model_architecture_settings (
   server_id         TEXT NOT NULL,

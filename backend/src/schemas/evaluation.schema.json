@@ -58,6 +58,9 @@
         },
         "quantization_level": {
           "type": ["string", "null"]
+        },
+        "stream": {
+          "type": ["boolean", "null"]
         }
       }
     },
@@ -116,6 +119,9 @@
     "note": {
       "type": ["string", "null"],
       "maxLength": 2000
+    },
+    "source_test_result_id": {
+      "type": ["string", "null"]
     }
   }
 }

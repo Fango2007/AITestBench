@@ -27,6 +27,7 @@ test('sidebar exposes five top-level destinations and follows active routes', as
 
 test('merged page sub-tabs preserve route state', async ({ page }) => {
   await page.goto('/catalog?tab=servers');
+  await expect(page.locator('.context-bar').getByText('Params')).toBeVisible();
   await page.getByRole('tab', { name: /Models/ }).click();
   await expect(page).toHaveURL(/\/catalog\?tab=models/);
 

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { InferenceServerErrors } from '../components/InferenceServerErrors.js';
+import { InferenceContextBar } from '../components/InferenceContextBar.js';
+import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from '../services/inference-param-presets-api.js';
 import { InferenceServerRecord, listInferenceServers } from '../services/inference-servers-api.js';
 import { listModels, ModelRecord } from '../services/models-api.js';
 import { TemplateRecord, listTemplates } from '../services/templates-api.js';
@@ -86,6 +88,19 @@ function extractResponseText(item: RunGroupItem | null): string {
 
 function resultMetrics(item: RunGroupItem | null): Record<string, unknown> {
   return item?.results[0]?.metrics ?? {};
+}
+
+function tokenProgress(item: RunGroupItem | null): string {
+  const metrics = resultMetrics(item);
+  const tokens = typeof metrics.completion_tokens === 'number' ? metrics.completion_tokens : null;
+  const rate = typeof metrics.tokens_per_sec === 'number' ? metrics.tokens_per_sec : null;
+  if (tokens !== null && rate !== null) {
+    return `${tokens} tokens · ${rate.toFixed(1)} tok/s`;
+  }
+  if (tokens !== null) {
+    return `${tokens} tokens`;
+  }
+  return item?.status === 'queued' ? 'Queued' : 'Streaming response';
 }
 
 function resultAssertions(item: RunGroupItem | null): { passed: number; total: number } {
@@ -348,11 +363,13 @@ function RunUnifiedEmpty() {
 function SingleResponseDetail({
   target,
   option,
-  item
+  item,
+  onRetry
 }: {
   target: RunTarget;
   option: RunModelOption | undefined;
   item: RunGroupItem | null;
+  onRetry: (targets: RunTarget[]) => void;
 }) {
   const metrics = resultMetrics(item);
   const asserts = resultAssertions(item);
@@ -368,9 +385,17 @@ function SingleResponseDetail({
           </div>
           <b className={`run-status-pill status-${item?.status ?? 'idle'}`}>{item?.status ?? 'idle'}</b>
         </header>
-        <section className="run-message-card">
+        {item?.status === 'failed' ? (
+          <div className="run-failure-banner">
+            <strong>Connection lost: {option?.server_name ?? target.inference_server_id}</strong>
+            <span>{item.failure_reason ?? item.results[0]?.failure_reason ?? 'The target failed during this run.'}</span>
+            <button type="button" onClick={() => onRetry([target])}>Retry now</button>
+          </div>
+        ) : null}
+        <section className={item?.status === 'running' || item?.status === 'queued' ? 'run-message-card is-streaming' : 'run-message-card'}>
           <span>assistant · final</span>
-          <pre>{extractResponseText(item)}</pre>
+          {(item?.status === 'running' || item?.status === 'queued') ? <small>{tokenProgress(item)}</small> : null}
+          <pre>{extractResponseText(item)}{item?.status === 'running' || item?.status === 'queued' ? <i className="stream-cursor" /> : null}</pre>
         </section>
         <section className="run-asserts">
           <h3>Asserts · {asserts.passed} of {asserts.total} pass</h3>
@@ -397,7 +422,7 @@ function SingleResponseDetail({
           <pre>{JSON.stringify(item ?? {}, null, 2)}</pre>
         </details>
         <div className="run-side-actions">
-          <button type="button" disabled>Re-run with same params</button>
+          <button type="button" onClick={() => onRetry([target])} disabled={item?.status !== 'failed'}>Re-run with same params</button>
           <button type="button" disabled>Open in Evaluate</button>
           <button type="button" disabled>Copy as cURL</button>
         </div>
@@ -410,12 +435,14 @@ function CompareColumn({
   target,
   option,
   item,
-  index
+  index,
+  onRetry
 }: {
   target: RunTarget;
   option: RunModelOption | undefined;
   item: RunGroupItem | null;
   index: number;
+  onRetry: (targets: RunTarget[]) => void;
 }) {
   const metrics = resultMetrics(item);
   const asserts = resultAssertions(item);
@@ -437,9 +464,13 @@ function CompareColumn({
       </header>
       <div className="run-column-body">
         {status === 'failed' ? (
-          <div className="run-error-card">{item?.failure_reason ?? item?.results[0]?.failure_reason ?? 'Run failed.'}</div>
+          <div className="run-error-card">
+            <strong>{item?.failure_reason ?? item?.results[0]?.failure_reason ?? 'Run failed.'}</strong>
+            <button type="button" onClick={() => onRetry([target])}>Retry</button>
+          </div>
         ) : null}
-        <pre>{extractResponseText(item)}</pre>
+        {status === 'running' || status === 'queued' ? <small>{tokenProgress(item)}</small> : null}
+        <pre>{extractResponseText(item)}{status === 'running' || status === 'queued' ? <i className="stream-cursor" /> : null}</pre>
       </div>
     </article>
   );
@@ -472,6 +503,7 @@ export function RunUnified() {
   const [customModelId, setCustomModelId] = useState('');
   const [timeoutSec, setTimeoutSec] = useState('30');
   const [seed, setSeed] = useState('');
+  const [inferenceParams, setInferenceParams] = useState<InferenceParams>(DEFAULT_INFERENCE_PARAMS);
   const [runGroup, setRunGroup] = useState<RunGroupDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -546,7 +578,7 @@ export function RunUnified() {
     setSelectedTargets((current) => current.filter((entry) => targetKey(entry) !== targetKey(target)));
   }
 
-  async function handleRun() {
+  async function startRun(targets = selectedTargets) {
     setBusy(true);
     setError(null);
     try {
@@ -559,10 +591,15 @@ export function RunUnified() {
       if (seed.trim() && Number.isFinite(seedValue)) {
         testOverrides.seed = seedValue;
       }
+      testOverrides.temperature = inferenceParams.temperature;
+      testOverrides.top_p = inferenceParams.top_p;
+      testOverrides.max_tokens = inferenceParams.max_tokens;
+      testOverrides.quantization_level = inferenceParams.quantization_level;
+      testOverrides.stream = inferenceParams.stream;
       const group = await createRunGroup({
-        targets: selectedTargets,
+        targets,
         selected_template_ids: selectedTemplateIds,
-        test_overrides: Object.keys(testOverrides).length ? testOverrides : undefined
+        test_overrides: testOverrides
       });
       setRunGroup(group);
     } catch (err) {
@@ -570,6 +607,18 @@ export function RunUnified() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleRun() {
+    await startRun(selectedTargets);
+  }
+
+  async function handleRetry(targets: RunTarget[]) {
+    const failedTargets = targets.filter((target) => {
+      const item = findItemForTarget(runGroup, target);
+      return item?.status === 'failed';
+    });
+    await startRun(failedTargets.length ? failedTargets : targets);
   }
 
   async function handleStop() {
@@ -625,6 +674,15 @@ export function RunUnified() {
               <button type="button" disabled={!runGroup}>Export</button>
             </div>
           </header>
+          <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
+          {runGroup?.items.some((item) => item.status === 'failed') ? (
+            <div className="run-failure-banner">
+              <strong>One or more targets failed mid-run.</strong>
+              <span>Partial output is preserved. Retry starts a new run group for the failed target(s) with the same templates and params.</span>
+              <button type="button" onClick={() => handleRetry(selectedTargets)} disabled={busy}>Retry failed</button>
+              <button type="button" onClick={handleStop} disabled={busy}>Stop run</button>
+            </div>
+          ) : null}
           <SharedPromptStrip prompt={extractPrompt(selectedTemplate)} />
           {selectedTargets.length === 0 ? (
             <RunUnifiedEmpty />
@@ -633,6 +691,7 @@ export function RunUnified() {
               target={selectedTargets[0]}
               option={optionMap.get(targetKey(selectedTargets[0]))}
               item={findItemForTarget(runGroup, selectedTargets[0])}
+              onRetry={handleRetry}
             />
           ) : (
             <>
@@ -644,6 +703,7 @@ export function RunUnified() {
                     option={optionMap.get(targetKey(target))}
                     item={findItemForTarget(runGroup, target)}
                     index={index}
+                    onRetry={handleRetry}
                   />
                 ))}
               </div>

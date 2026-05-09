@@ -2,6 +2,9 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { MergedPageHeader } from '../components/MergedPageHeader.js';
+import { EmptyState } from '../components/EmptyState.js';
+import { InferenceContextBar } from '../components/InferenceContextBar.js';
+import { RegLight } from '../components/RegLight.js';
 import { catalogSearch, normalizeCatalogTab } from '../navigation.js';
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from '../services/connectivity-api.js';
 import {
@@ -18,6 +21,7 @@ import {
 } from '../services/inference-servers-api.js';
 import { ModelFormat, ModelRecord, listModels } from '../services/models-api.js';
 import { extractBaseModelName, inferModelMetadata } from '../services/model-metadata-inference.js';
+import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from '../services/inference-param-presets-api.js';
 import { ModelDetails } from './ModelDetails.js';
 
 type CatalogModel = {
@@ -87,6 +91,10 @@ function statusLabel(status: ServerStatus): string {
     default:
       return 'unknown';
   }
+}
+
+function statusToRegLight(status: ServerStatus): 'healthy' | 'degraded' | 'down' | 'unknown' {
+  return status;
 }
 
 function relativeTime(value: string | null | undefined): string {
@@ -199,6 +207,7 @@ export function Catalog({
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [serverStageCollapsed, setServerStageCollapsed] = useState(() => localStorage.getItem(SERVER_STAGE_STORAGE_KEY) === 'true');
   const [serverFilters, setServerFilters] = useState({ status: new Set<string>(), runtime: new Set<string>(), gpu: new Set<string>() });
+  const [inferenceParams, setInferenceParams] = useState<InferenceParams>(DEFAULT_INFERENCE_PARAMS);
 
   const selectedServers = useMemo(() => new Set(parseCsv(searchParams.get('servers'))), [searchParams]);
   const selectedFamilies = useMemo(() => new Set(parseCsv(searchParams.get('family'))), [searchParams]);
@@ -364,6 +373,7 @@ export function Catalog({
           activeTab={activeTab}
           onTabChange={changeTab}
         />
+        <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
         <ModelDetails
           serverId={inspectorServerId}
           modelId={inspectorModelId}
@@ -386,6 +396,7 @@ export function Catalog({
         onTabChange={changeTab}
         action={headerAction}
       />
+      <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
       {error ? <div className="catalog-error error">{error}</div> : null}
       {loading ? <p className="catalog-loading muted">Loading catalog...</p> : null}
       {activeTab === 'servers' ? (
@@ -538,7 +549,14 @@ function ServersCatalog(props: {
               >
                 <span className="catalog-card-top">
                   <strong>{server.inference_server.display_name}</strong>
-                  <span className={`reg-light reg-light--${status}`}>{statusLabel(status)}</span>
+                  <RegLight
+                    state={statusToRegLight(status)}
+                    label={statusLabel(status)}
+                    latencyMs={props.connectivity[server.inference_server.server_id]?.response_time_ms}
+                    lastProbe={props.connectivity[server.inference_server.server_id]?.checked_at ?? server.discovery.retrieved_at}
+                    statusCode={props.connectivity[server.inference_server.server_id]?.status_code}
+                    error={props.connectivity[server.inference_server.server_id]?.error}
+                  />
                 </span>
                 <span className="catalog-url">{server.endpoints.base_url}</span>
                 <span className="catalog-card-meta">
@@ -559,7 +577,15 @@ function ServersCatalog(props: {
         <aside className="catalog-detail-rail">
           <div className="panel-header">
             <h3>{props.selectedDetail.inference_server.display_name}</h3>
-            <span className={`reg-dot reg-dot--${statusFor(props.selectedDetail, props.connectivity[props.selectedDetail.inference_server.server_id])}`} />
+            <RegLight
+              state={statusToRegLight(statusFor(props.selectedDetail, props.connectivity[props.selectedDetail.inference_server.server_id]))}
+              label={statusLabel(statusFor(props.selectedDetail, props.connectivity[props.selectedDetail.inference_server.server_id]))}
+              compact
+              latencyMs={props.connectivity[props.selectedDetail.inference_server.server_id]?.response_time_ms}
+              lastProbe={props.connectivity[props.selectedDetail.inference_server.server_id]?.checked_at ?? props.selectedDetail.discovery.retrieved_at}
+              statusCode={props.connectivity[props.selectedDetail.inference_server.server_id]?.status_code}
+              error={props.connectivity[props.selectedDetail.inference_server.server_id]?.error}
+            />
           </div>
           <div className="kv"><span>Base URL</span><strong>{props.selectedDetail.endpoints.base_url}</strong></div>
           <div className="kv"><span>Runtime</span><strong>{runtimeLabel(props.selectedDetail)}</strong></div>
@@ -661,14 +687,18 @@ function ModelsCatalog(props: {
         </div>
         {props.selectedServers.size === 0 ? (
           <div className="catalog-empty">
-            <h3>Select a server to see its models</h3>
-            <p>Models are scoped to the servers that host them. Select one or more servers from the rail.</p>
+            <EmptyState
+              title="Select a server to see its models"
+              body="Models are scoped to the servers that host them. Select one or more servers from the rail."
+            />
           </div>
         ) : props.visibleModels.length === 0 ? (
           <div className="catalog-empty">
-            <h3>No models discovered</h3>
-            <p>{props.selectedServerRows.map((server) => server.inference_server.display_name).join(', ')} returned 0 matching models.</p>
-            {props.selectedServerRows[0] ? <button type="button" onClick={() => props.onReprobe(props.selectedServerRows[0].inference_server.server_id)}>Re-probe</button> : null}
+            <EmptyState
+              title="No models discovered"
+              body={`${props.selectedServerRows.map((server) => server.inference_server.display_name).join(', ')} returned 0 matching models.`}
+              actions={props.selectedServerRows[0] ? <button type="button" onClick={() => props.onReprobe(props.selectedServerRows[0].inference_server.server_id)}>Re-probe</button> : null}
+            />
           </div>
         ) : (
           <div className="catalog-model-grid">
@@ -714,7 +744,7 @@ function ServersHealthPanel({ servers, connectivity }: { servers: InferenceServe
         </div>
         <div className="health-legend">
           {(['healthy', 'degraded', 'down', 'unknown'] as ServerStatus[]).map((status) => (
-            <span key={status}><i className={`reg-dot reg-dot--${status}`} /> {status}</span>
+            <span key={status}><RegLight state={statusToRegLight(status)} label={status} compact /> {status}</span>
           ))}
         </div>
         <div className="health-tile-grid">
@@ -723,7 +753,15 @@ function ServersHealthPanel({ servers, connectivity }: { servers: InferenceServe
             const status = statusFor(server, health);
             return (
               <div key={server.inference_server.server_id} className="health-tile">
-                <i className={`reg-dot reg-dot--${status}`} />
+                <RegLight
+                  state={statusToRegLight(status)}
+                  label={statusLabel(status)}
+                  compact
+                  latencyMs={health?.response_time_ms}
+                  lastProbe={health?.checked_at ?? server.discovery.retrieved_at}
+                  statusCode={health?.status_code}
+                  error={health?.error}
+                />
                 <strong>{server.inference_server.display_name}</strong>
               </div>
             );
@@ -736,7 +774,18 @@ function ServersHealthPanel({ servers, connectivity }: { servers: InferenceServe
             const status = statusFor(server, health);
             return (
               <div key={server.inference_server.server_id} className="health-row">
-                <span><i className={`reg-dot reg-dot--${status}`} /><strong>{server.inference_server.display_name}</strong><small>{server.endpoints.base_url}</small></span>
+                <span>
+                  <RegLight
+                    state={statusToRegLight(status)}
+                    label={statusLabel(status)}
+                    compact
+                    latencyMs={health?.response_time_ms}
+                    lastProbe={health?.checked_at ?? server.discovery.retrieved_at}
+                    statusCode={health?.status_code}
+                    error={health?.error}
+                  />
+                  <strong>{server.inference_server.display_name}</strong><small>{server.endpoints.base_url}</small>
+                </span>
                 <span>{health?.response_time_ms != null ? `${health.response_time_ms}ms` : '-'}</span>
                 <span>{relativeTime(health?.checked_at)}</span>
                 <span>{health?.status_code ?? statusLabel(status)}</span>
@@ -754,13 +803,11 @@ function NoServersState({ onAdd }: { onAdd?: () => void }) {
     <section className="catalog-page">
       <aside className="catalog-rail catalog-placeholder">Status<br />Runtime<br />GPU</aside>
       <main className="catalog-main catalog-empty catalog-empty-large">
-        <h2>No servers yet</h2>
-        <ol>
-          <li>Add an inference server.</li>
-          <li>Probe its model endpoint.</li>
-          <li>Use discovered models in tests and evaluations.</li>
-        </ol>
-        {onAdd ? <button type="button" onClick={onAdd}>+ Add server</button> : null}
+        <EmptyState
+          title="No servers yet"
+          body="Add an inference server, probe its model endpoint, then use discovered models in tests and evaluations."
+          actions={onAdd ? <button type="button" onClick={onAdd}>+ Add server</button> : null}
+        />
       </main>
     </section>
   );
@@ -846,7 +893,7 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
 
   async function openInCatalog() {
     if (!savedServer) return;
-    await onSaved(savedServer, true);
+    await onSaved(savedServer, !editing);
     onClose();
   }
 

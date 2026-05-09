@@ -77,7 +77,7 @@ test('instantiates templates in Run', async ({ page, request }) => {
 
     const inferenceServerSelect = page.getByRole('combobox', { name: 'Inference server', exact: true });
     await expect(inferenceServerSelect).toBeVisible();
-    const availableServerLabels = await inferenceServerSelect.evaluate((element) => {
+    const getServerLabels = () => inferenceServerSelect.evaluate((element) => {
       if (!(element instanceof HTMLSelectElement)) {
         return [];
       }
@@ -85,7 +85,8 @@ test('instantiates templates in Run', async ({ page, request }) => {
         .map((option) => option.text.trim())
         .filter((label) => label.length > 0 && label !== 'Select an inference server');
     });
-    expect(availableServerLabels.length).toBeGreaterThan(0);
+    await expect.poll(async () => (await getServerLabels()).length).toBeGreaterThan(0);
+    const availableServerLabels = await getServerLabels();
     if (availableServerLabels.includes(serverDisplayName)) {
       await inferenceServerSelect.selectOption({ label: serverDisplayName });
     } else {

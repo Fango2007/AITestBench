@@ -41,9 +41,8 @@ test('creates, updates, and deletes templates from the dashboard', async ({ page
 
   try {
     await page.goto('/templates');
-    const createForm = page
-      .locator('form')
-      .filter({ has: page.getByRole('heading', { name: 'Create template' }) });
+    await page.getByRole('button', { name: 'New JSON' }).first().click();
+    const createForm = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Create template' }) });
     await expect(createForm).toBeVisible();
 
     await createForm.getByLabel('Template ID').fill(templateId);
@@ -52,29 +51,29 @@ test('creates, updates, and deletes templates from the dashboard', async ({ page
     await createForm.getByRole('textbox', { name: 'Content', exact: true }).fill(jsonContent);
     await createForm.getByRole('button', { name: 'Save' }).click();
 
-    const listCard = page.locator('.card').filter({ has: page.getByRole('heading', { name: 'Templates' }) });
-    const createdRow = listCard.locator('.list-item').filter({ hasText: templateId });
+    const createdRow = page.locator('.template-row').filter({ hasText: templateName });
     await expect(createdRow).toBeVisible();
     await expect(createdRow).toContainText(templateName);
 
-    await createdRow.getByRole('button', { name: 'Edit' }).click();
-    const editForm = page
-      .locator('form')
-      .filter({ has: page.getByRole('heading', { name: 'Edit template' }) });
+    await createdRow.click();
+    await expect(page.locator('.template-preview-panel')).toContainText(templateId);
+    await page.locator('.template-preview-panel').getByRole('button', { name: 'Edit' }).click();
+    const editForm = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Edit template' }) });
     await expect(editForm).toBeVisible();
     await editForm.getByLabel('Name', { exact: true }).fill(updatedName);
     await editForm.getByLabel('Version', { exact: true }).fill(updatedVersion);
     await editForm.getByRole('textbox', { name: 'Content', exact: true }).fill(updatedContent);
     await editForm.getByRole('button', { name: 'Save' }).click();
 
-    const updatedRow = listCard.locator('.list-item').filter({ hasText: templateId });
+    const updatedRow = page.locator('.template-row').filter({ hasText: updatedName });
     await expect(updatedRow).toBeVisible();
     await expect(updatedRow).toContainText(updatedName);
     await expect(updatedRow).toContainText(updatedVersion);
 
     page.on('dialog', (dialog) => dialog.accept());
-    await updatedRow.getByRole('button', { name: 'Delete' }).click();
-    await expect(listCard.locator('.list-item').filter({ hasText: templateId })).toHaveCount(0);
+    await updatedRow.click();
+    await page.locator('.template-preview-panel').getByRole('button', { name: 'Delete' }).click();
+    await expect(page.locator('.template-row').filter({ hasText: updatedName })).toHaveCount(0);
   } finally {
     await cleanupTemplateIds(page.request, [templateId]);
   }
