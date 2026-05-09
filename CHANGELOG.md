@@ -26,6 +26,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Fixed
 
+- Backend Vitest runs now ignore production SQLite database defaults, use a dedicated `backend-test.sqlite` by default, and fail fast if a backend test tries to open the production DB.
 - Backend proxy support now sends plain HTTP outbound requests to the configured proxy in absolute-form while retaining CONNECT tunneling for HTTPS targets, routes backend outbound fetches through the configured Undici dispatcher directly, and no longer lets process-level `NO_PROXY` bypass backend proxy routing unless `AITESTBENCH_INFERENCE_NO_PROXY` is set.
 - Inference server API responses now mask stored raw auth tokens and expose only token presence metadata.
 
