@@ -43,6 +43,7 @@ export interface EvaluationInput {
   completeness_score: number;
   helpfulness_score: number;
   note: string | null;
+  source_test_result_id?: string | null;
 }
 
 export async function createEvaluation(input: EvaluationInput) {
@@ -73,7 +74,8 @@ export async function createEvaluation(input: EvaluationInput) {
     coherence_score: input.coherence_score,
     completeness_score: input.completeness_score,
     helpfulness_score: input.helpfulness_score,
-    note: input.note
+    note: input.note,
+    source_test_result_id: input.source_test_result_id ?? null
   });
 
   logEvent({

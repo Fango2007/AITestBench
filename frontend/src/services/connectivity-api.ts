@@ -6,6 +6,7 @@ export type InferenceServerHealth = {
   status_code: number | null;
   response_time_ms: number | null;
   checked_at: string;
+  error?: string | null;
 };
 
 export async function getInferenceServerHealth(): Promise<InferenceServerHealth[]> {

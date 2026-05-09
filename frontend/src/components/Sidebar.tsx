@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
+import { RegLight } from './RegLight.js';
+
 interface SidebarHealth {
   backend: 'unknown' | 'up' | 'down';
   database: 'unknown' | 'up' | 'down';
@@ -57,7 +59,7 @@ function RegLightRow({
 }) {
   return (
     <div className={`sidebar-health-row sidebar-health-row--${status}`}>
-      <span className="sidebar-health-row__dot" aria-hidden="true" />
+      <RegLight state={status === 'up' ? 'healthy' : status} label={label} compact />
       <span>{label}</span>
       {detail ? <strong>{detail}</strong> : null}
     </div>

@@ -8,6 +8,7 @@ export interface InferenceConfigSnapshot {
   top_p: number | null;
   max_tokens: number | null;
   quantization_level: string | null;
+  stream?: boolean | null;
 }
 
 export interface EvaluationRecord {
@@ -29,6 +30,7 @@ export interface EvaluationRecord {
   completeness_score: number;
   helpfulness_score: number;
   note: string | null;
+  source_test_result_id: string | null;
   created_at: string;
 }
 
@@ -50,6 +52,7 @@ export interface EvaluationCreateInput {
   completeness_score: number;
   helpfulness_score: number;
   note: string | null;
+  source_test_result_id?: string | null;
 }
 
 export interface EvaluationListFilters {
@@ -79,6 +82,7 @@ interface EvaluationRow {
   completeness_score: number;
   helpfulness_score: number;
   note: string | null;
+  source_test_result_id: string | null;
   created_at: string;
 }
 
@@ -98,12 +102,12 @@ export function create(input: EvaluationCreateInput): EvaluationRecord {
       id, prompt_id, model_name, server_id, inference_config, answer_text,
       input_tokens, output_tokens, total_tokens, latency_ms, word_count, estimated_cost,
       accuracy_score, relevance_score, coherence_score, completeness_score, helpfulness_score,
-      note, created_at
+      note, source_test_result_id, created_at
     ) VALUES (
       ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?, ?,
       ?, ?, ?, ?, ?,
-      ?, ?
+      ?, ?, ?
     )
   `).run(
     id,
@@ -124,9 +128,23 @@ export function create(input: EvaluationCreateInput): EvaluationRecord {
     input.completeness_score,
     input.helpfulness_score,
     input.note,
+    input.source_test_result_id ?? null,
     created_at
   );
-  return rowToRecord({ ...input, id, created_at, inference_config: JSON.stringify(input.inference_config) });
+  return rowToRecord({
+    ...input,
+    id,
+    source_test_result_id: input.source_test_result_id ?? null,
+    created_at,
+    inference_config: JSON.stringify(input.inference_config)
+  });
+}
+
+export function getBySourceTestResultId(testResultId: string): EvaluationRecord | null {
+  const row = getDb()
+    .prepare('SELECT * FROM evaluations WHERE source_test_result_id = ?')
+    .get(testResultId) as EvaluationRow | undefined;
+  return row ? rowToRecord(row) : null;
 }
 
 export function getById(id: string): EvaluationRecord | null {

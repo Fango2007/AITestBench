@@ -22,13 +22,26 @@ import { registerEvalInferenceRoutes } from './routes/eval-inference.js';
 import { registerEvaluationsRoutes } from './routes/evaluations.js';
 import { registerLeaderboardRoutes } from './routes/leaderboard.js';
 import { registerArchitectureRoutes } from './routes/architecture.js';
+import { registerInferenceParamPresetRoutes } from './routes/inference-param-presets.js';
+import { registerEvaluationQueueRoutes } from './routes/evaluation-queue.js';
 
 function applyColumnMigrations(): void {
   const db = getDb();
-  const columns = (db.prepare('PRAGMA table_info(models)').all() as Array<{ name: string }>).map((c) => c.name);
-  if (!columns.includes('base_model_name')) {
+  const modelColumns = (db.prepare('PRAGMA table_info(models)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!modelColumns.includes('base_model_name')) {
     db.exec('ALTER TABLE models ADD COLUMN base_model_name TEXT');
   }
+  const evaluationColumns = (db.prepare('PRAGMA table_info(evaluations)').all() as Array<{ name: string }>).map((c) => c.name);
+  if (!evaluationColumns.includes('source_test_result_id')) {
+    db.exec('ALTER TABLE evaluations ADD COLUMN source_test_result_id TEXT');
+  }
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_evaluations_source_test_result
+      ON evaluations(source_test_result_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_source_test_result_unique
+      ON evaluations(source_test_result_id)
+      WHERE source_test_result_id IS NOT NULL;
+  `);
 }
 
 export function createServer() {
@@ -99,6 +112,8 @@ export function createServer() {
   registerDashboardResultsRoutes(app);
   registerEvalInferenceRoutes(app);
   registerEvaluationsRoutes(app);
+  registerEvaluationQueueRoutes(app);
+  registerInferenceParamPresetRoutes(app);
   registerLeaderboardRoutes(app);
   registerArchitectureRoutes(app);
 

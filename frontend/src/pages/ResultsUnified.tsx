@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { MergedPageHeader } from '../components/MergedPageHeader.js';
+import { InferenceContextBar } from '../components/InferenceContextBar.js';
 import { ResultsGraphPanel } from '../components/results-graph-panel.js';
 import { normalizeResultsTab } from '../navigation.js';
 import { getLeaderboard, type LeaderboardEntry } from '../services/leaderboard-api.js';
@@ -18,6 +19,7 @@ import {
   type ResultsTab
 } from '../services/results-view-api.js';
 import type { DashboardPanel } from '../services/dashboard-results-api.js';
+import { DEFAULT_INFERENCE_PARAMS } from '../services/inference-param-presets-api.js';
 import { toLocalInputValue } from './ResultsDashboard.js';
 import '../styles/dashboard-results.css';
 
@@ -758,6 +760,7 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
           </div>
         }
       />
+      <InferenceContextBar params={DEFAULT_INFERENCE_PARAMS} readOnly />
       <section className="results-page">
         <ResultsFilterRail
           filters={filters}
