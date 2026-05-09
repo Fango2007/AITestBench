@@ -14,6 +14,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ### Changed
 
+- CI, release, and local Node version guidance now target Node.js 25 while declaring the supported runtime range as `>=22.19 <26`, matching Undici 8 requirements without claiming Node 26 support before native SQLite dependencies allow it.
+- `better-sqlite3` is now pinned to the latest verified 12.9 release line for the current Node runtime window.
 - Frontend styling now loads the new design-system foundation tokens, vendored IBM Plex fonts, and shared component primitives for cards, buttons, inputs, health pills, metrics, and architecture-tree surfaces.
 - The frontend shell now uses React Router with a 220px always-expanded five-item sidebar, URL-backed Catalog/Results sub-tabs, legacy route redirects, and sidebar health/count status instead of the former global metric-card header.
 - Catalog now replaces the legacy Inference Servers and Models bodies with a merged Servers/Models funnel, URL-backed server/model filters, server health view, slide-over add/edit drawer, card grids, and a full-width model inspector layout.

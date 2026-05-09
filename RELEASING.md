@@ -27,7 +27,7 @@ git push origin main --follow-tags
 Users should:
 
 1. Download the release source archive from GitHub.
-2. Install Node.js 20+ and Python 3.10+.
+2. Install Node.js `>=22.19 <26` and Python 3.10+; Node 25 matches CI.
 3. Copy `.env.example` to `.env` and set the token.
 4. Run:
 
