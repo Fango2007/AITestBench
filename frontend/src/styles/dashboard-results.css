@@ -43,6 +43,32 @@
   font-size: 13px;
 }
 
+.results-comparison-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.results-comparison-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.results-comparison-metric select {
+  min-width: 150px;
+}
+
+.results-comparison-table th:not(:first-child),
+.results-comparison-table td:not(:first-child) {
+  white-space: nowrap;
+}
+
+.results-comparison-chart {
+  width: 100%;
+  height: 360px;
+}
+
 .table-scroll {
   overflow-x: auto;
 }

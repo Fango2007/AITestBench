@@ -57,8 +57,8 @@
         ]
       }
     },
-    "iterations": 1,
-    "sleep_between_ms": 0,
+    "iterations": 5,
+    "sleep_between_ms": 60000,
     "cold_condition": {
       "mode": "unload",
       "note": "If your server supports eviction/unload, set mode accordingly."

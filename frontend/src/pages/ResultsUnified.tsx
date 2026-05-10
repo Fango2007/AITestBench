@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { MergedPageHeader } from '../components/MergedPageHeader.js';
 import { InferenceContextBar } from '../components/InferenceContextBar.js';
 import { ResultsGraphPanel } from '../components/results-graph-panel.js';
+import { ResultsPerformanceComparisonPanel } from '../components/results-performance-comparison-panel.js';
 import { normalizeResultsTab } from '../navigation.js';
 import { getLeaderboard, type LeaderboardEntry } from '../services/leaderboard-api.js';
 import {
@@ -632,6 +633,7 @@ function FilterCheckGroup({
 
 function DashboardTab({ rows, dashboard, onOpenRun }: { rows: ResultsHistoryRow[]; dashboard: Awaited<ReturnType<typeof queryResultsView>>['dashboard']; onOpenRun: (id: string) => void }) {
   const cards = dashboard.scorecards;
+  const hasPerformanceComparison = (dashboard.performance_comparison?.groups.length ?? 0) > 0;
   return (
     <div className="results-main-stack">
       <div className="results-scorecards">
@@ -640,8 +642,14 @@ function DashboardTab({ rows, dashboard, onOpenRun }: { rows: ResultsHistoryRow[
         <div className="results-scorecard"><span>Median latency</span><strong>{formatNumber(cards.median_latency_ms, ' ms')}</strong></div>
         <div className="results-scorecard"><span>Median cost</span><strong>{cards.median_cost == null ? 'N/A' : `$${cards.median_cost.toFixed(6)}`}</strong></div>
       </div>
-      <ResultsGraphPanel panel={seriesPanel('Pass-rate over time', 'pass_rate', dashboard.pass_rate_series)} />
-      <ResultsGraphPanel panel={seriesPanel('Latency distribution', 'latency_ms', dashboard.latency_series)} />
+      {hasPerformanceComparison ? (
+        <ResultsPerformanceComparisonPanel comparison={dashboard.performance_comparison} />
+      ) : (
+        <>
+          <ResultsGraphPanel panel={seriesPanel('Pass-rate over time', 'pass_rate', dashboard.pass_rate_series)} />
+          <ResultsGraphPanel panel={seriesPanel('Latency distribution', 'latency_ms', dashboard.latency_series)} />
+        </>
+      )}
       <section className="results-panel">
         <header className="results-panel__header">
           <h2>Recent runs</h2>

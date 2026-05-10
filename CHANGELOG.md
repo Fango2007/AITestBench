@@ -6,6 +6,11 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- Results dashboard now compares raw cold-start performance across servers and models with sample-backed summary rows and box plots for cold penalty, cold total, and hot total metrics.
+
+
 ## [0.4.0] - 2026-05-10
 
 ### Added
