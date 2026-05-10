@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '../components/EmptyState.js';
 import { InferenceContextBar } from '../components/InferenceContextBar.js';
+import { MergedPageHeader } from '../components/MergedPageHeader.js';
 import { RunDetailDisplay } from '../components/RunDetailDisplay.js';
 import {
   EvaluationQueueDetail,
@@ -173,95 +174,95 @@ export function Evaluate() {
   }
 
   return (
-    <section className="page evaluate-queue-page">
-      <div className="page-header evaluate-header">
-        <div>
-          <h2>Evaluate</h2>
-          <p className="muted">Score completed run outputs against the five-field leaderboard rubric.</p>
-        </div>
-        <button type="button" className="btn btn--ghost" onClick={() => loadQueue(status)} disabled={loading || busy}>Refresh</button>
-      </div>
+    <>
+      <MergedPageHeader
+        title="Evaluate"
+        subtitle="Score completed run outputs against the five-field leaderboard rubric."
+        action={<button type="button" className="btn btn--ghost" onClick={() => loadQueue(status)} disabled={loading || busy}>Refresh</button>}
+      />
       <InferenceContextBar params={selectedParams} readOnly />
-      {error ? <div className="error">{error}</div> : null}
-      {loading ? <p className="muted">Loading evaluation queue...</p> : null}
-      {!loading && items.length === 0 && status === 'pending' ? (
-        <EmptyState
-          className="evaluate-empty"
-          title="All caught up"
-          body="New evaluations appear here when completed runs are ready for scoring."
-        />
-      ) : (
-        <div className="evaluate-queue-layout">
-          <aside className="evaluate-queue-rail">
-            <div className="evaluate-tabs">
-              {(['pending', 'done', 'skipped'] as EvaluationQueueStatus[]).map((entry) => (
-                <button
-                  type="button"
-                  key={entry}
-                  className={status === entry ? 'is-active' : ''}
-                  onClick={() => {
-                    setStatus(entry);
-                    loadQueue(entry);
-                  }}
-                >
-                  {entry} · {counts[entry]}
-                </button>
-              ))}
-            </div>
-            <div className="evaluate-queue-list">
-              {items.map((item) => (
-                <button
-                  type="button"
-                  key={item.test_result_id}
-                  className={selectedId === item.test_result_id ? 'evaluate-queue-row is-selected' : 'evaluate-queue-row'}
-                  onClick={() => setSelectedId(item.test_result_id)}
-                >
-                  <span>
-                    <strong>{item.test_result_id.slice(0, 8)}</strong>
-                    <small>{formatTime(item.started_at)}</small>
-                  </span>
-                  <span>{item.model_name}</span>
-                  <small>{item.template_label}</small>
-                </button>
-              ))}
-            </div>
-          </aside>
-          <main className="evaluate-run-panel">
-            <RunDetailDisplay detail={detail} />
-          </main>
-          <aside className="evaluate-rubric">
-            <div>
-              <span className="label--uppercase">Rubric</span>
-              <h3>Manual score</h3>
-            </div>
-            {SCORE_FIELDS.map((field, index) => (
-              <label key={field.key} className={activeScoreIndex === index ? 'score-row is-active' : 'score-row'}>
-                <span>{field.label}</span>
-                <strong>{scores[field.key]}/5</strong>
-                <input
-                  type="range"
-                  min="1"
-                  max="5"
-                  value={Number(scores[field.key])}
-                  onFocus={() => setActiveScoreIndex(index)}
-                  onChange={(event) => setScores((current) => ({ ...current, [field.key]: Number(event.target.value) }))}
-                />
-              </label>
-            ))}
-            <label className="evaluate-notes">
-              Notes
-              <textarea value={scores.note ?? ''} onChange={(event) => setScores((current) => ({ ...current, note: event.target.value }))} rows={5} />
-            </label>
-            <div className="evaluate-rubric-footer">
-              <span>Total <strong>{SCORE_FIELDS.reduce((sum, field) => sum + Number(scores[field.key]), 0)}/25</strong></span>
-              <div className="actions">
-                <button type="button" className="btn btn--ghost" onClick={handleSkip} disabled={!detail || busy || status !== 'pending'}>Skip</button>
-                <button type="button" onClick={handleSaveNext} disabled={!detail || busy || status !== 'pending' || !validateQueueScores(scores)}>Save & Next</button>
+      <section className="page evaluate-queue-page">
+        {error ? <div className="error">{error}</div> : null}
+        {loading ? <p className="muted">Loading evaluation queue...</p> : null}
+        {!loading && items.length === 0 && status === 'pending' ? (
+          <EmptyState
+            className="evaluate-empty"
+            title="All caught up"
+            body="New evaluations appear here when completed runs are ready for scoring."
+          />
+        ) : (
+          <div className="evaluate-queue-layout">
+            <aside className="evaluate-queue-rail">
+              <div className="evaluate-tabs">
+                {(['pending', 'done', 'skipped'] as EvaluationQueueStatus[]).map((entry) => (
+                  <button
+                    type="button"
+                    key={entry}
+                    className={status === entry ? 'is-active' : ''}
+                    onClick={() => {
+                      setStatus(entry);
+                      loadQueue(entry);
+                    }}
+                  >
+                    {entry} · {counts[entry]}
+                  </button>
+                ))}
               </div>
-            </div>
-          </aside>
-        </div>
-      )}
-    </section>
+              <div className="evaluate-queue-list">
+                {items.map((item) => (
+                  <button
+                    type="button"
+                    key={item.test_result_id}
+                    className={selectedId === item.test_result_id ? 'evaluate-queue-row is-selected' : 'evaluate-queue-row'}
+                    onClick={() => setSelectedId(item.test_result_id)}
+                  >
+                    <span>
+                      <strong>{item.test_result_id.slice(0, 8)}</strong>
+                      <small>{formatTime(item.started_at)}</small>
+                    </span>
+                    <span>{item.model_name}</span>
+                    <small>{item.template_label}</small>
+                  </button>
+                ))}
+              </div>
+            </aside>
+            <main className="evaluate-run-panel">
+              <RunDetailDisplay detail={detail} />
+            </main>
+            <aside className="evaluate-rubric">
+              <div>
+                <span className="label--uppercase">Rubric</span>
+                <h3>Manual score</h3>
+              </div>
+              {SCORE_FIELDS.map((field, index) => (
+                <label key={field.key} className={activeScoreIndex === index ? 'score-row is-active' : 'score-row'}>
+                  <span>{field.label}</span>
+                  <strong>{scores[field.key]}/5</strong>
+                  <input
+                    type="range"
+                    min="1"
+                    max="5"
+                    value={Number(scores[field.key])}
+                    onFocus={() => setActiveScoreIndex(index)}
+                    onChange={(event) => setScores((current) => ({ ...current, [field.key]: Number(event.target.value) }))}
+                  />
+                </label>
+              ))}
+              <label className="evaluate-notes">
+                Notes
+                <textarea value={scores.note ?? ''} onChange={(event) => setScores((current) => ({ ...current, note: event.target.value }))} rows={5} />
+              </label>
+              <div className="evaluate-rubric-footer">
+                <span>Total <strong>{SCORE_FIELDS.reduce((sum, field) => sum + Number(scores[field.key]), 0)}/25</strong></span>
+                <div className="actions">
+                  <button type="button" className="btn btn--ghost" onClick={handleSkip} disabled={!detail || busy || status !== 'pending'}>Skip</button>
+                  <button type="button" onClick={handleSaveNext} disabled={!detail || busy || status !== 'pending' || !validateQueueScores(scores)}>Save & Next</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        )}
+      </section>
+    </>
   );
 }

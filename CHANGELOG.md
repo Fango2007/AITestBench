@@ -6,6 +6,8 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-10
+
 ### Added
 
 - Backend run groups now persist grouped Run executions, instantiate selected templates per target, launch child runs concurrently, expose `/run-groups` create/read/cancel endpoints, and isolate per-target failures.
@@ -24,6 +26,10 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 - Run now uses a unified 1-8 model workflow with query-backed model chips, shared template/options controls, single-target detail rendering, multi-target comparison columns, and summary aggregation.
 - Results now uses a single merged Dashboard/Leaderboard/History page with a shared 240px filter rail, URL-owned tab/filter/sort/pagination/detail state, export/share/reset actions, run detail drawers for Dashboard and History, and evaluation detail drawers for Leaderboard.
 - Package 06 polish adds shared reg-lights, a persistent inference context bar on Run/Templates/Results/Evaluate, a two-pane Templates layout, and a manual Evaluate scoring queue.
+- Run, Templates, Results, and Evaluate now share merged page headers with the inference context bar aligned directly below the page header.
+- Results now uses a full-width staged funnel with relationship-aware Servers -> Models -> Tests/range filtering, a full-width empty dashboard state, and downstream pruning when upstream selections change.
+- Results and Catalog Models funnels now share numbered stages, aligned Clear/Collapse controls, Catalog-style collapsible rail treatment, and persisted collapse state.
+- Results Tests/range and Catalog Models filter rails now use scoped Clear actions that preserve upstream selections while clearing only the filters owned by that rail.
 - Leaderboard remains backed by `evaluations` while accepting server, model, score range, sort, and group query parameters, including grouping by server and `inference_config.quantization_level`.
 - Inference server authentication can now use stored raw bearer/custom-header tokens for backend probes and runs while preserving the existing `token_env` fallback.
 

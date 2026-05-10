@@ -13,7 +13,7 @@ const AUTH_HEADERS = { 'x-api-token': 'test-token' };
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = path.resolve(moduleDir, '../../src/models/schema.sql');
 
-function seedServer(serverId = 'srv-results') {
+function seedServer(serverId = 'srv-results', displayName = 'Results Server') {
   const db = getDb();
   const now = '2026-05-01T00:00:00.000Z';
   db.prepare(`
@@ -23,7 +23,7 @@ function seedServer(serverId = 'srv-results') {
     ) VALUES (?, ?, 1, 0, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     serverId,
-    'Results Server',
+    displayName,
     now,
     now,
     JSON.stringify({ api: { api_version: '1.0.0' } }),
@@ -43,23 +43,26 @@ function seedRun(input: {
   startedAt: string;
   latency: number;
   templateId?: string;
+  serverId?: string;
 }) {
   const db = getDb();
   const templateId = input.templateId ?? 'cold-start';
+  const serverId = input.serverId ?? 'srv-results';
   db.prepare(`
     INSERT INTO active_tests (
       id, template_id, template_version, inference_server_id, model_name,
       status, created_at, deleted_at, version, command_preview, python_ready
-    ) VALUES (?, ?, '1.0.0', 'srv-results', ?, 'active', ?, null, '1.0.0', null, 1)
-  `).run(`${templateId}-${input.runId}`, templateId, input.model, input.startedAt);
+    ) VALUES (?, ?, '1.0.0', ?, ?, 'active', ?, null, '1.0.0', null, 1)
+  `).run(`${templateId}-${input.runId}`, templateId, serverId, input.model, input.startedAt);
 
   db.prepare(`
     INSERT INTO runs (
       id, inference_server_id, suite_id, test_id, profile_id, profile_version,
       status, started_at, ended_at, environment_snapshot, retention_days
-    ) VALUES (?, 'srv-results', null, ?, null, null, 'completed', ?, ?, ?, 30)
+    ) VALUES (?, ?, null, ?, null, null, 'completed', ?, ?, ?, 30)
   `).run(
     input.runId,
+    serverId,
     `${templateId}-${input.runId}`,
     input.startedAt,
     input.startedAt,
@@ -148,6 +151,37 @@ describe('results-view routes', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().history.rows).toHaveLength(1);
     expect(response.json().history.rows[0].run_id).toBe('run-pass');
+  });
+
+  it('returns relationship metadata for the results funnel options', async () => {
+    const app = createServer();
+    seedServer('srv-other', 'Other Server');
+    seedRun({ runId: 'run-a', serverId: 'srv-results', model: 'model-a', templateId: 'template-one', verdict: 'pass', startedAt: '2026-05-01T10:00:00.000Z', latency: 100 });
+    seedRun({ runId: 'run-b', serverId: 'srv-other', model: 'model-b', templateId: 'template-two', verdict: 'pass', startedAt: '2026-05-01T11:00:00.000Z', latency: 120 });
+    seedRun({ runId: 'run-c', serverId: 'srv-other', model: 'model-a', templateId: 'template-two', verdict: 'fail', startedAt: '2026-05-01T12:00:00.000Z', latency: 140 });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/results-view/query',
+      headers: AUTH_HEADERS,
+      payload: {
+        date_from: '2026-05-01T00:00:00.000Z',
+        date_to: '2026-05-02T00:00:00.000Z'
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const options = response.json().filter_options;
+    expect(options.models.find((entry: { id: string }) => entry.id === 'model-a').server_ids).toEqual(['srv-other', 'srv-results']);
+    expect(options.models.find((entry: { id: string }) => entry.id === 'model-b').server_ids).toEqual(['srv-other']);
+    expect(options.templates.find((entry: { id: string }) => entry.id === 'template-one')).toMatchObject({
+      server_ids: ['srv-results'],
+      model_names: ['model-a']
+    });
+    expect(options.templates.find((entry: { id: string }) => entry.id === 'template-two')).toMatchObject({
+      server_ids: ['srv-other'],
+      model_names: ['model-a', 'model-b']
+    });
   });
 
   it('opens run drawer detail for a history row', async () => {
