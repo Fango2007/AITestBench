@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from './api.js';
+import { apiDelete, apiGet, apiPost } from './api.js';
 
 export type ResultsTab = 'dashboard' | 'leaderboard' | 'history';
 export type ResultsStatus = 'pass' | 'fail' | 'partial' | 'streaming';
@@ -155,4 +155,8 @@ export function getResultsRunDetail(runId: string): Promise<ResultsRunDetail> {
 
 export function getResultsEvaluationDetail(evaluationId: string): Promise<ResultsEvaluationDetail> {
   return apiGet<ResultsEvaluationDetail>(`/evaluations/${encodeURIComponent(evaluationId)}`);
+}
+
+export async function deleteRun(runId: string): Promise<void> {
+  await apiDelete(`/runs/${encodeURIComponent(runId)}`);
 }

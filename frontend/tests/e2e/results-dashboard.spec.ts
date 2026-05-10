@@ -282,3 +282,80 @@ test('merged Results dashboard filter and render flow', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'No runs in the selected range' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Go to Run page' })).toBeVisible();
 });
+
+test('deletes a run from the run detail drawer after confirmation', async ({ page }) => {
+  let deleted = false;
+  let deleteRequests = 0;
+  let dialogCount = 0;
+
+  await page.route('**/results-view/query', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(resultsViewPayload(deleted))
+    });
+  });
+
+  await page.route('**/results-view/runs/run-dashboard-1', async (route) => {
+    if (deleted) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Run not found' })
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        run: resultsViewPayload().history.rows[0],
+        raw_run: { id: 'run-dashboard-1', status: 'completed' },
+        results: [
+          {
+            id: 'result-dashboard-1',
+            test_id: 'latency-benchmark',
+            template_label: 'latency-benchmark',
+            verdict: 'pass',
+            metrics: { latency_ms: 80 }
+          }
+        ],
+        documents: [{ summary: { passed_steps: 1, failed_steps: 0 } }]
+      })
+    });
+  });
+
+  await page.route('**/runs/run-dashboard-1', async (route) => {
+    if (route.request().method() !== 'DELETE') {
+      await route.fallback();
+      return;
+    }
+    deleteRequests += 1;
+    deleted = true;
+    await route.fulfill({ status: 204 });
+  });
+
+  page.on('dialog', async (dialog) => {
+    dialogCount += 1;
+    if (dialogCount === 1) {
+      await dialog.dismiss();
+      return;
+    }
+    await dialog.accept();
+  });
+
+  await page.goto('/results?tab=dashboard');
+  await page.locator('.results-run-row').filter({ hasText: 'latency-benchmark' }).click();
+  await expect(page.getByText('Run detail')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Delete run' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Delete run' }).click();
+  expect(deleteRequests).toBe(0);
+  await expect(page.getByText('Run detail')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Delete run' }).click();
+  await expect(page.getByText('Run detail')).toHaveCount(0);
+  expect(deleteRequests).toBe(1);
+  expect(page.url()).not.toContain('run=run-dashboard-1');
+  await expect(page.getByRole('heading', { name: 'No runs in the selected range' })).toBeVisible();
+});

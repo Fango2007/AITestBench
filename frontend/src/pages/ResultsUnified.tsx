@@ -8,6 +8,7 @@ import { ResultsPerformanceComparisonPanel } from '../components/results-perform
 import { normalizeResultsTab } from '../navigation.js';
 import { getLeaderboard, type LeaderboardEntry } from '../services/leaderboard-api.js';
 import {
+  deleteRun,
   getResultsEvaluationDetail,
   getResultsRunDetail,
   queryResultsView,
@@ -842,24 +843,43 @@ function DetailDrawer({
   runDetail,
   evaluationDetail,
   loading,
-  onClose
+  deletingRun,
+  deleteRunError,
+  onClose,
+  onDeleteRun
 }: {
   runDetail: ResultsRunDetail | null;
   evaluationDetail: ResultsEvaluationDetail | null;
   loading: boolean;
+  deletingRun: boolean;
+  deleteRunError: string | null;
   onClose: () => void;
+  onDeleteRun: () => void;
 }) {
   return (
-    <div className="results-drawer-backdrop" role="presentation" onClick={onClose}>
+    <div className="results-drawer-backdrop" role="presentation" onClick={() => {
+      if (!deletingRun) {
+        onClose();
+      }
+    }}>
       <aside className="results-drawer" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         <header className="results-drawer__header">
-          <button type="button" className="ghost-button" onClick={onClose}>Close</button>
+          <div className="results-drawer__actions">
+            <button type="button" className="ghost-button" onClick={onClose} disabled={deletingRun}>Close</button>
+            {runDetail ? (
+              <button type="button" className="btn btn--danger" onClick={onDeleteRun} disabled={deletingRun || loading}>
+                {deletingRun ? 'Deleting...' : 'Delete run'}
+              </button>
+            ) : null}
+          </div>
           <div>
             <h2>{runDetail ? runDetail.run.run_id : evaluationDetail ? evaluationDetail.evaluation.id : 'Detail'}</h2>
             <p>{runDetail ? 'Run detail' : 'Evaluation detail'}</p>
           </div>
         </header>
         {loading ? <p className="muted">Loading detail...</p> : null}
+        {deletingRun ? <p className="muted">Deleting run...</p> : null}
+        {deleteRunError ? <div className="error" role="alert">{deleteRunError}</div> : null}
         {runDetail ? <RunDetailBody detail={runDetail} /> : null}
         {evaluationDetail ? <EvaluationDetailBody detail={evaluationDetail} /> : null}
       </aside>
@@ -937,6 +957,7 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof queryResultsView>> | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [resultsRefreshToken, setResultsRefreshToken] = useState(0);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [leaderboardRefreshToken, setLeaderboardRefreshToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -945,6 +966,8 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
   const [runDetail, setRunDetail] = useState<ResultsRunDetail | null>(null);
   const [evaluationDetail, setEvaluationDetail] = useState<ResultsEvaluationDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [deletingRun, setDeletingRun] = useState(false);
+  const [deleteRunError, setDeleteRunError] = useState<string | null>(null);
   const hasExplicitDateTo = searchParams.has('date_to');
 
   useEffect(() => {
@@ -972,7 +995,7 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
     return () => {
       active = false;
     };
-  }, [filters]);
+  }, [filters, resultsRefreshToken]);
 
   useEffect(() => {
     if (activeTab !== 'leaderboard') {
@@ -1025,10 +1048,12 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
     if (!runId && !evaluationId) {
       setRunDetail(null);
       setEvaluationDetail(null);
+      setDeleteRunError(null);
       return;
     }
     let active = true;
     setDetailLoading(true);
+    setDeleteRunError(null);
     setRunDetail(null);
     setEvaluationDetail(null);
     const request = runId ? getResultsRunDetail(runId).then((detail) => ({ run: detail })) : getResultsEvaluationDetail(evaluationId as string).then((detail) => ({ evaluation: detail }));
@@ -1079,10 +1104,40 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
   }
 
   function closeDrawer() {
+    if (deletingRun) {
+      return;
+    }
     const next = new URLSearchParams(searchParams);
     next.delete('run');
     next.delete('evaluation');
     setSearchParams(next);
+  }
+
+  async function handleDeleteRun() {
+    if (!runDetail || deletingRun) {
+      return;
+    }
+    const confirmed = window.confirm(`Delete run ${runDetail.run.run_id} and its results? This cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingRun(true);
+    setDeleteRunError(null);
+    try {
+      await deleteRun(runDetail.run.run_id);
+      const next = new URLSearchParams(searchParams);
+      next.delete('run');
+      next.delete('evaluation');
+      setSearchParams(next);
+      setRunDetail(null);
+      setResultsRefreshToken((current) => current + 1);
+      window.dispatchEvent(new CustomEvent('runs:changed'));
+    } catch (err) {
+      setDeleteRunError(err instanceof Error ? err.message : 'Unable to delete run');
+    } finally {
+      setDeletingRun(false);
+    }
   }
 
   function exportView() {
@@ -1187,7 +1242,15 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
         </main>
       </section>
       {runDetail || evaluationDetail || detailLoading ? (
-        <DetailDrawer runDetail={runDetail} evaluationDetail={evaluationDetail} loading={detailLoading} onClose={closeDrawer} />
+        <DetailDrawer
+          runDetail={runDetail}
+          evaluationDetail={evaluationDetail}
+          loading={detailLoading}
+          deletingRun={deletingRun}
+          deleteRunError={deleteRunError}
+          onClose={closeDrawer}
+          onDeleteRun={handleDeleteRun}
+        />
       ) : null}
     </>
   );
