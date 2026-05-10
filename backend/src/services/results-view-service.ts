@@ -95,7 +95,45 @@ export interface ResultsDashboardView {
   };
   pass_rate_series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>;
   latency_series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>;
+  performance_comparison: ResultsPerformanceComparisonView;
   recent_runs: ResultsHistoryRow[];
+}
+
+export type ResultsPerformanceComparisonMetricKey = 'cold_penalty_ms' | 'cold_total_ms' | 'hot_total_ms';
+
+export interface ResultsPerformanceComparisonStats {
+  count: number;
+  min: number;
+  q1: number;
+  median: number;
+  q3: number;
+  p95: number;
+  max: number;
+  mean: number;
+}
+
+export interface ResultsPerformanceComparisonMetric {
+  metric_key: ResultsPerformanceComparisonMetricKey;
+  label: string;
+  unit: string;
+  samples: number[];
+  stats: ResultsPerformanceComparisonStats;
+}
+
+export interface ResultsPerformanceComparisonGroup {
+  group_id: string;
+  server_id: string;
+  server_name: string;
+  model_name: string;
+  template_id: string;
+  template_label: string;
+  metrics: Partial<Record<ResultsPerformanceComparisonMetricKey, ResultsPerformanceComparisonMetric>>;
+}
+
+export interface ResultsPerformanceComparisonView {
+  default_metric: ResultsPerformanceComparisonMetricKey;
+  metrics: Array<{ metric_key: ResultsPerformanceComparisonMetricKey; label: string; unit: string }>;
+  groups: ResultsPerformanceComparisonGroup[];
 }
 
 export interface ResultsRunDetail {
@@ -299,6 +337,73 @@ function median(values: Array<number | null>): number | null {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+const COMPARISON_METRICS: ResultsPerformanceComparisonView['metrics'] = [
+  { metric_key: 'cold_penalty_ms', label: 'Cold penalty', unit: 'ms' },
+  { metric_key: 'cold_total_ms', label: 'Cold total', unit: 'ms' },
+  { metric_key: 'hot_total_ms', label: 'Hot total', unit: 'ms' }
+];
+
+function percentile(sortedValues: number[], percentileValue: number): number {
+  if (sortedValues.length === 0) {
+    return Number.NaN;
+  }
+  if (sortedValues.length === 1) {
+    return sortedValues[0];
+  }
+  const rank = (percentileValue / 100) * (sortedValues.length - 1);
+  const lower = Math.floor(rank);
+  const upper = Math.ceil(rank);
+  if (lower === upper) {
+    return sortedValues[lower];
+  }
+  const weight = rank - lower;
+  return sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * weight;
+}
+
+function comparisonStats(samples: number[]): ResultsPerformanceComparisonStats {
+  const sorted = samples.slice().sort((a, b) => a - b);
+  const sum = sorted.reduce((total, value) => total + value, 0);
+  return {
+    count: sorted.length,
+    min: sorted[0],
+    q1: percentile(sorted, 25),
+    median: percentile(sorted, 50),
+    q3: percentile(sorted, 75),
+    p95: percentile(sorted, 95),
+    max: sorted[sorted.length - 1],
+    mean: sum / sorted.length
+  };
+}
+
+function sanitizeSamples(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => (typeof entry === 'number' ? entry : typeof entry === 'string' && entry.trim() ? Number(entry) : Number.NaN))
+    .filter((entry) => Number.isFinite(entry));
+}
+
+function sampleEnvelope(artefacts: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!artefacts) {
+    return null;
+  }
+  const pythonResult = artefacts.python_result;
+  if (pythonResult && typeof pythonResult === 'object' && !Array.isArray(pythonResult)) {
+    return pythonResult as Record<string, unknown>;
+  }
+  return artefacts;
+}
+
+function metricSamples(artefacts: Record<string, unknown> | null, metricKey: ResultsPerformanceComparisonMetricKey): number[] {
+  const envelope = sampleEnvelope(artefacts);
+  const samples = envelope?.samples;
+  if (!samples || typeof samples !== 'object' || Array.isArray(samples)) {
+    return [];
+  }
+  return sanitizeSamples((samples as Record<string, unknown>)[metricKey]);
+}
+
 function durationMs(startedAt: string, endedAt: string | null): number | null {
   if (!endedAt) {
     return null;
@@ -351,7 +456,7 @@ function toHistoryRow(run: RunAccumulator): ResultsHistoryRow {
     template_label: firstResult?.template_label ?? run.results[0]?.test_id ?? 'unknown',
     score: median(scores),
     latency_ms: median(allLatencies),
-    cost: allCosts.reduce((sum, value) => sum + (value ?? 0), 0) || null,
+    cost: allCosts.reduce<number>((sum, value) => sum + (value ?? 0), 0) || null,
     tags,
     result_count: run.results.length
   };
@@ -626,7 +731,108 @@ function dashboard(rows: ResultsHistoryRow[]): ResultsDashboardView {
     },
     pass_rate_series: Array.from(passSeries.entries()).map(([label, points]) => ({ label, points: points.sort((a, b) => a.x.localeCompare(b.x)) })),
     latency_series: Array.from(latencySeries.entries()).map(([label, points]) => ({ label, points: points.sort((a, b) => a.x.localeCompare(b.x)) })),
+    performance_comparison: emptyPerformanceComparison(),
     recent_runs: rows.slice().sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 8)
+  };
+}
+
+function emptyPerformanceComparison(): ResultsPerformanceComparisonView {
+  return {
+    default_metric: 'cold_penalty_ms',
+    metrics: COMPARISON_METRICS,
+    groups: []
+  };
+}
+
+function dashboardWithComparison(rows: ResultsHistoryRow[], runs: RunAccumulator[]): ResultsDashboardView {
+  return {
+    ...dashboard(rows),
+    performance_comparison: performanceComparison(runs)
+  };
+}
+
+function performanceComparison(runs: RunAccumulator[]): ResultsPerformanceComparisonView {
+  const groups = new Map<
+    string,
+    {
+      server_id: string;
+      server_name: string;
+      model_name: string;
+      template_id: string;
+      template_label: string;
+      samples: Record<ResultsPerformanceComparisonMetricKey, number[]>;
+    }
+  >();
+
+  for (const run of runs) {
+    const serverId = run.inference_server_id;
+    const serverName = run.server_display_name ?? serverId;
+    for (const result of run.results) {
+      const resultSamples = COMPARISON_METRICS.map((metric) => ({
+        metric,
+        samples: metricSamples(result.artefacts, metric.metric_key)
+      }));
+      if (!resultSamples.some((entry) => entry.samples.length > 0)) {
+        continue;
+      }
+
+      const modelName = selectedModel(run.environment_snapshot, result.document);
+      const groupId = [serverId, modelName, result.template_id].join('|');
+      const group = groups.get(groupId) ?? {
+        server_id: serverId,
+        server_name: serverName,
+        model_name: modelName,
+        template_id: result.template_id,
+        template_label: result.template_label,
+        samples: {
+          cold_penalty_ms: [],
+          cold_total_ms: [],
+          hot_total_ms: []
+        }
+      };
+      for (const entry of resultSamples) {
+        group.samples[entry.metric.metric_key].push(...entry.samples);
+      }
+      groups.set(groupId, group);
+    }
+  }
+
+  return {
+    default_metric: 'cold_penalty_ms',
+    metrics: COMPARISON_METRICS,
+    groups: Array.from(groups.entries())
+      .map(([groupId, group]) => ({
+        group_id: groupId,
+        server_id: group.server_id,
+        server_name: group.server_name,
+        model_name: group.model_name,
+        template_id: group.template_id,
+        template_label: group.template_label,
+        metrics: Object.fromEntries(
+          COMPARISON_METRICS.flatMap((metric) => {
+            const samples = group.samples[metric.metric_key];
+            if (samples.length === 0) {
+              return [];
+            }
+            return [
+              [
+                metric.metric_key,
+                {
+                  ...metric,
+                  samples,
+                  stats: comparisonStats(samples)
+                }
+              ]
+            ];
+          })
+        ) as Partial<Record<ResultsPerformanceComparisonMetricKey, ResultsPerformanceComparisonMetric>>
+      }))
+      .filter((group) => Object.keys(group.metrics).length > 0)
+      .sort((a, b) => {
+        const aMedian = a.metrics.cold_penalty_ms?.stats.median ?? Number.POSITIVE_INFINITY;
+        const bMedian = b.metrics.cold_penalty_ms?.stats.median ?? Number.POSITIVE_INFINITY;
+        return aMedian - bMedian || a.server_name.localeCompare(b.server_name) || a.model_name.localeCompare(b.model_name);
+      })
   };
 }
 
@@ -639,6 +845,8 @@ export function queryResultsView(payload: Record<string, unknown> | undefined): 
   const allRows = runs.map(toHistoryRow);
   const options = countOptions(allRows);
   const filteredRows = allRows.filter((row) => matchesFilters(row, normalized.value));
+  const filteredRunIds = new Set(filteredRows.map((row) => row.run_id));
+  const filteredRuns = runs.filter((run) => filteredRunIds.has(run.run_id));
   const sortedRows = sortRows(filteredRows, normalized.value);
   const start = (normalized.value.page - 1) * normalized.value.page_size;
   const pageRows = sortedRows.slice(start, start + normalized.value.page_size);
@@ -652,7 +860,7 @@ export function queryResultsView(payload: Record<string, unknown> | undefined): 
         ...options,
         date_bounds: { min: dates[0] ?? null, max: dates[dates.length - 1] ?? null }
       },
-      dashboard: dashboard(filteredRows),
+      dashboard: dashboardWithComparison(filteredRows, filteredRuns),
       history: {
         rows: pageRows,
         page: normalized.value.page,
