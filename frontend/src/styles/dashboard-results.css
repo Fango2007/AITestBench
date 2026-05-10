@@ -591,6 +591,13 @@
   background: var(--paper-1);
 }
 
+.results-drawer__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .results-drawer__header h2 {
   margin: 0;
   font-family: var(--font-mono);

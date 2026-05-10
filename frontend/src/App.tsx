@@ -201,11 +201,13 @@ export function App() {
     refreshCounts();
     const intervalId = window.setInterval(refreshCounts, 30000);
     window.addEventListener('database:cleared', refreshCounts);
+    window.addEventListener('runs:changed', refreshCounts);
 
     return () => {
       isActive = false;
       window.clearInterval(intervalId);
       window.removeEventListener('database:cleared', refreshCounts);
+      window.removeEventListener('runs:changed', refreshCounts);
     };
   }, []);
 

@@ -9,6 +9,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 ### Added
 
 - Results dashboard now compares raw cold-start performance across servers and models with sample-backed summary rows and box plots for cold penalty, cold total, and hot total metrics.
+- Results run detail drawers now support guarded hard deletion of completed runs, removing result documents, metric samples, queue skips, and run-group item links while preserving linked evaluations.
 
 
 ## [0.4.0] - 2026-05-10
