@@ -48,7 +48,45 @@ export interface ResultsDashboardView {
   };
   pass_rate_series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>;
   latency_series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>;
+  performance_comparison: ResultsPerformanceComparisonView;
   recent_runs: ResultsHistoryRow[];
+}
+
+export type ResultsPerformanceComparisonMetricKey = 'cold_penalty_ms' | 'cold_total_ms' | 'hot_total_ms';
+
+export interface ResultsPerformanceComparisonStats {
+  count: number;
+  min: number;
+  q1: number;
+  median: number;
+  q3: number;
+  p95: number;
+  max: number;
+  mean: number;
+}
+
+export interface ResultsPerformanceComparisonMetric {
+  metric_key: ResultsPerformanceComparisonMetricKey;
+  label: string;
+  unit: string;
+  samples: number[];
+  stats: ResultsPerformanceComparisonStats;
+}
+
+export interface ResultsPerformanceComparisonGroup {
+  group_id: string;
+  server_id: string;
+  server_name: string;
+  model_name: string;
+  template_id: string;
+  template_label: string;
+  metrics: Partial<Record<ResultsPerformanceComparisonMetricKey, ResultsPerformanceComparisonMetric>>;
+}
+
+export interface ResultsPerformanceComparisonView {
+  default_metric: ResultsPerformanceComparisonMetricKey;
+  metrics: Array<{ metric_key: ResultsPerformanceComparisonMetricKey; label: string; unit: string }>;
+  groups: ResultsPerformanceComparisonGroup[];
 }
 
 export interface ResultsFilterOptions {

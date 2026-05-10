@@ -44,6 +44,11 @@ function seedRun(input: {
   latency: number;
   templateId?: string;
   serverId?: string;
+  coldStartSamples?: {
+    cold_total_ms: number[];
+    hot_total_ms: number[];
+    cold_penalty_ms: number[];
+  };
 }) {
   const db = getDb();
   const templateId = input.templateId ?? 'cold-start';
@@ -82,7 +87,15 @@ function seedRun(input: {
     input.verdict,
     input.verdict === 'fail' ? 'assertion failed' : null,
     JSON.stringify({ latency_ms: input.latency, estimated_cost: 0.001 }),
-    JSON.stringify({}),
+    JSON.stringify(
+      input.coldStartSamples
+        ? {
+            python_result: {
+              samples: input.coldStartSamples
+            }
+          }
+        : {}
+    ),
     JSON.stringify({ repetitions: 1 }),
     input.startedAt,
     input.startedAt
@@ -182,6 +195,72 @@ describe('results-view routes', () => {
       server_ids: ['srv-other'],
       model_names: ['model-a', 'model-b']
     });
+  });
+
+  it('returns cold-start sample comparisons grouped by server, model, and template', async () => {
+    const app = createServer();
+    seedServer('srv-other', 'Other Server');
+    seedRun({
+      runId: 'run-local-a',
+      serverId: 'srv-results',
+      model: 'model-a',
+      templateId: 'Cold_start_penalty',
+      verdict: 'pass',
+      startedAt: '2026-05-01T10:00:00.000Z',
+      latency: 100,
+      coldStartSamples: {
+        cold_total_ms: [300, 320, 340],
+        hot_total_ms: [200, 200, 200],
+        cold_penalty_ms: [100, 120, 140]
+      }
+    });
+    seedRun({
+      runId: 'run-other-b',
+      serverId: 'srv-other',
+      model: 'model-b',
+      templateId: 'Cold_start_penalty',
+      verdict: 'pass',
+      startedAt: '2026-05-01T11:00:00.000Z',
+      latency: 90,
+      coldStartSamples: {
+        cold_total_ms: [240, 250, 260],
+        hot_total_ms: [160, 160, 160],
+        cold_penalty_ms: [80, 90, 100]
+      }
+    });
+    seedRun({
+      runId: 'run-summary-only',
+      serverId: 'srv-results',
+      model: 'model-c',
+      templateId: 'Cold_start_penalty',
+      verdict: 'pass',
+      startedAt: '2026-05-01T12:00:00.000Z',
+      latency: 80
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/results-view/query',
+      headers: AUTH_HEADERS,
+      payload: {
+        date_from: '2026-05-01T00:00:00.000Z',
+        date_to: '2026-05-02T00:00:00.000Z',
+        template_ids: ['Cold_start_penalty']
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const comparison = response.json().dashboard.performance_comparison;
+    expect(comparison.default_metric).toBe('cold_penalty_ms');
+    expect(comparison.groups).toHaveLength(2);
+    expect(comparison.groups.map((group: { model_name: string }) => group.model_name)).toEqual(['model-b', 'model-a']);
+    expect(comparison.groups[0].metrics.cold_penalty_ms.stats).toMatchObject({
+      count: 3,
+      min: 80,
+      median: 90,
+      max: 100
+    });
+    expect(comparison.groups[1].metrics.cold_total_ms.samples).toEqual([300, 320, 340]);
   });
 
   it('opens run drawer detail for a history row', async () => {

@@ -89,6 +89,49 @@ function resultsViewPayload(empty = false) {
       latency_series: rows.length
         ? [{ label: 'mistral:latest', points: [{ x: '2026-02-08T00:00:00.000Z', y: 80 }] }]
         : [],
+      performance_comparison: {
+        default_metric: 'cold_penalty_ms',
+        metrics: [
+          { metric_key: 'cold_penalty_ms', label: 'Cold penalty', unit: 'ms' },
+          { metric_key: 'cold_total_ms', label: 'Cold total', unit: 'ms' },
+          { metric_key: 'hot_total_ms', label: 'Hot total', unit: 'ms' }
+        ],
+        groups: rows.length
+          ? [
+              {
+                group_id: 'srv-local|mistral:latest|latency-benchmark',
+                server_id: 'srv-local',
+                server_name: 'Local Server',
+                model_name: 'mistral:latest',
+                template_id: 'latency-benchmark',
+                template_label: 'latency-benchmark',
+                metrics: {
+                  cold_penalty_ms: {
+                    metric_key: 'cold_penalty_ms',
+                    label: 'Cold penalty',
+                    unit: 'ms',
+                    samples: [70, 80, 90],
+                    stats: { count: 3, min: 70, q1: 75, median: 80, q3: 85, p95: 89, max: 90, mean: 80 }
+                  },
+                  cold_total_ms: {
+                    metric_key: 'cold_total_ms',
+                    label: 'Cold total',
+                    unit: 'ms',
+                    samples: [150, 160, 170],
+                    stats: { count: 3, min: 150, q1: 155, median: 160, q3: 165, p95: 169, max: 170, mean: 160 }
+                  },
+                  hot_total_ms: {
+                    metric_key: 'hot_total_ms',
+                    label: 'Hot total',
+                    unit: 'ms',
+                    samples: [80, 80, 80],
+                    stats: { count: 3, min: 80, q1: 80, median: 80, q3: 80, p95: 80, max: 80, mean: 80 }
+                  }
+                }
+              }
+            ]
+          : []
+      },
       recent_runs: rows
     },
     history: {
@@ -220,8 +263,10 @@ test('merged Results dashboard filter and render flow', async ({ page }) => {
 
   await expect(page.getByText('Total runs')).toBeVisible();
   await expect(page.getByText('Pass rate')).toBeVisible();
-  await expect(page.locator('.dashboard-panel')).toHaveCount(2);
-  await expect(page.locator('[data-panel-type="graph"]').first()).toBeVisible();
+  await expect(page.locator('[data-panel-type="performance-comparison"]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cold-start comparison' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'mistral:latest' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: '80.00 ms' }).first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recent runs' })).toBeVisible();
 
   const recentRun = page.locator('.results-run-row').filter({ hasText: 'latency-benchmark' });
