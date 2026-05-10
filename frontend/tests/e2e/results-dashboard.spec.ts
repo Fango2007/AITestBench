@@ -20,6 +20,23 @@ function resultsViewPayload(empty = false) {
           cost: 0.001,
           tags: ['nightly'],
           result_count: 1
+        },
+        {
+          run_id: 'run-dashboard-2',
+          status: 'pass',
+          started_at: '2026-02-08T01:00:00.000Z',
+          ended_at: '2026-02-08T01:00:11.000Z',
+          duration_ms: 11000,
+          server_id: 'srv-remote',
+          server_name: 'Remote Server',
+          model_name: 'qwen:latest',
+          template_id: 'tool-calling',
+          template_label: 'tool-calling',
+          score: 92,
+          latency_ms: 120,
+          cost: 0.002,
+          tags: ['nightly'],
+          result_count: 1
         }
       ];
 
@@ -40,10 +57,19 @@ function resultsViewPayload(empty = false) {
       page_size: 50
     },
     filter_options: {
-      servers: [{ id: 'srv-local', label: 'Local Server', count: 1 }],
-      models: [{ id: 'mistral:latest', label: 'mistral:latest', count: 1 }],
-      templates: [{ id: 'latency-benchmark', label: 'latency-benchmark', kind: 'JSON', count: 1 }],
-      statuses: [{ id: 'pass', label: 'pass', count: 1 }],
+      servers: [
+        { id: 'srv-local', label: 'Local Server', count: 1 },
+        { id: 'srv-remote', label: 'Remote Server', count: 1 }
+      ],
+      models: [
+        { id: 'mistral:latest', label: 'mistral:latest', count: 1, server_ids: ['srv-local'] },
+        { id: 'qwen:latest', label: 'qwen:latest', count: 1, server_ids: ['srv-remote'] }
+      ],
+      templates: [
+        { id: 'latency-benchmark', label: 'latency-benchmark', kind: 'JSON', count: 1, server_ids: ['srv-local'], model_names: ['mistral:latest'] },
+        { id: 'tool-calling', label: 'tool-calling', kind: 'PY', count: 1, server_ids: ['srv-remote'], model_names: ['qwen:latest'] }
+      ],
+      statuses: [{ id: 'pass', label: 'pass', count: rows.length }],
       tags: [{ id: 'nightly', label: 'nightly', count: 1 }],
       date_bounds: {
         min: empty ? null : '2026-02-08T00:00:00.000Z',
@@ -108,12 +134,90 @@ test('merged Results dashboard filter and render flow', async ({ page }) => {
       })
     });
   });
+  await page.addInitScript(() => {
+    if (!window.sessionStorage.getItem('results-funnel-e2e-ready')) {
+      window.localStorage.removeItem('results.funnelCollapsedStages');
+      window.sessionStorage.setItem('results-funnel-e2e-ready', 'true');
+    }
+  });
 
   await page.goto('/results?tab=dashboard');
 
   await expect(page.getByRole('heading', { name: 'Results' })).toBeVisible();
   await expect(page.getByRole('tab', { name: /Dashboard/ })).toHaveAttribute('aria-selected', 'true');
-  await expect(page.locator('[aria-label="Results filters"]')).toBeVisible();
+  const resultsPage = page.locator('.results-page');
+  await expect(resultsPage).toBeVisible();
+  const resultsRail = page.locator('[aria-label="Results filters"]');
+  await expect(resultsRail).toBeVisible();
+  await expect(resultsRail.locator('.results-funnel-stage')).toHaveCount(1);
+  await expect(resultsRail.locator('.catalog-stage-number')).toHaveText(['1']);
+  await expect(resultsRail.getByText('Servers')).toBeVisible();
+  await expect(resultsRail.getByText('Models')).toHaveCount(0);
+  await expect(resultsRail.getByText('Tests & range')).toHaveCount(0);
+  await expect(page.locator('.results-funnel-stage--collapsed')).toHaveCount(0);
+  const railOffset = await page.evaluate(() => {
+    const pageRect = document.querySelector('.results-page')?.getBoundingClientRect();
+    const barRect = document.querySelector('.context-bar')?.getBoundingClientRect();
+    return pageRect && barRect ? Math.abs(pageRect.left - barRect.left) : 999;
+  });
+  expect(railOffset).toBeLessThan(2);
+
+  await expect(page.getByLabel('Local Server')).toBeVisible();
+  await expect(page.getByLabel('mistral:latest')).toHaveCount(0);
+  await expect(page.getByLabel('latency-benchmark')).toHaveCount(0);
+  await page.getByLabel('Local Server').check();
+  await expect(resultsRail.locator('.results-funnel-stage')).toHaveCount(2);
+  await expect(resultsRail.locator('.catalog-stage-number')).toHaveText(['1', '2']);
+  await expect(resultsRail.getByText('Models')).toBeVisible();
+  await expect(resultsRail.getByText('Tests & range')).toHaveCount(0);
+  await expect(page.getByLabel('mistral:latest')).toBeVisible();
+  await expect(page.getByLabel('qwen:latest')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Collapse Servers filters' }).click();
+  await expect(page.locator('[aria-label="Servers collapsed"]')).toBeVisible();
+  await expect(page.locator('.results-rail')).toHaveClass(/results-rail--servers-collapsed/);
+  await page.reload();
+  await expect(page.locator('[aria-label="Servers collapsed"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Expand Servers filters' }).click();
+  await expect(page.getByRole('button', { name: 'Collapse Servers filters' })).toBeVisible();
+
+  await page.getByLabel('mistral:latest').check();
+  await expect(resultsRail.locator('.results-funnel-stage')).toHaveCount(3);
+  await expect(resultsRail.locator('.catalog-stage-number')).toHaveText(['1', '2', '3']);
+  await expect(resultsRail.getByText('Tests & range')).toBeVisible();
+  await expect(page.getByLabel('latency-benchmark')).toBeVisible();
+  await expect(page.getByLabel('tool-calling')).toHaveCount(0);
+
+  const selectedUrl = page.url();
+  await page.getByRole('button', { name: 'Collapse Models filters' }).click();
+  await expect(page.locator('[aria-label="Models collapsed"]')).toBeVisible();
+  await expect(page.getByLabel('mistral:latest')).toHaveCount(0);
+  expect(page.url()).toBe(selectedUrl);
+  await page.getByRole('button', { name: 'Expand Models filters' }).click();
+
+  await page.getByRole('button', { name: 'Collapse Tests & range filters' }).click();
+  await expect(page.locator('[aria-label="Tests & range collapsed"]')).toBeVisible();
+  await expect(page.getByLabel('From')).toHaveCount(0);
+  await expect(page.getByLabel('latency-benchmark')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Expand Tests & range filters' }).click();
+  expect(page.url()).toBe(selectedUrl);
+
+  await expect(page.getByLabel('latency-benchmark')).toBeVisible();
+  await page.getByLabel('latency-benchmark').check();
+  const testsStage = resultsRail.locator('.results-funnel-stage').filter({ hasText: 'Tests & range' });
+  await expect(testsStage.getByText('1 selected')).toBeVisible();
+  await testsStage.getByRole('button', { name: 'Clear' }).click();
+  await expect(page.getByLabel('Local Server')).toBeChecked();
+  await expect(page.getByLabel('mistral:latest')).toBeChecked();
+  await expect(page.getByLabel('latency-benchmark')).not.toBeChecked();
+  await expect(testsStage.getByText('0 selected')).toBeVisible();
+  await page.getByLabel('Local Server').uncheck();
+  await expect(resultsRail.locator('.results-funnel-stage')).toHaveCount(1);
+  await expect(resultsRail.getByText('Models')).toHaveCount(0);
+  await expect(resultsRail.getByText('Tests & range')).toHaveCount(0);
+  await page.getByLabel('Local Server').check();
+  await page.getByLabel('mistral:latest').check();
+
   await expect(page.getByText('Total runs')).toBeVisible();
   await expect(page.getByText('Pass rate')).toBeVisible();
   await expect(page.locator('.dashboard-panel')).toHaveCount(2);
@@ -127,6 +231,9 @@ test('merged Results dashboard filter and render flow', async ({ page }) => {
   await expect(page.getByText('run-dashboard-1')).toBeVisible();
 
   await page.getByRole('button', { name: 'Close' }).click();
-  await page.getByLabel('From').fill('2030-01-01T00:00');
-  await expect(page.getByText('No runs match the current filters.')).toBeVisible();
+  await page.getByRole('button', { name: 'Reset filters' }).click();
+  await page.goto('/results?tab=dashboard&date_from=2030-01-01T00%3A00%3A00.000Z');
+  await expect(page.locator('[aria-label="Results filters"]')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'No runs in the selected range' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Go to Run page' })).toBeVisible();
 });

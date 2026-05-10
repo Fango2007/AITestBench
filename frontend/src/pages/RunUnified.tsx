@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { InferenceServerErrors } from '../components/InferenceServerErrors.js';
 import { InferenceContextBar } from '../components/InferenceContextBar.js';
+import { MergedPageHeader } from '../components/MergedPageHeader.js';
 import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from '../services/inference-param-presets-api.js';
 import { InferenceServerRecord, listInferenceServers } from '../services/inference-servers-api.js';
 import { listModels, ModelRecord } from '../services/models-api.js';
@@ -637,81 +638,84 @@ export function RunUnified() {
   }
 
   return (
-    <section className="run-unified-page">
-      <InferenceServerErrors message={error} />
-      <div className="run-unified-layout">
-        <ConfigRail
-          servers={servers}
-          options={options}
-          selectedTargets={selectedTargets}
-          selectedTemplateIds={selectedTemplateIds}
-          templates={templates}
-          busy={busy}
-          timeoutSec={timeoutSec}
-          seed={seed}
-          runGroup={runGroup}
-          customServerId={customServerId}
-          customModelId={customModelId}
-          onAddTarget={addTarget}
-          onRemoveTarget={removeTarget}
-          onCustomServerChange={setCustomServerId}
-          onCustomModelChange={setCustomModelId}
-          onTemplateChange={setSelectedTemplateIds}
-          onTimeoutChange={setTimeoutSec}
-          onSeedChange={setSeed}
-          onRun={handleRun}
-          onStop={handleStop}
-        />
-        <main className="run-workspace">
-          <header className="run-page-header">
-            <div>
-              <h1>Run</h1>
-              <p>{subtitle}{runGroup ? ` · ${runGroup.status}` : ''}</p>
-            </div>
-            <div className="run-header-actions">
-              <button type="button" disabled={selectedTargets.length < 2}>Promote winner</button>
-              <button type="button" disabled>Save as Profile</button>
-              <button type="button" disabled={!runGroup}>Export</button>
-            </div>
-          </header>
-          <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
-          {runGroup?.items.some((item) => item.status === 'failed') ? (
-            <div className="run-failure-banner">
-              <strong>One or more targets failed mid-run.</strong>
-              <span>Partial output is preserved. Retry starts a new run group for the failed target(s) with the same templates and params.</span>
-              <button type="button" onClick={() => handleRetry(selectedTargets)} disabled={busy}>Retry failed</button>
-              <button type="button" onClick={handleStop} disabled={busy}>Stop run</button>
-            </div>
-          ) : null}
-          <SharedPromptStrip prompt={extractPrompt(selectedTemplate)} />
-          {selectedTargets.length === 0 ? (
-            <RunUnifiedEmpty />
-          ) : selectedTargets.length === 1 ? (
-            <SingleResponseDetail
-              target={selectedTargets[0]}
-              option={optionMap.get(targetKey(selectedTargets[0]))}
-              item={findItemForTarget(runGroup, selectedTargets[0])}
-              onRetry={handleRetry}
-            />
-          ) : (
-            <>
-              <div className="run-compare-grid" style={{ gridTemplateColumns: `repeat(${selectedTargets.length}, minmax(220px, 1fr))` }}>
-                {selectedTargets.map((target, index) => (
-                  <CompareColumn
-                    key={targetKey(target)}
-                    target={target}
-                    option={optionMap.get(targetKey(target))}
-                    item={findItemForTarget(runGroup, target)}
-                    index={index}
-                    onRetry={handleRetry}
-                  />
-                ))}
+    <>
+      <MergedPageHeader title="Run" subtitle="1-8 models" />
+      <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
+      <section className="run-unified-page">
+        <InferenceServerErrors message={error} />
+        <div className="run-unified-layout">
+          <ConfigRail
+            servers={servers}
+            options={options}
+            selectedTargets={selectedTargets}
+            selectedTemplateIds={selectedTemplateIds}
+            templates={templates}
+            busy={busy}
+            timeoutSec={timeoutSec}
+            seed={seed}
+            runGroup={runGroup}
+            customServerId={customServerId}
+            customModelId={customModelId}
+            onAddTarget={addTarget}
+            onRemoveTarget={removeTarget}
+            onCustomServerChange={setCustomServerId}
+            onCustomModelChange={setCustomModelId}
+            onTemplateChange={setSelectedTemplateIds}
+            onTimeoutChange={setTimeoutSec}
+            onSeedChange={setSeed}
+            onRun={handleRun}
+            onStop={handleStop}
+          />
+          <main className="run-workspace">
+            <header className="run-page-header">
+              <div>
+                <h1>Run</h1>
+                <p>{subtitle}{runGroup ? ` · ${runGroup.status}` : ''}</p>
               </div>
-              <CompareSummary group={runGroup} />
-            </>
-          )}
-        </main>
-      </div>
-    </section>
+              <div className="run-header-actions">
+                <button type="button" disabled={selectedTargets.length < 2}>Promote winner</button>
+                <button type="button" disabled>Save as Profile</button>
+                <button type="button" disabled={!runGroup}>Export</button>
+              </div>
+            </header>
+            {runGroup?.items.some((item) => item.status === 'failed') ? (
+              <div className="run-failure-banner">
+                <strong>One or more targets failed mid-run.</strong>
+                <span>Partial output is preserved. Retry starts a new run group for the failed target(s) with the same templates and params.</span>
+                <button type="button" onClick={() => handleRetry(selectedTargets)} disabled={busy}>Retry failed</button>
+                <button type="button" onClick={handleStop} disabled={busy}>Stop run</button>
+              </div>
+            ) : null}
+            <SharedPromptStrip prompt={extractPrompt(selectedTemplate)} />
+            {selectedTargets.length === 0 ? (
+              <RunUnifiedEmpty />
+            ) : selectedTargets.length === 1 ? (
+              <SingleResponseDetail
+                target={selectedTargets[0]}
+                option={optionMap.get(targetKey(selectedTargets[0]))}
+                item={findItemForTarget(runGroup, selectedTargets[0])}
+                onRetry={handleRetry}
+              />
+            ) : (
+              <>
+                <div className="run-compare-grid" style={{ gridTemplateColumns: `repeat(${selectedTargets.length}, minmax(220px, 1fr))` }}>
+                  {selectedTargets.map((target, index) => (
+                    <CompareColumn
+                      key={targetKey(target)}
+                      target={target}
+                      option={optionMap.get(targetKey(target))}
+                      item={findItemForTarget(runGroup, target)}
+                      index={index}
+                      onRetry={handleRetry}
+                    />
+                  ))}
+                </div>
+                <CompareSummary group={runGroup} />
+              </>
+            )}
+          </main>
+        </div>
+      </section>
+    </>
   );
 }

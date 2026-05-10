@@ -76,12 +76,14 @@
 }
 
 .results-page {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 20px 24px 64px;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: calc(100vh - 124px);
+  background: var(--bg-page);
+}
+
+.results-page--empty {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .results-header-actions {
@@ -103,15 +105,34 @@
 }
 
 .results-rail {
-  position: sticky;
-  top: 20px;
-  align-self: start;
+  --results-server-stage-width: 240px;
+  --results-model-stage-width: 240px;
+  --results-tests-stage-width: 240px;
   display: grid;
-  gap: 14px;
-  padding: 14px;
-  background: var(--paper-1);
-  border: 1px solid var(--paper-7);
-  border-radius: 8px;
+  grid-template-columns: var(--results-server-stage-width);
+  align-self: stretch;
+  background: var(--paper-2);
+  border-right: 1px solid var(--paper-7);
+}
+
+.results-rail--has-models {
+  grid-template-columns: var(--results-server-stage-width) var(--results-model-stage-width);
+}
+
+.results-rail--has-tests {
+  grid-template-columns: var(--results-server-stage-width) var(--results-model-stage-width) var(--results-tests-stage-width);
+}
+
+.results-rail--servers-collapsed {
+  --results-server-stage-width: 44px;
+}
+
+.results-rail--models-collapsed {
+  --results-model-stage-width: 44px;
+}
+
+.results-rail--tests-collapsed {
+  --results-tests-stage-width: 44px;
 }
 
 .results-rail__group {
@@ -126,6 +147,80 @@
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
+}
+
+.results-funnel-stage {
+  min-width: 0;
+  padding: 14px;
+  border-right: 1px solid var(--paper-7);
+  overflow: auto;
+}
+
+.results-funnel-stage:last-child {
+  border-right: 0;
+}
+
+.results-funnel-stage__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.results-funnel-stage__header h3 {
+  min-width: 0;
+  flex: 1;
+}
+
+.results-funnel-stage__header span,
+.results-stage-number {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--gold-3);
+  color: var(--paper-1);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.results-funnel-stage__header h3 {
+  margin: 0;
+  color: var(--ink-5);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.results-stage-collapse {
+  width: fit-content;
+  margin: 0 0 10px;
+}
+
+.results-stage-picker {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.results-filter-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.results-funnel-stage--collapsed {
+  display: grid;
+  grid-template-rows: auto auto auto auto;
+  justify-items: center;
+  align-content: start;
+  gap: 8px;
+  padding: 10px 7px;
+  overflow: hidden;
 }
 
 .results-range-buttons,
@@ -177,6 +272,65 @@
   min-width: 0;
   display: grid;
   gap: 16px;
+}
+
+.results-main {
+  padding: 24px;
+  overflow: auto;
+}
+
+.results-dashboard-empty {
+  min-height: calc(100vh - 172px);
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(360px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.results-dashboard-empty__copy h2 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+
+.results-dashboard-empty__copy p {
+  margin: 0;
+  color: var(--ink-4);
+}
+
+.results-empty-card {
+  min-height: 300px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 40px;
+  border: 1px dashed var(--paper-7);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.results-empty-card h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.results-empty-card p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--ink-4);
+  line-height: 1.5;
+}
+
+.results-empty-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 1px dashed var(--paper-7);
+  border-radius: 14px;
+  color: var(--gold-9);
+  font-family: var(--font-mono);
+  letter-spacing: 2px;
 }
 
 .results-scorecards {
@@ -466,12 +620,13 @@
   }
 
   .results-rail {
-    position: static;
+    grid-template-columns: 1fr;
   }
 
   .results-scorecards,
   .results-leader-row,
-  .results-run-row {
+  .results-run-row,
+  .results-dashboard-empty {
     grid-template-columns: 1fr;
   }
 }

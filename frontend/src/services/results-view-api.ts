@@ -53,8 +53,8 @@ export interface ResultsDashboardView {
 
 export interface ResultsFilterOptions {
   servers: Array<{ id: string; label: string; count: number }>;
-  models: Array<{ id: string; label: string; count: number }>;
-  templates: Array<{ id: string; label: string; kind: string; count: number }>;
+  models: Array<{ id: string; label: string; count: number; server_ids?: string[] }>;
+  templates: Array<{ id: string; label: string; kind: string; count: number; server_ids?: string[]; model_names?: string[] }>;
   statuses: Array<{ id: ResultsStatus; label: string; count: number }>;
   tags: Array<{ id: string; label: string; count: number }>;
   date_bounds: { min: string | null; max: string | null };

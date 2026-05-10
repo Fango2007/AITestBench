@@ -109,8 +109,8 @@ export interface ResultsViewResponse {
   filters_applied: ResultsFilterState;
   filter_options: {
     servers: Array<{ id: string; label: string; count: number }>;
-    models: Array<{ id: string; label: string; count: number }>;
-    templates: Array<{ id: string; label: string; kind: string; count: number }>;
+    models: Array<{ id: string; label: string; count: number; server_ids: string[] }>;
+    templates: Array<{ id: string; label: string; kind: string; count: number; server_ids: string[]; model_names: string[] }>;
     statuses: Array<{ id: string; label: string; count: number }>;
     tags: Array<{ id: string; label: string; count: number }>;
     date_bounds: { min: string | null; max: string | null };
@@ -541,19 +541,46 @@ function countOptions(rows: ResultsHistoryRow[]) {
     return map;
   };
   const servers = new Map<string, { label: string; count: number }>();
-  const templates = new Map<string, { label: string; kind: string; count: number }>();
+  const models = new Map<string, { label: string; count: number; serverIds: Set<string> }>();
+  const templates = new Map<string, { label: string; kind: string; count: number; serverIds: Set<string>; modelNames: Set<string> }>();
   for (const row of rows) {
     const server = servers.get(row.server_id) ?? { label: row.server_name, count: 0 };
     server.count += 1;
     servers.set(row.server_id, server);
-    const template = templates.get(row.template_id) ?? { label: row.template_label, kind: 'JSON', count: 0 };
+
+    const model = models.get(row.model_name) ?? { label: row.model_name, count: 0, serverIds: new Set<string>() };
+    model.count += 1;
+    model.serverIds.add(row.server_id);
+    models.set(row.model_name, model);
+
+    const template = templates.get(row.template_id) ?? {
+      label: row.template_label,
+      kind: 'JSON',
+      count: 0,
+      serverIds: new Set<string>(),
+      modelNames: new Set<string>()
+    };
     template.count += 1;
+    template.serverIds.add(row.server_id);
+    template.modelNames.add(row.model_name);
     templates.set(row.template_id, template);
   }
   return {
     servers: Array.from(servers.entries()).map(([id, entry]) => ({ id, label: entry.label, count: entry.count })),
-    models: Array.from(count(rows.map((row) => row.model_name)).entries()).map(([id, total]) => ({ id, label: id, count: total })),
-    templates: Array.from(templates.entries()).map(([id, entry]) => ({ id, label: entry.label, kind: entry.kind, count: entry.count })),
+    models: Array.from(models.entries()).map(([id, entry]) => ({
+      id,
+      label: entry.label,
+      count: entry.count,
+      server_ids: Array.from(entry.serverIds).sort()
+    })),
+    templates: Array.from(templates.entries()).map(([id, entry]) => ({
+      id,
+      label: entry.label,
+      kind: entry.kind,
+      count: entry.count,
+      server_ids: Array.from(entry.serverIds).sort(),
+      model_names: Array.from(entry.modelNames).sort()
+    })),
     statuses: Array.from(count(rows.map((row) => row.status)).entries()).map(([id, total]) => ({ id, label: id, count: total })),
     tags: Array.from(count(rows.flatMap((row) => row.tags)).entries()).map(([id, total]) => ({ id, label: id, count: total }))
   };

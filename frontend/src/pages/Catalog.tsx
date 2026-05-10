@@ -44,6 +44,7 @@ type ServerStatus = 'healthy' | 'degraded' | 'down' | 'unknown';
 type DrawerMode = { kind: 'create' } | { kind: 'edit'; server: InferenceServerRecord };
 
 const SERVER_STAGE_STORAGE_KEY = 'catalog.serverStageCollapsed';
+const MODEL_FILTER_STAGE_STORAGE_KEY = 'catalog.modelFilterStageCollapsed';
 
 function parseCsv(value: string | null): string[] {
   return value?.split(',').map((item) => item.trim()).filter(Boolean) ?? [];
@@ -446,6 +447,11 @@ export function Catalog({
             params.delete('format');
           })}
           onToggleFilter={toggleModelFilter}
+          onClearModelFilters={() => updateQuery((params) => {
+            params.delete('family');
+            params.delete('quantization');
+            params.delete('format');
+          })}
           onInspect={(serverId, modelId) => navigate({ pathname: '/catalog', search: catalogSearch('models', { serverId, modelId }) })}
           onReprobe={async (serverId) => {
             await refreshInferenceServerDiscovery(serverId);
@@ -621,14 +627,22 @@ function ModelsCatalog(props: {
   onToggleServer: (serverId: string) => void;
   onClearServers: () => void;
   onToggleFilter: (key: 'family' | 'quantization' | 'format', value: string) => void;
+  onClearModelFilters: () => void;
   onInspect: (serverId: string, modelId: string) => void;
   onReprobe: (serverId: string) => void;
 }) {
+  const [modelFilterStageCollapsed, setModelFilterStageCollapsed] = useState(() => localStorage.getItem(MODEL_FILTER_STAGE_STORAGE_KEY) === 'true');
+  const selectedModelFilterCount = props.selectedFamilies.size + props.selectedQuantizations.size + props.selectedFormats.size;
+
+  useEffect(() => {
+    localStorage.setItem(MODEL_FILTER_STAGE_STORAGE_KEY, String(modelFilterStageCollapsed));
+  }, [modelFilterStageCollapsed]);
+
   if (props.servers.length === 0) {
     return <NoServersState />;
   }
   return (
-    <section className={`catalog-page catalog-models ${props.serverStageCollapsed && props.selectedServers.size ? 'stage-collapsed' : ''}`}>
+    <section className={`catalog-page catalog-models ${props.serverStageCollapsed && props.selectedServers.size ? 'stage-collapsed' : ''} ${modelFilterStageCollapsed && props.selectedServers.size ? 'filter-collapsed' : ''}`}>
       <aside className="catalog-server-stage">
         {props.serverStageCollapsed && props.selectedServers.size ? (
           <>
@@ -644,6 +658,7 @@ function ModelsCatalog(props: {
           </>
         ) : (
           <>
+            <div className="catalog-stage-number">1</div>
             <div className="catalog-rail-header">
               <div>
                 <strong>Servers</strong>
@@ -670,10 +685,40 @@ function ModelsCatalog(props: {
       </aside>
       {props.selectedServers.size ? (
         <aside className="catalog-rail catalog-model-filter-stage">
-          <div className="catalog-stage-number">2</div>
-          <FilterGroup title="Family" options={props.familyOptions} selected={props.selectedFamilies} onToggle={(value) => props.onToggleFilter('family', value)} />
-          <FilterGroup title="Quantization" options={props.quantizationOptions} selected={props.selectedQuantizations} onToggle={(value) => props.onToggleFilter('quantization', value)} />
-          <FilterGroup title="Format" options={props.formatOptions} selected={props.selectedFormats} onToggle={(value) => props.onToggleFilter('format', value)} />
+          {modelFilterStageCollapsed ? (
+            <>
+              <button type="button" className="catalog-stage-expand" onClick={() => setModelFilterStageCollapsed(false)}>›</button>
+              <div className="catalog-vertical-label">Models · {selectedModelFilterCount} selected</div>
+              <div className="catalog-server-tiles">
+                {selectedModelFilterCount ? (
+                  [
+                    props.selectedFamilies.size ? 'FA' : null,
+                    props.selectedQuantizations.size ? 'QU' : null,
+                    props.selectedFormats.size ? 'FO' : null
+                  ].filter(Boolean).map((label) => (
+                    <button key={label} type="button" title={label ?? ''} onClick={() => setModelFilterStageCollapsed(false)}>{label}</button>
+                  ))
+                ) : (
+                  <button type="button" title="All" onClick={() => setModelFilterStageCollapsed(false)}>AL</button>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="catalog-stage-number">2</div>
+              <div className="catalog-rail-header">
+                <div>
+                  <strong>Models</strong>
+                  <span>{selectedModelFilterCount} selected</span>
+                </div>
+                {selectedModelFilterCount ? <button type="button" className="btn btn--ghost btn--sm" onClick={props.onClearModelFilters}>Clear</button> : null}
+              </div>
+              <button type="button" className="btn btn--ghost btn--sm catalog-stage-collapse" onClick={() => setModelFilterStageCollapsed(true)}>Collapse</button>
+              <FilterGroup title="Family" options={props.familyOptions} selected={props.selectedFamilies} onToggle={(value) => props.onToggleFilter('family', value)} />
+              <FilterGroup title="Quantization" options={props.quantizationOptions} selected={props.selectedQuantizations} onToggle={(value) => props.onToggleFilter('quantization', value)} />
+              <FilterGroup title="Format" options={props.formatOptions} selected={props.selectedFormats} onToggle={(value) => props.onToggleFilter('format', value)} />
+            </>
+          )}
         </aside>
       ) : (
         <aside className="catalog-rail catalog-placeholder">Select a server first</aside>

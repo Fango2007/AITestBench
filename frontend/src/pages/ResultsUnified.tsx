@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { MergedPageHeader } from '../components/MergedPageHeader.js';
 import { InferenceContextBar } from '../components/InferenceContextBar.js';
@@ -25,8 +25,36 @@ import '../styles/dashboard-results.css';
 
 type LeaderboardSort = 'score' | 'latency' | 'cost' | 'pass_rate';
 type LeaderboardGroup = 'model' | 'server' | 'quantization';
+type ResultsFunnelStageKey = 'servers' | 'models' | 'tests';
+type ResultsFunnelCollapsedState = Record<ResultsFunnelStageKey, boolean>;
 
 const STATUS_OPTIONS: ResultsStatus[] = ['pass', 'fail', 'partial', 'streaming'];
+const RESULTS_FUNNEL_COLLAPSED_STORAGE_KEY = 'results.funnelCollapsedStages';
+const DEFAULT_RESULTS_FUNNEL_COLLAPSED: ResultsFunnelCollapsedState = {
+  servers: false,
+  models: false,
+  tests: false
+};
+
+function readResultsFunnelCollapsed(): ResultsFunnelCollapsedState {
+  if (typeof window === 'undefined') {
+    return DEFAULT_RESULTS_FUNNEL_COLLAPSED;
+  }
+  try {
+    const raw = window.localStorage.getItem(RESULTS_FUNNEL_COLLAPSED_STORAGE_KEY);
+    if (!raw) {
+      return DEFAULT_RESULTS_FUNNEL_COLLAPSED;
+    }
+    const parsed = JSON.parse(raw) as Partial<ResultsFunnelCollapsedState>;
+    return {
+      servers: Boolean(parsed.servers),
+      models: Boolean(parsed.models),
+      tests: Boolean(parsed.tests)
+    };
+  } catch {
+    return DEFAULT_RESULTS_FUNNEL_COLLAPSED;
+  }
+}
 
 function defaultRange(): { date_from: string; date_to: string } {
   const to = new Date();
@@ -124,6 +152,33 @@ function toggleValue(values: string[], value: string): string[] {
   return values.includes(value) ? values.filter((entry) => entry !== value) : [...values, value];
 }
 
+function hasNarrowingFilters(filters: ResultsFilterState): boolean {
+  return (
+    filters.server_ids.length > 0 ||
+    filters.model_names.length > 0 ||
+    filters.template_ids.length > 0 ||
+    filters.statuses.length > 0 ||
+    filters.tags.length > 0 ||
+    filters.score_min !== null ||
+    filters.score_max !== null
+  );
+}
+
+function optionMatchesSelected(selected: string[], optionValues?: string[]): boolean {
+  return selected.length === 0 || !optionValues?.length || optionValues.some((value) => selected.includes(value));
+}
+
+function modelsForServers(options: ResultsFilterOptions | null, serverIds: string[]) {
+  return (options?.models ?? []).filter((option) => optionMatchesSelected(serverIds, option.server_ids));
+}
+
+function templatesForFunnel(options: ResultsFilterOptions | null, serverIds: string[], modelNames: string[]) {
+  return (options?.templates ?? []).filter((option) => (
+    optionMatchesSelected(serverIds, option.server_ids) &&
+    optionMatchesSelected(modelNames, option.model_names)
+  ));
+}
+
 function seriesPanel(title: string, metric: string, series: Array<{ label: string; points: Array<{ x: string; y: number | null }> }>): DashboardPanel {
   return {
     panel_id: `results:${metric}`,
@@ -157,16 +212,300 @@ function ResultsFilterRail({
   const dateFrom = filters.date_from ? toLocalInputValue(filters.date_from) : '';
   const dateTo = filters.date_to ? toLocalInputValue(filters.date_to, 'to') : '';
   const disabled = loading && !options;
+  const visibleModels = modelsForServers(options, filters.server_ids);
+  const visibleTemplates = templatesForFunnel(options, filters.server_ids, filters.model_names);
+  const [collapsed, setCollapsed] = useState<ResultsFunnelCollapsedState>(readResultsFunnelCollapsed);
+  const showModelsStage = filters.server_ids.length > 0;
+  const showTestsStage = filters.model_names.length > 0;
+  const collapsedClass = [
+    collapsed.servers ? 'results-rail--servers-collapsed' : '',
+    showModelsStage ? 'results-rail--has-models' : '',
+    showModelsStage && collapsed.models ? 'results-rail--models-collapsed' : '',
+    showTestsStage ? 'results-rail--has-tests' : '',
+    showTestsStage && collapsed.tests ? 'results-rail--tests-collapsed' : ''
+  ].filter(Boolean).join(' ');
+  const selectedServerTiles = selectedOptionTiles(options?.servers ?? [], filters.server_ids);
+  const selectedModelTiles = selectedOptionTiles(visibleModels, filters.model_names);
+  const selectedTestTiles = selectedResultsTestTiles(options, visibleTemplates, filters);
+  const activeTestFilterCount =
+    filters.template_ids.length +
+    filters.statuses.length +
+    filters.tags.length +
+    (filters.score_min != null || filters.score_max != null ? 1 : 0);
+
+  useEffect(() => {
+    window.localStorage.setItem(RESULTS_FUNNEL_COLLAPSED_STORAGE_KEY, JSON.stringify(collapsed));
+  }, [collapsed]);
+
+  function setStageCollapsed(stage: ResultsFunnelStageKey, value: boolean) {
+    setCollapsed((current) => ({ ...current, [stage]: value }));
+  }
+
+  function validTemplateIds(serverIds: string[], modelNames: string[]) {
+    return new Set(templatesForFunnel(options, serverIds, modelNames).map((option) => option.id));
+  }
+
+  function handleServerToggle(id: string) {
+    const serverIds = toggleValue(filters.server_ids, id);
+    const validModels = serverIds.length ? new Set(modelsForServers(options, serverIds).map((option) => option.id)) : new Set<string>();
+    const modelNames = serverIds.length ? filters.model_names.filter((model) => validModels.has(model)) : [];
+    const templates = modelNames.length ? validTemplateIds(serverIds, modelNames) : new Set<string>();
+    onChange({
+      ...filters,
+      server_ids: serverIds,
+      model_names: modelNames,
+      template_ids: filters.template_ids.filter((template) => templates.has(template)),
+      page: 1
+    });
+  }
+
+  function handleModelToggle(id: string) {
+    const modelNames = toggleValue(filters.model_names, id);
+    const templates = modelNames.length ? validTemplateIds(filters.server_ids, modelNames) : new Set<string>();
+    onChange({
+      ...filters,
+      model_names: modelNames,
+      template_ids: filters.template_ids.filter((template) => templates.has(template)),
+      page: 1
+    });
+  }
+
+  function clearServers() {
+    onChange({ ...filters, server_ids: [], model_names: [], template_ids: [], page: 1 });
+  }
+
+  function clearModels() {
+    onChange({ ...filters, model_names: [], template_ids: [], page: 1 });
+  }
+
+  function clearTestFilters() {
+    onChange({
+      ...filters,
+      template_ids: [],
+      statuses: [],
+      tags: [],
+      score_min: null,
+      score_max: null,
+      page: 1
+    });
+  }
+
   return (
-    <aside className="results-rail" aria-label="Results filters">
+    <aside className={`results-rail ${collapsedClass}`} aria-label="Results filters">
+      {collapsed.servers ? (
+        <CollapsedFunnelStage
+          title="Servers"
+          countLabel={filters.server_ids.length ? `${filters.server_ids.length} selected` : 'All'}
+          tiles={selectedServerTiles}
+          onExpand={() => setStageCollapsed('servers', false)}
+        />
+      ) : (
+        <FunnelStage
+          title="Servers"
+          step="1"
+          selectedCount={filters.server_ids.length}
+          options={options?.servers ?? []}
+          selected={filters.server_ids}
+          onToggle={handleServerToggle}
+          onCollapse={() => setStageCollapsed('servers', true)}
+          onClear={filters.server_ids.length ? clearServers : undefined}
+          optionMeta={(option) => ['results source', `${option.count} runs`]}
+        />
+      )}
+      {showModelsStage ? (
+        collapsed.models ? (
+          <CollapsedFunnelStage
+            title="Models"
+            countLabel={filters.model_names.length ? `${filters.model_names.length} selected` : 'All'}
+            tiles={selectedModelTiles}
+            onExpand={() => setStageCollapsed('models', false)}
+          />
+        ) : (
+          <FunnelStage
+            title="Models"
+            step="2"
+            selectedCount={filters.model_names.length}
+            options={visibleModels}
+            selected={filters.model_names}
+            onToggle={handleModelToggle}
+            onCollapse={() => setStageCollapsed('models', true)}
+            onClear={filters.model_names.length ? clearModels : undefined}
+            optionMeta={(option) => ['model', `${option.count} runs`]}
+          />
+        )
+      ) : null}
+      {showTestsStage ? (
+        collapsed.tests ? (
+          <CollapsedFunnelStage
+            title="Tests & range"
+            countLabel={activeTestFilterCount ? `${activeTestFilterCount} active` : 'All'}
+            tiles={selectedTestTiles.length ? selectedTestTiles : ['All']}
+            onExpand={() => setStageCollapsed('tests', false)}
+          />
+        ) : (
+          <TestsRangeStage
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            disabled={disabled}
+            filters={filters}
+            options={options}
+            visibleTemplates={visibleTemplates}
+            onChange={onChange}
+            onReset={onReset}
+            onCollapse={() => setStageCollapsed('tests', true)}
+            onClear={activeTestFilterCount ? clearTestFilters : undefined}
+          />
+        )
+      ) : null}
+    </aside>
+  );
+}
+
+function selectedOptionTiles(options: Array<{ id: string; label: string }>, selected: string[]) {
+  if (selected.length === 0) {
+    return ['All'];
+  }
+  return selected.slice(0, 4).map((id) => options.find((option) => option.id === id)?.label ?? id);
+}
+
+function selectedResultsTestTiles(
+  options: ResultsFilterOptions | null,
+  templates: Array<{ id: string; label: string }>,
+  filters: ResultsFilterState
+) {
+  const tiles = [
+    ...filters.template_ids.map((id) => templates.find((option) => option.id === id)?.label ?? id),
+    ...filters.statuses.map((id) => options?.statuses.find((option) => option.id === id)?.label ?? id),
+    ...filters.tags.map((id) => options?.tags.find((option) => option.id === id)?.label ?? id)
+  ];
+  if (filters.score_min != null || filters.score_max != null) {
+    tiles.push('Score');
+  }
+  return tiles.slice(0, 4);
+}
+
+function CollapsedFunnelStage({
+  title,
+  countLabel,
+  tiles,
+  onExpand
+}: {
+  title: string;
+  countLabel: string;
+  tiles: string[];
+  onExpand: () => void;
+}) {
+  return (
+    <div className="results-funnel-stage results-funnel-stage--collapsed" aria-label={`${title} collapsed`}>
+      <button type="button" className="catalog-stage-expand" aria-label={`Expand ${title} filters`} onClick={onExpand}>›</button>
+      <div className="catalog-vertical-label">{title} · {countLabel}</div>
+      <div className="catalog-server-tiles" aria-label={`${title} selected filters`}>
+        {tiles.map((tile) => (
+          <button key={tile} type="button" title={tile} onClick={onExpand}>
+            {tile.slice(0, 2).toUpperCase()}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FunnelStage({
+  title,
+  step,
+  selectedCount,
+  options,
+  selected,
+  onToggle,
+  onCollapse,
+  onClear,
+  optionMeta
+}: {
+  title: string;
+  step: string;
+  selectedCount: number;
+  options: Array<{ id: string; label: string; count: number; kind?: string }>;
+  selected: string[];
+  onToggle: (id: string) => void;
+  onCollapse: () => void;
+  onClear?: () => void;
+  optionMeta: (option: { id: string; label: string; count: number; kind?: string }) => string[];
+}) {
+  return (
+    <div className="results-funnel-stage">
+      {step ? <div className="catalog-stage-number">{step}</div> : null}
+      <div className="catalog-rail-header">
+        <div>
+          <strong>{title}</strong>
+          <span>{selectedCount} selected</span>
+        </div>
+        {onClear ? <button type="button" className="btn btn--ghost btn--sm" onClick={onClear}>Clear</button> : null}
+      </div>
+      <button type="button" className="btn btn--ghost btn--sm results-stage-collapse" aria-label={`Collapse ${title} filters`} onClick={onCollapse}>Collapse</button>
+      <div className="results-stage-picker">
+        {options.length === 0 ? <p className="muted">No options</p> : null}
+        {options.slice(0, 12).map((option) => (
+          <label key={option.id} className={`server-filter-row results-filter-row ${selected.includes(option.id) ? 'is-selected' : ''}`}>
+            <input type="checkbox" checked={selected.includes(option.id)} onChange={() => onToggle(option.id)} />
+            <span>
+              <strong>{option.label}</strong>
+              {optionMeta(option).map((line) => <small key={line}>{line}</small>)}
+            </span>
+            <b>{option.count}</b>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TestsRangeStage({
+  dateFrom,
+  dateTo,
+  disabled,
+  filters,
+  options,
+  visibleTemplates,
+  onChange,
+  onReset,
+  onCollapse,
+  onClear
+}: {
+  dateFrom: string;
+  dateTo: string;
+  disabled: boolean;
+  filters: ResultsFilterState;
+  options: ResultsFilterOptions | null;
+  visibleTemplates: Array<{ id: string; label: string; count: number; kind?: string }>;
+  onChange: (next: ResultsFilterState) => void;
+  onReset: () => void;
+  onCollapse: () => void;
+  onClear?: () => void;
+}) {
+  const selectedCount =
+    filters.template_ids.length +
+    filters.statuses.length +
+    filters.tags.length +
+    (filters.score_min != null || filters.score_max != null ? 1 : 0);
+  return (
+    <div className="results-funnel-stage results-funnel-stage--tests">
+      <div className="catalog-stage-number">3</div>
+      <div className="catalog-rail-header">
+        <div>
+          <strong>Tests & range</strong>
+          <span>{selectedCount} selected</span>
+        </div>
+        {onClear ? <button type="button" className="btn btn--ghost btn--sm" onClick={onClear}>Clear</button> : null}
+      </div>
+      <button type="button" className="btn btn--ghost btn--sm results-stage-collapse" aria-label="Collapse Tests & range filters" onClick={onCollapse}>Collapse</button>
       <div className="results-rail__group">
-        <h3>Time range</h3>
+        <h3>Range</h3>
         <div className="results-range-buttons">
           {[1, 7, 30].map((days) => (
             <button
               key={days}
               type="button"
-              className="ghost-button"
+              className="btn btn--ghost btn--sm"
               onClick={() => {
                 const to = new Date();
                 const from = new Date(to);
@@ -199,20 +538,8 @@ function ResultsFilterRail({
       </div>
 
       <FilterCheckGroup
-        title="Servers"
-        options={options?.servers ?? []}
-        selected={filters.server_ids}
-        onToggle={(id) => onChange({ ...filters, server_ids: toggleValue(filters.server_ids, id), page: 1 })}
-      />
-      <FilterCheckGroup
-        title="Models"
-        options={options?.models ?? []}
-        selected={filters.model_names}
-        onToggle={(id) => onChange({ ...filters, model_names: toggleValue(filters.model_names, id), page: 1 })}
-      />
-      <FilterCheckGroup
-        title="Templates"
-        options={options?.templates ?? []}
+        title="Tests"
+        options={visibleTemplates}
         selected={filters.template_ids}
         onToggle={(id) => onChange({ ...filters, template_ids: toggleValue(filters.template_ids, id), page: 1 })}
       />
@@ -257,7 +584,7 @@ function ResultsFilterRail({
         {options?.tags.length ? (
           <div className="results-tag-list">
             {options.tags.slice(0, 8).map((tag) => (
-              <button key={tag.id} type="button" className="ghost-button" onClick={() => onChange({ ...filters, tags: toggleValue(filters.tags, tag.id), page: 1 })}>
+              <button key={tag.id} type="button" className="btn btn--ghost btn--sm" onClick={() => onChange({ ...filters, tags: toggleValue(filters.tags, tag.id), page: 1 })}>
                 {tag.label}
               </button>
             ))}
@@ -265,10 +592,10 @@ function ResultsFilterRail({
         ) : null}
       </div>
 
-      <button type="button" className="ghost-button results-reset" onClick={onReset}>
+      <button type="button" className="btn btn--ghost btn--sm results-reset" onClick={onReset}>
         Reset filters
       </button>
-    </aside>
+    </div>
   );
 }
 
@@ -286,13 +613,16 @@ function FilterCheckGroup({
   return (
     <div className="results-rail__group">
       <h3>{title}</h3>
-      <div className="results-check-list">
+      <div className="results-stage-picker">
         {options.length === 0 ? <p className="muted">No options</p> : null}
         {options.slice(0, 12).map((option) => (
-          <label key={option.id} className="results-check">
+          <label key={option.id} className={`server-filter-row results-filter-row ${selected.includes(option.id) ? 'is-selected' : ''}`}>
             <input type="checkbox" checked={selected.includes(option.id)} onChange={() => onToggle(option.id)} />
-            <span>{option.label}</span>
-            <small>{option.kind ? `${option.kind} · ` : ''}{option.count}</small>
+            <span>
+              <strong>{option.label}</strong>
+              <small>{option.kind ? `${option.kind} · ` : ''}{option.count} runs</small>
+            </span>
+            <b>{option.count}</b>
           </label>
         ))}
       </div>
@@ -330,6 +660,26 @@ function DashboardTab({ rows, dashboard, onOpenRun }: { rows: ResultsHistoryRow[
         </div>
       </section>
     </div>
+  );
+}
+
+function DashboardEmptyState({ onExpandRange, onGoToRun }: { onExpandRange: () => void; onGoToRun: () => void }) {
+  return (
+    <section className="results-dashboard-empty">
+      <div className="results-dashboard-empty__copy">
+        <h2>Results dashboard</h2>
+        <p>Range: <strong>selected range</strong> · 0 runs</p>
+      </div>
+      <div className="results-empty-card">
+        <div className="results-empty-icon" aria-hidden="true">|||</div>
+        <h3>No runs in the selected range</h3>
+        <p>The dashboard charts metrics from completed runs. Expand the range, or start a new run to see data here.</p>
+        <div className="actions">
+          <button type="button" onClick={onExpandRange}>Expand to last 90 days</button>
+          <button type="button" className="btn btn--ghost" onClick={onGoToRun}>Go to Run page</button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -572,6 +922,7 @@ function EvaluationDetailBody({ detail }: { detail: ResultsEvaluationDetail }) {
 }
 
 export function ResultsUnified({ runCount }: { runCount: number | null }) {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = normalizeResultsTab(searchParams.get('tab')) as ResultsTab;
   const filters = useMemo(() => decodeFilters(searchParams), [searchParams]);
@@ -740,6 +1091,19 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
     void navigator.clipboard?.writeText(window.location.href);
   }
 
+  function expandRange(days: number) {
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - days);
+    updateFilters({ ...filters, date_from: from.toISOString(), date_to: to.toISOString(), page: 1 });
+  }
+
+  const showDashboardEmpty = Boolean(
+    data &&
+    activeTab === 'dashboard' &&
+    data.dashboard.scorecards.total_runs === 0 &&
+    !hasNarrowingFilters(filters)
+  );
   const subtitle = `${data?.history.total ?? runCount ?? 0} runs · ${data?.filter_options.models.length ?? 0} models · selected range`;
   return (
     <>
@@ -761,18 +1125,22 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
         }
       />
       <InferenceContextBar params={DEFAULT_INFERENCE_PARAMS} readOnly />
-      <section className="results-page">
-        <ResultsFilterRail
-          filters={filters}
-          options={data?.filter_options ?? null}
-          loading={loading}
-          onChange={updateFilters}
-          onReset={resetFilters}
-        />
+      <section className={`results-page ${showDashboardEmpty ? 'results-page--empty' : ''}`}>
+        {!showDashboardEmpty ? (
+          <ResultsFilterRail
+            filters={filters}
+            options={data?.filter_options ?? null}
+            loading={loading}
+            onChange={updateFilters}
+            onReset={resetFilters}
+          />
+        ) : null}
         <main className="results-main">
           {error ? <div className="error">{error}</div> : null}
           {loading && !data ? <p className="muted">Loading results...</p> : null}
-          {data && activeTab === 'dashboard' ? (
+          {showDashboardEmpty ? (
+            <DashboardEmptyState onExpandRange={() => expandRange(90)} onGoToRun={() => navigate('/run')} />
+          ) : data && activeTab === 'dashboard' ? (
             <DashboardTab rows={data.history.rows} dashboard={data.dashboard} onOpenRun={openRun} />
           ) : null}
           {data && activeTab === 'leaderboard' ? (

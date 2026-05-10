@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EmptyState } from '../components/EmptyState.js';
 import { InferenceContextBar } from '../components/InferenceContextBar.js';
+import { MergedPageHeader } from '../components/MergedPageHeader.js';
 import { TemplateEditor } from '../components/TemplateEditor.js';
 import { DEFAULT_INFERENCE_PARAMS } from '../services/inference-param-presets-api.js';
 import {
@@ -109,90 +110,92 @@ export function Templates() {
     }
   }
 
+  function handleRailCreate() {
+    setMode({ kind: 'create', type: typeFilter === 'python' ? 'python' : 'json' });
+  }
+
   return (
-    <section className="page templates-page templates-page--polish">
-      <div className="page-header templates-header">
-        <div>
-          <h2>Templates</h2>
-          <p className="muted">JSON and Python test definitions.</p>
-        </div>
-        <div className="actions">
-          <button type="button" onClick={() => setMode({ kind: 'create', type: 'json' })} disabled={busy}>New JSON</button>
-          <button type="button" className="btn btn--ghost" onClick={() => setMode({ kind: 'create', type: 'python' })} disabled={busy}>New Python</button>
-        </div>
-      </div>
+    <>
+      <MergedPageHeader title="Templates" subtitle="JSON and Python test definitions." />
       <InferenceContextBar params={params} onChange={setParams} visible={Boolean(selectedTemplate || mode.kind !== 'preview')} />
-      {error ? <div className="error">{error}</div> : null}
-      {templates.length === 0 && mode.kind === 'preview' ? (
-        <EmptyState
-          className="templates-empty"
-          title="Your tests live here"
-          body="Create one from a JSON schema or a Python script."
-          actions={(
-            <>
-              <button type="button" onClick={() => setMode({ kind: 'create', type: 'json' })}>New JSON</button>
-              <button type="button" className="btn btn--ghost" onClick={() => setMode({ kind: 'create', type: 'python' })}>New Python</button>
-            </>
-          )}
-        />
-      ) : (
-        <div className="templates-layout">
-          <aside className="templates-rail">
-            <div className="templates-rail-tools">
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search templates" />
-              <div className="segmented-control" aria-label="Template type">
-                {(['all', 'json', 'python'] as const).map((value) => (
-                  <button key={value} type="button" className={typeFilter === value ? 'is-active' : ''} onClick={() => setTypeFilter(value)}>
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="templates-list">
-              {filteredTemplates.map((template) => {
-                const stats = parseTemplateStats(template);
-                return (
-                  <button
-                    key={template.id}
-                    type="button"
-                    className={selectedId === template.id && mode.kind !== 'create' ? 'template-row is-selected' : 'template-row'}
-                    onClick={() => {
-                      setSelectedId(template.id);
-                      setMode({ kind: 'preview' });
-                    }}
-                  >
-                    <span className={`template-kind template-kind--${template.type}`}>{template.type}</span>
-                    <span>
-                      <strong>{template.name}</strong>
-                      <small>v{template.version} · {stats.stepCount} steps · {stats.assertionCount} asserts</small>
-                    </span>
-                  </button>
-                );
-              })}
-              {filteredTemplates.length === 0 ? <p className="muted">No templates match the current filters.</p> : null}
-            </div>
-          </aside>
-          <main className="templates-preview">
-            {mode.kind === 'create' ? (
-              <TemplateEditor template={null} onSave={handleSave} error={error} busy={busy} initialType={mode.type} />
-            ) : mode.kind === 'edit' && selectedTemplate ? (
-              <TemplateEditor template={selectedTemplate} onSave={handleSave} error={error} busy={busy} />
-            ) : selectedTemplate ? (
-              <TemplatePreview
-                template={selectedTemplate}
-                onEdit={() => setMode({ kind: 'edit' })}
-                onDelete={() => handleDelete(selectedTemplate)}
-              />
-            ) : (
-              <EmptyState
-                title="Select a template"
-                body="Choose a JSON or Python template from the list to preview its schema, invocation, and version details."
-              />
+      <section className="page templates-page templates-page--polish">
+        {error ? <div className="error">{error}</div> : null}
+        {templates.length === 0 && mode.kind === 'preview' ? (
+          <EmptyState
+            className="templates-empty"
+            title="Your tests live here"
+            body="Create one from a JSON schema or a Python script."
+            actions={(
+              <>
+                <button type="button" onClick={() => setMode({ kind: 'create', type: 'json' })}>New JSON</button>
+                <button type="button" className="btn btn--ghost" onClick={() => setMode({ kind: 'create', type: 'python' })}>New Python</button>
+              </>
             )}
-          </main>
-        </div>
-      )}
-    </section>
+          />
+        ) : (
+          <div className="templates-layout">
+            <aside className="templates-rail">
+              <div className="templates-rail-tools">
+                <div className="templates-rail-search">
+                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search templates" />
+                  <button type="button" className="templates-rail-new" onClick={handleRailCreate} disabled={busy} aria-label={typeFilter === 'python' ? 'New Python' : 'New JSON'}>
+                    + new
+                  </button>
+                </div>
+                <div className="segmented-control" aria-label="Template type">
+                  {(['all', 'json', 'python'] as const).map((value) => (
+                    <button key={value} type="button" className={typeFilter === value ? 'is-active' : ''} onClick={() => setTypeFilter(value)}>
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="templates-list">
+                {filteredTemplates.map((template) => {
+                  const stats = parseTemplateStats(template);
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      className={selectedId === template.id && mode.kind !== 'create' ? 'template-row is-selected' : 'template-row'}
+                      onClick={() => {
+                        setSelectedId(template.id);
+                        setMode({ kind: 'preview' });
+                      }}
+                    >
+                      <span className={`template-kind template-kind--${template.type}`}>{template.type}</span>
+                      <span>
+                        <strong>{template.name}</strong>
+                        <small>v{template.version} · {stats.stepCount} steps · {stats.assertionCount} asserts</small>
+                      </span>
+                    </button>
+                  );
+                })}
+                {filteredTemplates.length === 0 ? <p className="muted">No templates match the current filters.</p> : null}
+              </div>
+            </aside>
+            <main className="templates-preview">
+              {mode.kind === 'create' ? (
+                <TemplateEditor template={null} onSave={handleSave} error={error} busy={busy} initialType={mode.type} />
+              ) : mode.kind === 'edit' && selectedTemplate ? (
+                <TemplateEditor template={selectedTemplate} onSave={handleSave} error={error} busy={busy} />
+              ) : selectedTemplate ? (
+                <TemplatePreview
+                  template={selectedTemplate}
+                  onEdit={() => setMode({ kind: 'edit' })}
+                  onDelete={() => handleDelete(selectedTemplate)}
+                />
+              ) : (
+                <EmptyState
+                  title="Select a template"
+                  body="Choose a JSON or Python template from the list to preview its schema, invocation, and version details."
+                />
+              )}
+            </main>
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 
