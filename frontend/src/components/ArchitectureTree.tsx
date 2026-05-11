@@ -63,6 +63,7 @@ function collectAllPaths(
 }
 
 function parseOpenHash(): Map<string, boolean> | null {
+  if (typeof window === 'undefined') return null;
   const hash = window.location.hash.replace(/^#/, '');
   if (!hash) return null;
   const params = new URLSearchParams(hash);
@@ -76,6 +77,7 @@ function parseOpenHash(): Map<string, boolean> | null {
 }
 
 function writeOpenHash(expanded: Map<string, boolean>) {
+  if (typeof window === 'undefined') return;
   const open = Array.from(expanded.entries())
     .filter(([, isOpen]) => isOpen)
     .map(([path]) => encodeURIComponent(path || '~'))
