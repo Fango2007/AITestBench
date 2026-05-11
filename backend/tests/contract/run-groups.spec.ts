@@ -61,18 +61,18 @@ async function waitForGroup(app: ReturnType<typeof createServer>, id: string) {
 }
 
 describe('run groups API', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   let tempDir: string;
   let tempDbDir: string;
   let app: ReturnType<typeof createServer>;
 
   beforeEach(() => {
-    tempDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-run-groups-db-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tempDbDir, 'aitestbench.sqlite');
+    tempDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-run-groups-db-'));
+    process.env.INFERHARNESS_DB_PATH = path.join(tempDbDir, 'inferharness.sqlite');
     resetDbInstance();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-run-groups-templates-'));
-    process.env.AITESTBENCH_TEST_TEMPLATES_DIR = tempDir;
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-run-groups-templates-'));
+    process.env.INFERHARNESS_TEST_TEMPLATES_DIR = tempDir;
     app = createServer();
   });
 

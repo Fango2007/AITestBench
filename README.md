@@ -73,34 +73,34 @@ npm start
 ## Environment variables
 Create a local `.env` file at the repo root:
 
-- `AITESTBENCH_API_TOKEN` (required): shared token for API auth.
-  Used by backend auth (and by the frontend when `VITE_AITESTBENCH_API_TOKEN` is set).
+- `INFERHARNESS_API_TOKEN` (required): shared token for API auth.
+  Used by backend auth (and by the frontend when `VITE_INFERHARNESS_API_TOKEN` is set).
 - `PORT` (optional): backend port. Default is `8080`.
-- `AITESTBENCH_DB_PATH` (optional): override DB file path.
-- `AITESTBENCH_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
+- `INFERHARNESS_DB_PATH` (optional): override DB file path.
+- `INFERHARNESS_TEST_TEMPLATES_DIR` (optional): filesystem path for template storage (default: `./backend/data/templates`).
 - `RETENTION_DAYS` (optional): days to keep results (default: 30).
-- `AITESTBENCH_PYTHON_BIN` (optional): Python executable used for Python-backed tests (default: `python3`).
+- `INFERHARNESS_PYTHON_BIN` (optional): Python executable used for Python-backed tests (default: `python3`).
 - `HF_TOKEN` or `HUGGINGFACE_HUB_TOKEN` (optional): Hugging Face token used for gated model architecture inspection.
-- `AITESTBENCH_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
-- `AITESTBENCH_CONTEXT_PROBE_TIMEOUT_MS` (optional): context window probe timeout in ms (default: 600000).
-- `VITE_AITESTBENCH_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
-- `VITE_AITESTBENCH_FRONTEND_BASE_URL` (optional): frontend base URL (`http://localhost:5173` by default)
-- `AITESTBENCH_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).
-- `VITE_AITESTBENCH_API_TOKEN` (optional): alternate dashboard token env name.
+- `INFERHARNESS_PROXY_PERPLEXITY_DATASET` (optional): JSON dataset path for proxy perplexity runs.
+- `INFERHARNESS_CONTEXT_PROBE_TIMEOUT_MS` (optional): context window probe timeout in ms (default: 600000).
+- `VITE_INFERHARNESS_API_BASE_URL` (optional): backend API base URL. (`http://localhost:8080` by default)
+- `VITE_INFERHARNESS_FRONTEND_BASE_URL` (optional): frontend base URL (`http://localhost:5173` by default)
+- `INFERHARNESS_DRY_RUN` (optional): set to `1` to skip live HTTP calls (useful for tests).
+- `VITE_INFERHARNESS_API_TOKEN` (optional): alternate dashboard token env name.
 
 Copy/paste starter `.env`:
 
 ```bash
-AITESTBENCH_API_TOKEN=change-me
+INFERHARNESS_API_TOKEN=change-me
 PORT=8080
-AITESTBENCH_DB_PATH=./backend/data/db/aitestbench.sqlite
-AITESTBENCH_TEST_TEMPLATES_DIR=./backend/data/templates
+INFERHARNESS_DB_PATH=./backend/data/db/inferharness.sqlite
+INFERHARNESS_TEST_TEMPLATES_DIR=./backend/data/templates
 RETENTION_DAYS=30
-AITESTBENCH_PYTHON_BIN=python3
+INFERHARNESS_PYTHON_BIN=python3
 HF_TOKEN=
-VITE_AITESTBENCH_API_BASE_URL=http://localhost:8080
-VITE_AITESTBENCH_FRONTEND_BASE_URL=http://localhost:5173
-VITE_AITESTBENCH_API_TOKEN=change-me
+VITE_INFERHARNESS_API_BASE_URL=http://localhost:8080
+VITE_INFERHARNESS_FRONTEND_BASE_URL=http://localhost:5173
+VITE_INFERHARNESS_API_TOKEN=change-me
 ```
 
 ## Run (dev)
@@ -121,7 +121,7 @@ npm -w frontend run dev
 To change tcp port for backend:
 
 ```bash
-PORT=9090 npm run dev  # don't forget to update the VITE_AITESTBENCH_API_BASE_URL 
+PORT=9090 npm run dev  # don't forget to update the VITE_INFERHARNESS_API_BASE_URL 
 ```
 
 ## Dashboard: Inference Server Management
@@ -752,7 +752,7 @@ is controlled by `RETENTION_DAYS` (default: 30 days).
 
 ## Troubleshooting
 
-- `401 Unauthorized`: confirm `AITESTBENCH_API_TOKEN` matches backend env, and frontend token config if used.
+- `401 Unauthorized`: confirm `INFERHARNESS_API_TOKEN` matches backend env, and frontend token config if used.
 - `409 Conflict` with `"Inference server has existing runs"` : Servers with existing runs must be archived instead of deleted.
 - `no such table`: delete `./data/harness.sqlite` or ensure schema load on startup.
 - `python3 not found`: install Python 3.10+ and ensure it is on PATH.

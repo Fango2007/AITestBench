@@ -1145,7 +1145,7 @@ export function ResultsUnified({ runCount }: { runCount: number | null }) {
     const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `aitestbench-results-${activeTab}.json`;
+    link.download = `inferharness-results-${activeTab}.json`;
     link.click();
     URL.revokeObjectURL(url);
   }

@@ -1,5 +1,5 @@
 {
-  "name": "aitestbench",
+  "name": "inferharness",
   "version": "0.4.1",
   "private": true,
   "workspaces": [

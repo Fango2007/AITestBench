@@ -13,8 +13,8 @@ import { upsertTestDefinition } from '../../src/models/test-definition.js';
 
 describe('suite runs API', () => {
   it('creates a suite run', async () => {
-    process.env.AITESTBENCH_API_TOKEN = 'test-token';
-    process.env.AITESTBENCH_DB_PATH = ':memory:';
+    process.env.INFERHARNESS_API_TOKEN = 'test-token';
+    process.env.INFERHARNESS_DB_PATH = ':memory:';
     const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     const schemaPath = path.resolve(moduleDir, '../../src/models/schema.sql');
     runSchema(fs.readFileSync(schemaPath, 'utf8'));

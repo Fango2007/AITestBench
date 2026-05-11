@@ -1,5 +1,5 @@
 {
-  "name": "@aitestbench/backend",
+  "name": "@inferharness/backend",
   "version": "0.4.1",
   "private": true,
   "type": "module",

@@ -124,11 +124,11 @@ function seedDashboardData() {
 }
 
 describe('dashboard results contract', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   beforeEach(() => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-dashboard-contract-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tempDir, 'aitestbench.sqlite');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-dashboard-contract-'));
+    process.env.INFERHARNESS_DB_PATH = path.join(tempDir, 'inferharness.sqlite');
     resetDbInstance();
   });
 

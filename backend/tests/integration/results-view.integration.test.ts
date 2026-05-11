@@ -114,11 +114,11 @@ function seedRun(input: {
 }
 
 describe('results-view routes', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   beforeEach(() => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitb-results-view-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tmpDir, 'test.sqlite');
+    process.env.INFERHARNESS_DB_PATH = path.join(tmpDir, 'test.sqlite');
     resetDbInstance();
     runSchema(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     seedServer();

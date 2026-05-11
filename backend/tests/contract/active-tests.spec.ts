@@ -45,17 +45,17 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
 }
 
 describe('active tests contract', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   let tempDir: string;
   let tempDbDir: string;
 
   beforeEach(() => {
-    tempDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-active-tests-db-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tempDbDir, 'aitestbench.sqlite');
+    tempDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-active-tests-db-'));
+    process.env.INFERHARNESS_DB_PATH = path.join(tempDbDir, 'inferharness.sqlite');
     resetDbInstance();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-templates-'));
-    process.env.AITESTBENCH_TEST_TEMPLATES_DIR = tempDir;
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-templates-'));
+    process.env.INFERHARNESS_TEST_TEMPLATES_DIR = tempDir;
   });
 
   afterEach(() => {

@@ -234,11 +234,11 @@ function seedRepeatedTemplateData() {
 }
 
 describe('dashboard results integration', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   beforeEach(() => {
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-dashboard-integration-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tempDir, 'aitestbench.sqlite');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-dashboard-integration-'));
+    process.env.INFERHARNESS_DB_PATH = path.join(tempDir, 'inferharness.sqlite');
     resetDbInstance();
   });
 

@@ -33,11 +33,11 @@ function seedServer(serverId = 'srv-eval-inf') {
 }
 
 describe('POST /eval-inference', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   beforeEach(() => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitb-eval-inf-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tmpDir, 'test.sqlite');
+    process.env.INFERHARNESS_DB_PATH = path.join(tmpDir, 'test.sqlite');
     resetDbInstance();
     runSchema(fs.readFileSync(SCHEMA_PATH, 'utf8'));
   });

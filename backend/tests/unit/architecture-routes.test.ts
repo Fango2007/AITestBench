@@ -114,8 +114,8 @@ describe('Architecture routes', () => {
 
   beforeEach(async () => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'arch-route-test-'));
-    process.env.AITESTBENCH_API_TOKEN = 'test-token';
-    process.env.AITESTBENCH_DB_PATH = ':memory:';
+    process.env.INFERHARNESS_API_TOKEN = 'test-token';
+    process.env.INFERHARNESS_DB_PATH = ':memory:';
     vi.resetModules();
     const { createServer } = await import('../../src/api/server.js');
     app = createServer();

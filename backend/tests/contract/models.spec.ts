@@ -49,8 +49,8 @@ function buildModelPayload(serverId: string, overrides?: Record<string, unknown>
 }
 
 describe('models contract', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
-  process.env.AITESTBENCH_DB_PATH = ':memory:';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_DB_PATH = ':memory:';
 
   createServer();
 

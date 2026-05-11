@@ -45,14 +45,14 @@ function buildJsonTemplateContent(id: string, name: string, version = '1.0.0') {
 }
 
 describe('templates contract', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
-  process.env.AITESTBENCH_DB_PATH = ':memory:';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_DB_PATH = ':memory:';
 
   let tempDir: string;
 
   beforeEach(() => {
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-templates-'));
-    process.env.AITESTBENCH_TEST_TEMPLATES_DIR = tempDir;
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-templates-'));
+    process.env.INFERHARNESS_TEST_TEMPLATES_DIR = tempDir;
   });
 
   afterEach(() => {

@@ -157,7 +157,7 @@ function shellEscape(value: string): string {
 }
 
 function resolvePythonBin(): string {
-  const configured = process.env.AITESTBENCH_PYTHON_BIN?.trim();
+  const configured = process.env.INFERHARNESS_PYTHON_BIN?.trim();
   if (configured && configured.length > 0) {
     return configured;
   }

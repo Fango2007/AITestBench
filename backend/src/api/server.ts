@@ -53,10 +53,10 @@ export function createServer() {
     runSchema(fs.readFileSync(schemaPath, 'utf8'));
   }
   applyColumnMigrations();
-  if (process.env.AITESTBENCH_E2E === '1' && process.env.AITESTBENCH_E2E_MARKER_PATH) {
-    fs.mkdirSync(path.dirname(process.env.AITESTBENCH_E2E_MARKER_PATH), { recursive: true });
+  if (process.env.INFERHARNESS_E2E === '1' && process.env.INFERHARNESS_E2E_MARKER_PATH) {
+    fs.mkdirSync(path.dirname(process.env.INFERHARNESS_E2E_MARKER_PATH), { recursive: true });
     fs.writeFileSync(
-      process.env.AITESTBENCH_E2E_MARKER_PATH,
+      process.env.INFERHARNESS_E2E_MARKER_PATH,
       JSON.stringify({ db_path: resolvedDbPath(), pid: process.pid, created_at: new Date().toISOString() }, null, 2),
       'utf8'
     );
@@ -92,7 +92,7 @@ export function createServer() {
 
   app.get('/health', async () => {
     const payload: { status: 'ok'; db_path?: string } = { status: 'ok' };
-    if (process.env.AITESTBENCH_E2E === '1') {
+    if (process.env.INFERHARNESS_E2E === '1') {
       payload.db_path = resolvedDbPath();
     }
     return payload;

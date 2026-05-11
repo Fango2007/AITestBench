@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Architecture inspection script for AITestBench.
+"""Architecture inspection script for InferHarness.
 
 Emits an ArchitectureTree JSON to stdout on success.
 Emits structured error JSON to stderr and exits non-zero on failure.

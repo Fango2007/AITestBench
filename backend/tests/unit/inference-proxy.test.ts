@@ -43,8 +43,8 @@ describe('inference proxy configuration', () => {
   it('trims and resolves backend-specific proxy settings', () => {
     expect(
       resolveInferenceProxyConfig({
-        AITESTBENCH_INFERENCE_PROXY: ' http://proxy.example:8080 ',
-        AITESTBENCH_INFERENCE_NO_PROXY: ' localhost,127.0.0.1 '
+        INFERHARNESS_INFERENCE_PROXY: ' http://proxy.example:8080 ',
+        INFERHARNESS_INFERENCE_NO_PROXY: ' localhost,127.0.0.1 '
       })
     ).toEqual({
       proxy: 'http://proxy.example:8080',
@@ -54,8 +54,8 @@ describe('inference proxy configuration', () => {
 
   it('configures a global Undici dispatcher for backend fetch calls', () => {
     const configured = configureInferenceProxyFromEnv({
-      AITESTBENCH_INFERENCE_PROXY: 'http://proxy.example:8080',
-      AITESTBENCH_INFERENCE_NO_PROXY: 'localhost,127.0.0.1'
+      INFERHARNESS_INFERENCE_PROXY: 'http://proxy.example:8080',
+      INFERHARNESS_INFERENCE_NO_PROXY: 'localhost,127.0.0.1'
     });
 
     expect(configured).toBe(true);
@@ -74,7 +74,7 @@ describe('inference proxy configuration', () => {
 
   it('does not inherit process-level NO_PROXY when the backend-specific no-proxy env var is absent', () => {
     const configured = configureInferenceProxyFromEnv({
-      AITESTBENCH_INFERENCE_PROXY: 'http://proxy.example:8080',
+      INFERHARNESS_INFERENCE_PROXY: 'http://proxy.example:8080',
       NO_PROXY: '.local,localhost,127.0.0.1'
     });
 
@@ -92,7 +92,7 @@ describe('inference proxy configuration', () => {
     undiciMock.fetch.mockResolvedValue(fetchResponse);
 
     configureInferenceProxyFromEnv({
-      AITESTBENCH_INFERENCE_PROXY: 'http://proxy.example:8080'
+      INFERHARNESS_INFERENCE_PROXY: 'http://proxy.example:8080'
     });
 
     const response = await backendFetch('http://ai-mac-studio.local:8081/v1/models', {

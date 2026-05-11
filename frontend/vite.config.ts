@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   const envLocal = loadEnv(mode, configDir, 'VITE_');
   const envRoot = loadEnv(mode, repoRoot, 'VITE_');
   const env = { ...envRoot, ...envLocal };
-  const rawBaseUrl = env.VITE_AITESTBENCH_FRONTEND_BASE_URL;
+  const rawBaseUrl = env.VITE_INFERHARNESS_FRONTEND_BASE_URL;
   let host = 'localhost';
   let port = 5173;
 

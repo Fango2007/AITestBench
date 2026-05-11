@@ -1,10 +1,10 @@
 const BASE_URL =
-  (import.meta.env.VITE_AITESTBENCH_API_BASE_URL as string | undefined)
+  (import.meta.env.VITE_INFERHARNESS_API_BASE_URL as string | undefined)
   ?? 'http://localhost:8080';
 
 function authHeaders(): Record<string, string> {
   const h: Record<string, string> = {};
-  const token = import.meta.env.VITE_AITESTBENCH_API_TOKEN as string | undefined;
+  const token = import.meta.env.VITE_INFERHARNESS_API_TOKEN as string | undefined;
   if (token) h['x-api-token'] = token;
   return h;
 }

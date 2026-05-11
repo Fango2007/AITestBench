@@ -143,7 +143,7 @@ export function InferenceServerCreateForm({ onCreate, disabled }: InferenceServe
         <input
           value={authTokenEnv}
           onChange={(event) => setAuthTokenEnv(event.target.value)}
-          placeholder="AITESTBENCH_API_TOKEN"
+          placeholder="INFERHARNESS_API_TOKEN"
           disabled={disabled}
         />
       </label>

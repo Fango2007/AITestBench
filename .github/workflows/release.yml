@@ -40,8 +40,8 @@ jobs:
       - name: Build source archives
         run: |
           mkdir -p release-assets
-          git archive --format=zip --output=release-assets/aitestbench-${GITHUB_REF_NAME}.zip HEAD
-          git archive --format=tar.gz --output=release-assets/aitestbench-${GITHUB_REF_NAME}.tar.gz HEAD
+          git archive --format=zip --output=release-assets/inferharness-${GITHUB_REF_NAME}.zip HEAD
+          git archive --format=tar.gz --output=release-assets/inferharness-${GITHUB_REF_NAME}.tar.gz HEAD
 
       - name: Extract changelog release notes
         run: |
@@ -73,5 +73,5 @@ jobs:
         with:
           body_path: release-notes.md
           files: |
-            release-assets/aitestbench-${{ github.ref_name }}.zip
-            release-assets/aitestbench-${{ github.ref_name }}.tar.gz
+            release-assets/inferharness-${{ github.ref_name }}.zip
+            release-assets/inferharness-${{ github.ref_name }}.tar.gz

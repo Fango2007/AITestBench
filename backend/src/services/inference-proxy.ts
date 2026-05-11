@@ -5,8 +5,8 @@ import {
   type Dispatcher
 } from 'undici';
 
-export const INFERENCE_PROXY_ENV = 'AITESTBENCH_INFERENCE_PROXY';
-export const INFERENCE_NO_PROXY_ENV = 'AITESTBENCH_INFERENCE_NO_PROXY';
+export const INFERENCE_PROXY_ENV = 'INFERHARNESS_INFERENCE_PROXY';
+export const INFERENCE_NO_PROXY_ENV = 'INFERHARNESS_INFERENCE_NO_PROXY';
 
 export interface InferenceProxyConfig {
   proxy: string;

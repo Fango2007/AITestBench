@@ -5,7 +5,7 @@ import Database from 'better-sqlite3';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '..', '..', '..');
-const DEFAULT_DB_PATH = path.join(repoRoot, 'backend', 'data', 'db', 'aitestbench.sqlite');
+const DEFAULT_DB_PATH = path.join(repoRoot, 'backend', 'data', 'db', 'inferharness.sqlite');
 const DEFAULT_BACKEND_TEST_DB_PATH = path.join(repoRoot, 'backend', 'data', 'db', 'backend-test.sqlite');
 
 let dbInstance: Database.Database | null = null;
@@ -37,7 +37,7 @@ export function getDb(): Database.Database {
 }
 
 export function resolvedDbPath(): string {
-  const configuredPath = process.env.AITESTBENCH_DB_PATH?.trim();
+  const configuredPath = process.env.INFERHARNESS_DB_PATH?.trim();
   const isBackendTest = isBackendTestRun();
   if (configuredPath) {
     const dbPath = resolveConfiguredDbPath(configuredPath);
@@ -66,11 +66,11 @@ export function resetDbInstance(): void {
 }
 
 function isBackendTestRun(): boolean {
-  return process.env.AITESTBENCH_BACKEND_TESTS === '1' || process.env.VITEST === 'true';
+  return process.env.INFERHARNESS_BACKEND_TESTS === '1' || process.env.VITEST === 'true';
 }
 
 function resolveBackendTestDbPath(): string {
-  const configuredPath = process.env.AITESTBENCH_BACKEND_TEST_DB_PATH?.trim();
+  const configuredPath = process.env.INFERHARNESS_BACKEND_TEST_DB_PATH?.trim();
   return configuredPath ? resolveConfiguredDbPath(configuredPath) : DEFAULT_BACKEND_TEST_DB_PATH;
 }
 
@@ -88,7 +88,7 @@ function assertBackendTestDbIsSafe(dbPath: string, isBackendTest: boolean): void
   if (dbPath === DEFAULT_DB_PATH) {
     throw new Error(
       `Backend tests cannot use the production SQLite database at ${DEFAULT_DB_PATH}. ` +
-        'Set BACKEND_TEST_DB_PATH or AITESTBENCH_DB_PATH to a dedicated test database.'
+        'Set BACKEND_TEST_DB_PATH or INFERHARNESS_DB_PATH to a dedicated test database.'
     );
   }
 }

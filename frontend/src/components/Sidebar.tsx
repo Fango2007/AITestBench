@@ -70,7 +70,7 @@ export function Sidebar({ version, health, templateCount, runCount, onSettings }
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <strong>AITestBench</strong>
+        <strong>InferHarness</strong>
         <span>v{version}</span>
       </div>
       <nav className="sidebar-nav" aria-label="Primary navigation">

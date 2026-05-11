@@ -15,16 +15,16 @@ function resolveFromRepo(value: string | undefined, fallback: string): string {
 
 export function backendTestDbPath(): string {
   return resolveFromRepo(
-    process.env.BACKEND_TEST_DB_PATH ?? process.env.AITESTBENCH_BACKEND_TEST_DB_PATH,
+    process.env.BACKEND_TEST_DB_PATH ?? process.env.INFERHARNESS_BACKEND_TEST_DB_PATH,
     DEFAULT_BACKEND_TEST_DB_PATH
   );
 }
 
 export function applyBackendTestDbEnv(): string {
   const dbPath = backendTestDbPath();
-  process.env.AITESTBENCH_BACKEND_TESTS = '1';
-  process.env.AITESTBENCH_BACKEND_TEST_DB_PATH = dbPath;
-  process.env.AITESTBENCH_DB_PATH = dbPath;
+  process.env.INFERHARNESS_BACKEND_TESTS = '1';
+  process.env.INFERHARNESS_BACKEND_TEST_DB_PATH = dbPath;
+  process.env.INFERHARNESS_DB_PATH = dbPath;
   return dbPath;
 }
 

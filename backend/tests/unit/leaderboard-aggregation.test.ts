@@ -61,7 +61,7 @@ function seedEvaluation(opts: {
 describe('getLeaderboard', () => {
   beforeEach(() => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitb-lb-unit-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tmpDir, 'test.sqlite');
+    process.env.INFERHARNESS_DB_PATH = path.join(tmpDir, 'test.sqlite');
     resetDbInstance();
     runSchema(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     seedServer();
@@ -112,7 +112,7 @@ describe('getLeaderboard', () => {
 describe('getLeaderboard performance benchmark', () => {
   beforeEach(() => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitb-lb-perf-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tmpDir, 'test.sqlite');
+    process.env.INFERHARNESS_DB_PATH = path.join(tmpDir, 'test.sqlite');
     resetDbInstance();
     runSchema(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     seedServer('srv-perf');

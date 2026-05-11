@@ -77,11 +77,11 @@ function seedEvaluation(opts: {
 }
 
 describe('GET /leaderboard', () => {
-  process.env.AITESTBENCH_API_TOKEN = 'test-token';
+  process.env.INFERHARNESS_API_TOKEN = 'test-token';
 
   beforeEach(() => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitb-lb-int-'));
-    process.env.AITESTBENCH_DB_PATH = path.join(tmpDir, 'test.sqlite');
+    process.env.INFERHARNESS_DB_PATH = path.join(tmpDir, 'test.sqlite');
     resetDbInstance();
     runSchema(fs.readFileSync(SCHEMA_PATH, 'utf8'));
     seedServer();

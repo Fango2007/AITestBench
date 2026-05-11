@@ -11,8 +11,8 @@ describe('python runner', () => {
 
   it('maps backend inference proxy env vars to Python HTTP proxy env vars', () => {
     const env = buildPythonProcessEnv({
-      AITESTBENCH_INFERENCE_PROXY: 'http://proxy.example:8080',
-      AITESTBENCH_INFERENCE_NO_PROXY: 'localhost,127.0.0.1'
+      INFERHARNESS_INFERENCE_PROXY: 'http://proxy.example:8080',
+      INFERHARNESS_INFERENCE_NO_PROXY: 'localhost,127.0.0.1'
     });
 
     expect(env.HTTP_PROXY).toBe('http://proxy.example:8080');
@@ -26,8 +26,8 @@ describe('python runner', () => {
   it('does not override explicit Python proxy env values', () => {
     const env = buildPythonProcessEnv(
       {
-        AITESTBENCH_INFERENCE_PROXY: 'http://inference-proxy.example:8080',
-        AITESTBENCH_INFERENCE_NO_PROXY: 'localhost'
+        INFERHARNESS_INFERENCE_PROXY: 'http://inference-proxy.example:8080',
+        INFERHARNESS_INFERENCE_NO_PROXY: 'localhost'
       },
       {
         HTTP_PROXY: 'http://override-proxy.example:8080',

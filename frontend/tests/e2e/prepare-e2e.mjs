@@ -15,11 +15,11 @@ function resolveFromRepo(value, fallback) {
 const apiBaseUrl = process.env.E2E_API_BASE_URL ?? 'http://127.0.0.1:18080';
 const frontendBaseUrl = process.env.E2E_FRONTEND_BASE_URL ?? 'http://127.0.0.1:15173';
 const dbPath = resolveFromRepo(
-  process.env.AITESTBENCH_DB_PATH ?? process.env.E2E_DB_PATH,
+  process.env.INFERHARNESS_DB_PATH ?? process.env.E2E_DB_PATH,
   path.resolve(repoRoot, 'backend', 'data', 'db', 'e2e.sqlite')
 );
 const markerPath = resolveFromRepo(
-  process.env.AITESTBENCH_E2E_MARKER_PATH,
+  process.env.INFERHARNESS_E2E_MARKER_PATH,
   path.resolve(repoRoot, 'frontend', 'test-results', 'e2e-backend-startup.json')
 );
 const runtimeConfigPath = resolveFromRepo(

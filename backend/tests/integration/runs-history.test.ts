@@ -10,8 +10,8 @@ import { runSchema } from '../../src/models/db.js';
 
 describe('run history API', () => {
   it('lists runs', async () => {
-    process.env.AITESTBENCH_API_TOKEN = 'test-token';
-    process.env.AITESTBENCH_DB_PATH = ':memory:';
+    process.env.INFERHARNESS_API_TOKEN = 'test-token';
+    process.env.INFERHARNESS_DB_PATH = ':memory:';
     const moduleDir = path.dirname(fileURLToPath(import.meta.url));
     const schemaPath = path.resolve(moduleDir, '../../src/models/schema.sql');
     runSchema(fs.readFileSync(schemaPath, 'utf8'));

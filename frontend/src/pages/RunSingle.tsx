@@ -368,9 +368,9 @@ export function RunSingle() {
   useEffect(() => {
     const payload = Object.keys(paramOverrides).length ? paramOverrides : null;
     if (payload) {
-      localStorage.setItem('aitestbench:param-overrides', JSON.stringify(payload));
+      localStorage.setItem('inferharness:param-overrides', JSON.stringify(payload));
     } else {
-      localStorage.removeItem('aitestbench:param-overrides');
+      localStorage.removeItem('inferharness:param-overrides');
     }
     window.dispatchEvent(new Event('param-overrides:updated'));
   }, [paramOverrides]);

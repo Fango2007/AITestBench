@@ -35,7 +35,7 @@ function shellEscape(value: string): string {
 }
 
 function resolvePythonBin(): string {
-  const configured = process.env.AITESTBENCH_PYTHON_BIN?.trim();
+  const configured = process.env.INFERHARNESS_PYTHON_BIN?.trim();
   if (configured && configured.length > 0) {
     if (!fs.existsSync(configured)) {
       throw new Error(`Configured python binary not found: ${configured}`);
@@ -399,7 +399,7 @@ export function runPythonEntrypoint(options: PythonEntrypointOptions): Promise<P
       return;
     }
 
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitestbench-python-'));
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inferharness-python-'));
     const specPath = path.join(tmpDir, 'spec.json');
     const contextPath = path.join(tmpDir, 'context.json');
     const runnerPath = path.join(tmpDir, 'runner.py');

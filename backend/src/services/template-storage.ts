@@ -36,11 +36,11 @@ function warnFallback(message: string): void {
 }
 
 function resolveTemplatesDir(): string {
-  const configured = process.env.AITESTBENCH_TEST_TEMPLATES_DIR?.trim();
+  const configured = process.env.INFERHARNESS_TEST_TEMPLATES_DIR?.trim();
   if (configured) {
     return path.isAbsolute(configured) ? configured : path.resolve(repoRoot, configured);
   }
-  warnFallback('AITESTBENCH_TEST_TEMPLATES_DIR not set; using default templates directory.');
+  warnFallback('INFERHARNESS_TEST_TEMPLATES_DIR not set; using default templates directory.');
   return DEFAULT_TEMPLATES_DIR;
 }
 

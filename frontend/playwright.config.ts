@@ -24,7 +24,7 @@ function portFromUrl(value: string, fallback: string): string {
   }
 }
 const apiPort = portFromUrl(apiBaseUrl, '8080');
-// Deliberately ignore AITESTBENCH_DB_PATH from .env (which points to the production DB).
+// Deliberately ignore INFERHARNESS_DB_PATH from .env (which points to the production DB).
 // Tests always use a dedicated e2e.sqlite; override with E2E_DB_PATH if needed.
 const dbPath = process.env.E2E_DB_PATH
   ? path.resolve(repoRoot, process.env.E2E_DB_PATH)
@@ -36,8 +36,8 @@ process.env.E2E_API_BASE_URL = apiBaseUrl;
 process.env.E2E_FRONTEND_BASE_URL = frontendBaseUrl;
 process.env.E2E_DB_PATH = dbPath;
 process.env.E2E_RUNTIME_CONFIG = runtimeConfigPath;
-process.env.VITE_AITESTBENCH_API_BASE_URL = apiBaseUrl;
-process.env.VITE_AITESTBENCH_FRONTEND_BASE_URL = frontendBaseUrl;
+process.env.VITE_INFERHARNESS_API_BASE_URL = apiBaseUrl;
+process.env.VITE_INFERHARNESS_FRONTEND_BASE_URL = frontendBaseUrl;
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -63,15 +63,15 @@ export default defineConfig({
       env: {
         ...process.env,
         ...rawEnv,
-        AITESTBENCH_E2E: '1',
-        AITESTBENCH_DB_PATH: dbPath,
-        AITESTBENCH_E2E_MARKER_PATH: markerPath,
+        INFERHARNESS_E2E: '1',
+        INFERHARNESS_DB_PATH: dbPath,
+        INFERHARNESS_E2E_MARKER_PATH: markerPath,
         PORT: apiPort,
         E2E_API_BASE_URL: apiBaseUrl,
         E2E_RUNTIME_CONFIG: runtimeConfigPath,
         E2E_FRONTEND_BASE_URL: frontendBaseUrl,
-        VITE_AITESTBENCH_API_BASE_URL: apiBaseUrl,
-        VITE_AITESTBENCH_FRONTEND_BASE_URL: frontendBaseUrl
+        VITE_INFERHARNESS_API_BASE_URL: apiBaseUrl,
+        VITE_INFERHARNESS_FRONTEND_BASE_URL: frontendBaseUrl
       }
     },
     {
@@ -86,8 +86,8 @@ export default defineConfig({
         E2E_API_BASE_URL: apiBaseUrl,
         E2E_RUNTIME_CONFIG: runtimeConfigPath,
         E2E_FRONTEND_BASE_URL: frontendBaseUrl,
-        VITE_AITESTBENCH_API_BASE_URL: apiBaseUrl,
-        VITE_AITESTBENCH_FRONTEND_BASE_URL: frontendBaseUrl
+        VITE_INFERHARNESS_API_BASE_URL: apiBaseUrl,
+        VITE_INFERHARNESS_FRONTEND_BASE_URL: frontendBaseUrl
       }
     }
   ]

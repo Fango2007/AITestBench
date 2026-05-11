@@ -818,7 +818,7 @@ async function executeProxyPerplexityTest(
       step_results: []
     };
   }
-  const datasetPath = process.env.AITESTBENCH_PROXY_PERPLEXITY_DATASET;
+  const datasetPath = process.env.INFERHARNESS_PROXY_PERPLEXITY_DATASET;
   if (!datasetPath) {
     return {
       verdict: 'fail',
@@ -931,7 +931,7 @@ async function executeProxyPerplexityTest(
 
 export async function executeRun(request: RunExecutionRequest): Promise<RunExecutionResult> {
   const startedAt = new Date().toISOString();
-  const dryRun = process.env.AITESTBENCH_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
+  const dryRun = process.env.INFERHARNESS_DRY_RUN === '1' || process.env.NODE_ENV === 'test';
   const abortSignal = request.abort_signal;
 
   const server = getInferenceServerById(request.inference_server_id);

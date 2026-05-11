@@ -17,7 +17,7 @@ if (fs.existsSync(envPath)) {
 }
 
 if (configureInferenceProxyFromEnv()) {
-  console.info('[env] Inference server outbound proxy enabled via AITESTBENCH_INFERENCE_PROXY');
+  console.info('[env] Inference server outbound proxy enabled via INFERHARNESS_INFERENCE_PROXY');
 }
 
 import { createServer } from './api/server.js';
