@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import packageInfo from '../package.json' with { type: 'json' };
+import { InferenceContextBar } from './components/InferenceContextBar.js';
+import { MergedPageHeader } from './components/MergedPageHeader.js';
 import { Sidebar } from './components/Sidebar.js';
 import { Catalog } from './pages/Catalog.js';
 import { Evaluate } from './pages/Evaluate.js';
+import { ModelDetails } from './pages/ModelDetails.js';
 import { ResultsUnified } from './pages/ResultsUnified.js';
 import { RunUnified } from './pages/RunUnified.js';
 import { Templates } from './pages/Templates.js';
@@ -12,6 +15,8 @@ import { legacyRedirectSearch, normalizeResultsTab, resultsSearch } from './navi
 import { apiGet } from './services/api.js';
 import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from './services/connectivity-api.js';
 import { InferenceServerRecord, listInferenceServers } from './services/inference-servers-api.js';
+import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from './services/inference-param-presets-api.js';
+import { listModels } from './services/models-api.js';
 import { clearDatabase, EnvEntry, listEnvEntries, setEnvEntry } from './services/system-api.js';
 import { listTemplates } from './services/templates-api.js';
 
@@ -28,6 +33,75 @@ function LegacyRedirect({ target }: { target: string }) {
 
 function CatalogRoute({ servers, connectivity }: { servers: InferenceServerRecord[]; connectivity: Record<string, InferenceServerHealth> }) {
   return <Catalog serversSnapshot={servers} connectivitySnapshot={connectivity} />;
+}
+
+function CatalogModelDetailsRoute({
+  servers,
+  connectivity
+}: {
+  servers: InferenceServerRecord[];
+  connectivity: Record<string, InferenceServerHealth>;
+}) {
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [inferenceParams, setInferenceParams] = useState<InferenceParams>(DEFAULT_INFERENCE_PARAMS);
+  const [modelCount, setModelCount] = useState<number | null>(null);
+  const serverId = searchParams.get('serverId');
+  const reachable = servers.filter((server) => connectivity[server.inference_server.server_id]?.ok).length;
+  const discoveredCount = servers.reduce((sum, server) => sum + server.discovery.model_list.normalised.length, 0);
+  const displayedModelCount = modelCount ?? discoveredCount;
+
+  useEffect(() => {
+    let active = true;
+    listModels()
+      .then((records) => {
+        if (active) setModelCount(records.length || discoveredCount);
+      })
+      .catch(() => {
+        if (active) setModelCount(discoveredCount);
+      });
+    return () => {
+      active = false;
+    };
+  }, [discoveredCount]);
+
+  const shell = (content: ReactNode) => (
+    <>
+      <MergedPageHeader
+        title="Catalog · Inspect"
+        subtitle={`Servers and models · ${reachable} reachable · ${displayedModelCount} models discovered`}
+        tabs={[
+          { id: 'servers', label: 'Servers', sub: `${servers.length}` },
+          { id: 'models', label: 'Models', sub: `${displayedModelCount}` }
+        ]}
+        activeTab="models"
+        onTabChange={(tab) => navigate({ pathname: '/catalog', search: `?tab=${tab}` })}
+      />
+      <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
+      {content}
+    </>
+  );
+
+  if (!id) {
+    return <Navigate to="/catalog?tab=models" replace />;
+  }
+  if (!serverId) {
+    return shell(
+      <div className="catalog-empty">
+        <h3>Server required</h3>
+        <p>Open this inspector from a Catalog model card so the hosting server is included.</p>
+      </div>
+    );
+  }
+
+  return shell(
+    <ModelDetails
+      serverId={serverId}
+      modelId={id}
+      onBack={() => navigate({ pathname: '/catalog', search: `?tab=models&servers=${encodeURIComponent(serverId)}` })}
+    />
+  );
 }
 
 function ResultsRoute({ runCount }: { runCount: number | null }) {
@@ -298,6 +372,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/catalog?tab=servers" replace />} />
           <Route path="/catalog" element={<CatalogRoute servers={servers} connectivity={connectivity} />} />
+          <Route path="/catalog/models/:id" element={<CatalogModelDetailsRoute servers={servers} connectivity={connectivity} />} />
           <Route path="/templates" element={<Templates />} />
           <Route path="/run" element={<RunRoute />} />
           <Route path="/results" element={<ResultsRoute runCount={runCount} />} />

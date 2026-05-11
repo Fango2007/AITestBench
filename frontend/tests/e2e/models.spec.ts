@@ -142,8 +142,8 @@ test('Inspect opens the catalog model inspector for the selected server/model', 
   await page.waitForLoadState('networkidle');
   await page.locator('.catalog-model-card').filter({ hasText: 'Llama 3.1 8B' }).getByRole('button', { name: 'Inspect' }).click();
 
+  await expect(page).toHaveURL(/\/catalog\/models\/meta-llama%2FLlama-3\.1-8B\?serverId=/);
   await expect(page).toHaveURL(new RegExp(`serverId=${serverId}`));
-  await expect(page).toHaveURL(/modelId=meta-llama/);
   await expect(page.getByRole('button', { name: '← Back to Catalog' })).toBeVisible();
 
   await archiveInferenceServer(request, serverId);

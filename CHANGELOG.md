@@ -16,6 +16,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Catalog and Models metadata filters/details now use persisted `/models` records as their source of truth instead of inferring provider, format, quantized provider, or use cases from raw model IDs.
 - Catalog Servers now keeps `Filter`, `Archived`, and `+ Add server` in the section header, opens the filter rail only on demand, defaults to active servers, and starts server cards unselected with click-to-toggle detail rails.
+- Catalog model inspection now uses the routed `/catalog/models/:id` handoff layout while preserving the Catalog header, Servers/Models sub-tabs, and inference context bar.
 
 
 ## [0.4.0] - 2026-05-10

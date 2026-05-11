@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ArchitectureLayerNode, ArchitectureSummary } from '../services/architecture-api.js';
 
@@ -29,6 +29,12 @@ interface FlatNode {
   hasChildren: boolean;
 }
 
+function childFocusPath(parent: string, child: ArchitectureLayerNode): string {
+  const name = child.name.trim();
+  if (!name) return parent;
+  return parent ? `${parent}.${name}` : name;
+}
+
 function flattenVisible(
   node: ArchitectureLayerNode,
   depth: number,
@@ -39,9 +45,8 @@ function flattenVisible(
   const hasChildren = node.children.length > 0;
   out.push({ node, depth, path, hasChildren });
   if (hasChildren && expanded.get(path)) {
-    for (let i = 0; i < node.children.length; i++) {
-      const child = node.children[i];
-      flattenVisible(child, depth + 1, `${path}/${i}:${child.name}`, expanded, out);
+    for (const child of node.children) {
+      flattenVisible(child, depth + 1, childFocusPath(path, child), expanded, out);
     }
   }
 }
@@ -52,10 +57,48 @@ function collectAllPaths(
   out: string[]
 ): void {
   out.push(path);
-  for (let i = 0; i < node.children.length; i++) {
-    const child = node.children[i];
-    collectAllPaths(child, `${path}/${i}:${child.name}`, out);
+  for (const child of node.children) {
+    collectAllPaths(child, childFocusPath(path, child), out);
   }
+}
+
+function parseOpenHash(): Map<string, boolean> | null {
+  const hash = window.location.hash.replace(/^#/, '');
+  if (!hash) return null;
+  const params = new URLSearchParams(hash);
+  const open = params.get('open');
+  if (open == null) return null;
+  const expanded = new Map<string, boolean>();
+  for (const raw of open.split(',').filter(Boolean)) {
+    expanded.set(raw === '~' ? '' : raw, true);
+  }
+  return expanded;
+}
+
+function writeOpenHash(expanded: Map<string, boolean>) {
+  const open = Array.from(expanded.entries())
+    .filter(([, isOpen]) => isOpen)
+    .map(([path]) => encodeURIComponent(path || '~'))
+    .join(',');
+  const nextHash = open ? `#open=${open}` : '#open=';
+  if (window.location.hash !== nextHash) {
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${nextHash}`);
+  }
+}
+
+function ancestorPaths(path: string): string[] {
+  if (!path) return [''];
+  const parts = path.split('.');
+  const ancestors = [''];
+  for (let i = 1; i < parts.length; i++) {
+    ancestors.push(parts.slice(0, i).join('.'));
+  }
+  return ancestors;
+}
+
+function isSelectedPath(rowPath: string, selectedPath: string | null | undefined): boolean {
+  if (!selectedPath) return rowPath === '';
+  return rowPath === selectedPath || rowPath.endsWith(`.${selectedPath}`);
 }
 
 // ─── Row height constant ──────────────────────────────────────────────────────
@@ -71,6 +114,9 @@ interface Props {
   accuracy?: 'exact' | 'estimated';
   inspectionMethod?: string;
   warnings?: string[];
+  selectedPath?: string | null;
+  onSelect?: (path: string, node: ArchitectureLayerNode) => void;
+  showSummary?: boolean;
 }
 
 function provenanceLabel(method?: string): string {
@@ -81,9 +127,18 @@ function provenanceLabel(method?: string): string {
     .join(' ');
 }
 
-export function ArchitectureTreeView({ root, summary, accuracy, inspectionMethod, warnings = [] }: Props) {
-  const rootPath = `0:${root.name}`;
-  const [expanded, setExpanded] = useState<Map<string, boolean>>(() => new Map([[rootPath, true]]));
+export function ArchitectureTreeView({
+  root,
+  summary,
+  accuracy,
+  inspectionMethod,
+  warnings = [],
+  selectedPath,
+  onSelect,
+  showSummary = true
+}: Props) {
+  const rootPath = '';
+  const [expanded, setExpanded] = useState<Map<string, boolean>>(() => parseOpenHash() ?? new Map([[rootPath, true]]));
   const [highlightedType, setHighlightedType] = useState<string | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -116,6 +171,21 @@ export function ArchitectureTreeView({ root, summary, accuracy, inspectionMethod
     return out;
   }, [root, rootPath, expanded]);
 
+  useEffect(() => {
+    if (!selectedPath) return;
+    setExpanded((prev) => {
+      const next = new Map(prev);
+      for (const path of ancestorPaths(selectedPath)) {
+        next.set(path, true);
+      }
+      return next;
+    });
+  }, [selectedPath]);
+
+  useEffect(() => {
+    writeOpenHash(expanded);
+  }, [expanded]);
+
   const useVirtual = visibleNodes.length > VIRTUALIZE_THRESHOLD;
   const containerHeight = useVirtual ? Math.min(visibleNodes.length, 200) * ROW_HEIGHT : undefined;
 
@@ -137,7 +207,7 @@ export function ArchitectureTreeView({ root, summary, accuracy, inspectionMethod
   return (
     <div className="architecture-tree">
       {/* Summary panel */}
-      <div className="arch-summary">
+      {showSummary ? <div className="arch-summary">
         {accuracy === 'estimated' ? (
           <div className="arch-provenance" title={warnings.join(' ') || 'Estimated from model configuration.'}>
             {provenanceLabel(inspectionMethod)}
@@ -185,7 +255,7 @@ export function ArchitectureTreeView({ root, summary, accuracy, inspectionMethod
             </div>
           ))}
         </div>
-      </div>
+      </div> : null}
 
       {/* Controls */}
       <div className="arch-controls">
@@ -204,14 +274,18 @@ export function ArchitectureTreeView({ root, summary, accuracy, inspectionMethod
         {renderedSlice.map(({ node, depth, path, hasChildren }) => (
           <div
             key={path}
-            className={`arch-node-row${highlightedType === node.type ? ' highlighted' : ''}`}
+            className={`arch-node-row${highlightedType === node.type ? ' highlighted' : ''}${isSelectedPath(path, selectedPath) ? ' selected' : ''}`}
             style={{ paddingLeft: depth * 16 + 4, height: ROW_HEIGHT, display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => onSelect?.(path, node)}
           >
             {hasChildren ? (
               <button
                 type="button"
                 className="arch-toggle"
-                onClick={() => toggleNode(path)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggleNode(path);
+                }}
                 aria-label={expanded.get(path) ? 'Collapse' : 'Expand'}
               >
                 {expanded.get(path) ? '▼' : '▶'}

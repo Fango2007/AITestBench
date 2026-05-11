@@ -22,7 +22,6 @@ import {
 } from '../services/inference-servers-api.js';
 import { ModelFormat, ModelRecord, listModels } from '../services/models-api.js';
 import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from '../services/inference-param-presets-api.js';
-import { ModelDetails } from './ModelDetails.js';
 
 type CatalogModel = {
   key: string;
@@ -213,6 +212,14 @@ export function Catalog({
   const selectedQuantizations = useMemo(() => new Set(parseCsv(searchParams.get('quantization'))), [searchParams]);
   const selectedFormats = useMemo(() => new Set(parseCsv(searchParams.get('format'))), [searchParams]);
 
+  useEffect(() => {
+    if (activeTab !== 'models' || !inspectorServerId || !inspectorModelId) return;
+    navigate({
+      pathname: `/catalog/models/${encodeURIComponent(inspectorModelId)}`,
+      search: `?serverId=${encodeURIComponent(inspectorServerId)}`
+    }, { replace: true });
+  }, [activeTab, inspectorModelId, inspectorServerId, navigate]);
+
   async function refreshData(showLoading = false) {
     if (showLoading) setLoading(true);
     setError(null);
@@ -352,29 +359,6 @@ export function Catalog({
     await refreshData();
   }
 
-  if (activeTab === 'models' && inspectorServerId && inspectorModelId) {
-    return (
-      <>
-        <MergedPageHeader
-          title="Catalog · Inspect"
-          subtitle={`Servers and models · ${reachable} reachable · ${catalogModels.length} models discovered`}
-          tabs={[
-            { id: 'servers', label: 'Servers', sub: `${servers.length}` },
-            { id: 'models', label: 'Models', sub: `${catalogModels.length}` }
-          ]}
-          activeTab={activeTab}
-          onTabChange={changeTab}
-        />
-        <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
-        <ModelDetails
-          serverId={inspectorServerId}
-          modelId={inspectorModelId}
-          onBack={() => navigate({ pathname: '/catalog', search: catalogSearch('models') })}
-        />
-      </>
-    );
-  }
-
   return (
     <>
       <MergedPageHeader
@@ -450,7 +434,7 @@ export function Catalog({
             params.delete('quantization');
             params.delete('format');
           })}
-          onInspect={(serverId, modelId) => navigate({ pathname: '/catalog', search: catalogSearch('models', { serverId, modelId }) })}
+          onInspect={(serverId, modelId) => navigate({ pathname: `/catalog/models/${encodeURIComponent(modelId)}`, search: `?serverId=${encodeURIComponent(serverId)}` })}
           onReprobe={async (serverId) => {
             await refreshInferenceServerDiscovery(serverId);
             notifyServersUpdated();

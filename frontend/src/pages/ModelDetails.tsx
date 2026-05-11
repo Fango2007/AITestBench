@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { RegLight } from '../components/RegLight.js';
 import { ArchitectureLayerNode, ArchitectureTree, getArchitecture, inspectArchitecture, patchSettings } from '../services/architecture-api.js';
 import { ModelRecord, listModels } from '../services/models-api.js';
 import { InferenceServerRecord, listInferenceServers } from '../services/inference-servers-api.js';
@@ -42,16 +43,92 @@ function inspectionErrorFrom(err: unknown): { code: string; message: string } {
   return { code: 'unknown', message: 'Architecture inspection failed.' };
 }
 
-function findNodeByPath(root: ArchitectureLayerNode, path: string | null): ArchitectureLayerNode {
-  if (!path) return root;
-  const parts = path.split('.').filter(Boolean);
-  let node = root;
-  for (const part of parts) {
-    const next = node.children.find((child) => child.name === part) ?? node.children[Number(part)];
-    if (!next) return node;
-    node = next;
+function childFocusPath(parent: string, child: ArchitectureLayerNode): string {
+  const name = child.name.trim();
+  if (!name) return parent;
+  return parent ? `${parent}.${name}` : name;
+}
+
+function collectNodePaths(node: ArchitectureLayerNode, path: string, out: Array<{ path: string; node: ArchitectureLayerNode }>) {
+  out.push({ path, node });
+  for (const child of node.children) {
+    collectNodePaths(child, childFocusPath(path, child), out);
   }
-  return node;
+}
+
+function findNodeByPath(root: ArchitectureLayerNode, focusPath: string | null): { node: ArchitectureLayerNode; path: string } {
+  const nodes: Array<{ path: string; node: ArchitectureLayerNode }> = [];
+  collectNodePaths(root, '', nodes);
+  if (!focusPath) return nodes[0];
+  return nodes.find((entry) => entry.path === focusPath)
+    ?? nodes.find((entry) => entry.path.endsWith(`.${focusPath}`))
+    ?? nodes[0];
+}
+
+function valueFromRaw(raw: unknown, keys: string[]): unknown {
+  if (!raw || typeof raw !== 'object') return null;
+  const record = raw as Record<string, unknown>;
+  for (const key of keys) {
+    if (record[key] != null) return record[key];
+  }
+  for (const nestedKey of ['config', 'model', 'architecture']) {
+    const nested = record[nestedKey];
+    if (nested && typeof nested === 'object') {
+      const value = valueFromRaw(nested, keys);
+      if (value != null) return value;
+    }
+  }
+  return null;
+}
+
+function stringValue(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString();
+  if (typeof value === 'boolean') return String(value);
+  return null;
+}
+
+function flattenConfig(value: unknown, prefix = '', out: Array<[string, string]> = [], depth = 0): Array<[string, string]> {
+  if (!value || typeof value !== 'object' || depth > 2) return out;
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    if (raw == null) continue;
+    if (Array.isArray(raw)) {
+      out.push([path, raw.length > 8 ? `[${raw.slice(0, 8).join(', ')}, ...]` : JSON.stringify(raw)]);
+    } else if (typeof raw === 'object') {
+      flattenConfig(raw, path, out, depth + 1);
+    } else {
+      out.push([path, String(raw)]);
+    }
+  }
+  return out;
+}
+
+function configEntries(record: ModelRecord | null, tree: ArchitectureTree | null): Array<[string, string]> {
+  const rawEntries = flattenConfig(record?.raw ?? {});
+  const curated: Array<[string, string]> = [
+    ['model_id', record?.model.model_id ?? tree?.model_id ?? 'unknown'],
+    ['format', record?.architecture.format ?? tree?.format ?? 'unknown'],
+    ['provider', record?.identity.provider ?? 'unknown'],
+    ['precision', record?.architecture.precision ?? 'unknown'],
+    ['quantisation.method', record?.architecture.quantisation.method ?? 'unknown'],
+    ['quantisation.bits', stringValue(record?.architecture.quantisation.bits) ?? 'unknown'],
+    ['limits.context_window_tokens', stringValue(record?.limits.context_window_tokens) ?? 'unknown'],
+    ['limits.max_output_tokens', stringValue(record?.limits.max_output_tokens) ?? 'unknown']
+  ];
+  const seen = new Set<string>();
+  return [...curated, ...rawEntries]
+    .filter(([key]) => {
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 80);
+}
+
+function serverState(server: InferenceServerRecord | null): 'healthy' | 'down' | 'unknown' {
+  if (!server) return 'unknown';
+  return server.inference_server.active && !server.inference_server.archived ? 'healthy' : 'down';
 }
 
 interface ModelDetailsProps {
@@ -66,6 +143,8 @@ type InspectionState =
   | { status: 'done'; tree: ArchitectureTree }
   | { status: 'error'; code: string; message: string };
 
+type SideTab = 'config' | 'tokenizer' | 'runs' | 'readme';
+
 export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,7 +154,7 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
   const [showTrustSection, setShowTrustSection] = useState(false);
   const [trustBusy, setTrustBusy] = useState(false);
   const [trustEnabled, setTrustEnabled] = useState(false);
-  const [sideTab, setSideTab] = useState<'config' | 'tokenizer' | 'runs' | 'readme'>('config');
+  const [sideTab, setSideTab] = useState<SideTab>('config');
 
   const focusPath = searchParams.get('focus');
 
@@ -134,21 +213,32 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
   }
 
   const inspectable = isInspectable(record, modelId);
-  const displayName = record?.model.base_model_name ?? record?.model.display_name ?? modelId;
   const tree = inspection.status === 'done' ? inspection.tree : null;
-  const focusedNode = useMemo(() => tree ? findNodeByPath(tree.root, focusPath) : null, [tree, focusPath]);
+  const focused = useMemo(() => tree ? findNodeByPath(tree.root, focusPath) : null, [tree, focusPath]);
+  const focusedNode = focused?.node ?? null;
+  const focusedPath = focused?.path ?? '';
+  const configRows = useMemo(() => configEntries(record, tree), [record, tree]);
+  const hiddenSize = stringValue(valueFromRaw(record?.raw, ['hidden_size', 'hiddenSize', 'n_embd']));
+  const vocabSize = stringValue(valueFromRaw(record?.raw, ['vocab_size', 'vocabSize', 'n_vocab']));
+  const layerCount = stringValue(valueFromRaw(record?.raw, ['num_hidden_layers', 'numHiddenLayers', 'n_layer']))
+    ?? (tree ? String(tree.summary.by_type.reduce((sum, entry) => sum + (entry.type.toLowerCase().includes('layer') ? entry.count : 0), 0) || tree.summary.by_type.reduce((sum, entry) => sum + entry.count, 0)) : null);
+  const serverLabel = server?.inference_server.display_name ?? serverId;
+  const serverUrl = server?.endpoints.base_url ?? serverId;
   const stats = [
     ['Params', tree ? formatParams(tree.summary.total_parameters) : record?.architecture.parameter_count ? formatParams(record.architecture.parameter_count) : 'N/A'],
     ['Trainable', tree ? formatParams(tree.summary.trainable_parameters) : 'N/A'],
-    ['Layers', tree ? String(tree.summary.by_type.reduce((sum, entry) => sum + entry.count, 0)) : 'N/A'],
-    ['Hidden', 'N/A'],
-    ['Vocab', 'N/A'],
-    ['Format', record?.architecture.format ?? tree?.format ?? 'N/A']
+    ['Layers', layerCount ?? 'N/A'],
+    ['Hidden size', hiddenSize ?? 'N/A'],
+    ['Vocab size', vocabSize ?? 'N/A']
   ];
 
   function updateFocus(path: string) {
     const next = new URLSearchParams(searchParams);
-    next.set('focus', path);
+    if (path) {
+      next.set('focus', path);
+    } else {
+      next.delete('focus');
+    }
     setSearchParams(next);
   }
 
@@ -158,10 +248,18 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
         <div className="model-inspector-topline">
           <button type="button" className="btn btn--ghost" onClick={onBack}>← Back to Catalog</button>
           <span className="label--uppercase">Model · Inspect</span>
+          <div className="model-inspector-actions">
+            {inspectable ? <button type="button" className="btn btn--ghost" onClick={handleInspect}>Inspect Architecture</button> : null}
+            <button type="button" onClick={() => navigate(`/run?serverId=${encodeURIComponent(serverId)}&modelId=${encodeURIComponent(modelId)}`)}>Run a test</button>
+          </div>
         </div>
         <div className="model-inspector-title">
-          <h2>{displayName}</h2>
-          <span className="server-chip">{server?.inference_server.display_name ?? serverId}</span>
+          <h2>{modelId}</h2>
+          <span className="model-inspector-server">
+            <RegLight state={serverState(server)} label={serverLabel} compact />
+            <span>{serverLabel}</span>
+            <small>{serverUrl}</small>
+          </span>
         </div>
         <div className="model-inspector-stats">
           {stats.map(([label, value]) => (
@@ -170,13 +268,13 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
               <strong>{value}</strong>
             </div>
           ))}
-          {inspectable ? <button type="button" onClick={handleInspect}>Inspect Architecture</button> : null}
-          <button type="button" onClick={() => navigate(`/run?serverId=${encodeURIComponent(serverId)}&modelId=${encodeURIComponent(modelId)}`)}>Run a test</button>
         </div>
         <div className="model-inspector-path">
           <span>path:</span>
           <button type="button" onClick={() => updateFocus('')}>{'<root>'}</button>
-          {focusPath ? <strong>{focusPath}</strong> : null}
+          {focusedPath ? focusedPath.split('.').map((part, index) => (
+            <strong key={`${part}-${index}`}>{part}</strong>
+          )) : null}
         </div>
       </header>
 
@@ -213,27 +311,42 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
               accuracy={tree.accuracy}
               inspectionMethod={tree.inspection_method}
               warnings={tree.warnings}
+              selectedPath={focusPath}
+              onSelect={updateFocus}
+              showSummary={false}
             />
           </aside>
           <main className="model-inspector-detail">
             <span className="label--uppercase">{focusedNode?.type ?? 'Root'} · selected node</span>
             <h3>{focusedNode?.name || '<root>'}</h3>
+            <p className="model-inspector-node-path">{focusedPath || '<root>'}</p>
             <div className="model-node-stats">
               <div><span>Parameters</span><strong>{focusedNode ? formatParams(focusedNode.parameters) : 'N/A'}</strong></div>
               <div><span>Shape</span><strong>{focusedNode?.shape ? `[${focusedNode.shape.join(' x ')}]` : 'N/A'}</strong></div>
-              <div><span>Trainable</span><strong>{focusedNode?.trainable ? 'yes' : 'no'}</strong></div>
+              <div><span>Dtype</span><strong>{record?.architecture.precision ?? tree.format}</strong></div>
               <div><span>Children</span><strong>{focusedNode?.children.length ?? 0}</strong></div>
             </div>
+            <div className="model-share-card">
+              <div>
+                <span>Share of total parameters</span>
+                <strong>
+                  {focusedNode ? `${formatParams(focusedNode.parameters)} / ${formatParams(tree.summary.total_parameters)}` : 'N/A'}
+                </strong>
+              </div>
+              <div className="model-share-bar">
+                <i style={{ width: `${Math.max(0.5, Math.min(100, focusedNode && tree.summary.total_parameters ? (focusedNode.parameters / tree.summary.total_parameters) * 100 : 0))}%` }} />
+              </div>
+            </div>
+            <h4 className="model-inspector-section-title">Configuration</h4>
             <div className="details-grid">
-              <div className="detail-row"><span>Model ID</span><strong>{modelId}</strong></div>
-              <div className="detail-row"><span>Server</span><strong>{server?.endpoints.base_url ?? serverId}</strong></div>
-              <div className="detail-row"><span>Provider</span><strong>{record?.identity.provider ?? 'unknown'}</strong></div>
-              <div className="detail-row"><span>Quantization</span><strong>{record?.architecture.quantisation.weight_format ?? record?.architecture.quantisation.method ?? 'unknown'}</strong></div>
+              {configRows.map(([key, value]) => (
+                <div key={key} className="detail-row"><span>{key}</span><strong>{value}</strong></div>
+              ))}
             </div>
           </main>
           <aside className="model-inspector-side">
             <div className="details-tabs">
-              {(['config', 'tokenizer', 'runs', 'readme'] as const).map((tab) => (
+              {(['config', 'tokenizer', 'runs', 'readme'] as SideTab[]).map((tab) => (
                 <button key={tab} type="button" className={sideTab === tab ? 'active' : undefined} onClick={() => setSideTab(tab)}>
                   <span className="details-tab-name">{tab === 'config' ? 'Config JSON' : tab}</span>
                 </button>
@@ -243,8 +356,8 @@ export function ModelDetails({ serverId, modelId, onBack }: ModelDetailsProps) {
               <pre className="code-block">{JSON.stringify({ record, architecture: tree }, null, 2)}</pre>
             ) : (
               <div className="catalog-empty">
-                <h3>{sideTab}</h3>
-                <p>No {sideTab} data is available for this model yet.</p>
+                <h3>{sideTab === 'runs' ? 'Recent runs' : sideTab}</h3>
+                <p>No {sideTab === 'runs' ? 'recent run' : sideTab} data is available for this model yet.</p>
               </div>
             )}
           </aside>
