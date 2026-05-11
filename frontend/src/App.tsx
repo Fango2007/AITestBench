@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 
-import packageInfo from '../package.json';
+import packageInfo from '../package.json' with { type: 'json' };
 import { Sidebar } from './components/Sidebar.js';
 import { Catalog } from './pages/Catalog.js';
 import { Evaluate } from './pages/Evaluate.js';

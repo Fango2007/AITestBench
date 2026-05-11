@@ -4,11 +4,20 @@ export interface ModelNameGuess {
   provider: ModelProvider | null;
   parameter_count: number | null;
   parameter_count_label: string | null;
+  active_parameter_label: string | null;
+  quantized_provider: string | null;
+  format: 'MLX' | 'GGUF' | 'GPTQ' | 'AWQ' | 'SafeTensors' | null;
   quantisation: {
     method: ModelQuantisationMethod | null;
     bits: number | null;
   };
   precision: ModelPrecision | null;
+  use_case: {
+    thinking: boolean;
+    coding: boolean;
+    instruct: boolean;
+    mixture_of_experts: boolean;
+  };
 }
 
 const providerHints: Array<{ provider: ModelProvider; patterns: RegExp[] }> = [
@@ -89,32 +98,62 @@ function parseQuantisationBits(text: string): number | null {
   return null;
 }
 
-const DROP_PATTERNS = [
-  /^mlx$/i,
-  /^gguf$/i,
-  /^gcuf$/i,
-  /^gptq$/i,
-  /^awq$/i,
-  /^safetensors$/i,
-  /^\d+(\.\d+)?bit$/i,
-  /^q\d+(_k_[sml]|_[0-3])?$/i,
-  /^\d{4,}$/,
-  /^fp(16|32)$/i,
-  /^bf16$/i,
-  /^int[48]$/i
-];
-
 export function extractBaseModelName(modelId: string): string | null {
   if (!modelId.trim()) {
     return null;
   }
-  const stripped = modelId.replace(/^\/?[^/]+\//, '');
-  const parts = stripped.split(/[-_]/);
-  while (parts.length > 0 && DROP_PATTERNS.some((p) => p.test(parts[parts.length - 1]))) {
-    parts.pop();
+  let name = modelId.replace(/^\/+/, '').split('/').filter(Boolean).pop() ?? '';
+  let previous: string;
+  do {
+    previous = name;
+    name = name.replace(
+      /[-_](?:mlx|gguf|gcuf|gptq|awq|safetensors|\d+(?:\.\d+)?bit|q\d+(?:_k_[sml]|_[0-3])?|\d{4,}|a\d+(?:\.\d+)?[bm]|\d+(?:\.\d+)?(?:b|bn|billion|m|million)|instruct|chat|fp(?:16|32)|bf16|int[48])$/i,
+      ''
+    );
+  } while (name !== previous);
+  return name || null;
+}
+
+function parseActiveParameterLabel(text: string): string | null {
+  const match = text.match(/(?:^|[-_\s])A(\d+(?:\.\d+)?[BM])(?:[-_\s]|$)/i);
+  return match ? `A${match[1].toUpperCase()}` : null;
+}
+
+function parseModelFormat(text: string): ModelNameGuess['format'] {
+  if (/\bmlx\b/i.test(text)) return 'MLX';
+  if (/\b(?:gguf|gcuf)\b/i.test(text)) return 'GGUF';
+  if (/\bgptq\b/i.test(text)) return 'GPTQ';
+  if (/\bawq\b/i.test(text)) return 'AWQ';
+  if (/\bsafetensors\b/i.test(text)) return 'SafeTensors';
+  return null;
+}
+
+function quantMethodForFormat(format: ModelNameGuess['format']): ModelQuantisationMethod | null {
+  if (format === 'MLX') return 'mlx';
+  if (format === 'GGUF') return 'gguf';
+  if (format === 'GPTQ') return 'gptq';
+  if (format === 'AWQ') return 'awq';
+  return null;
+}
+
+function parseQuantizedProvider(modelId: string, hasQuantizedMetadata: boolean): string | null {
+  if (!hasQuantizedMetadata) {
+    return null;
   }
-  const result = parts.join('-');
-  return result || null;
+  const parts = modelId.replace(/^\/+/, '').split('/').filter(Boolean);
+  if (parts.length < 2) {
+    return null;
+  }
+  return parts[0].includes('.') && parts.length > 2 ? parts[1] : parts[0];
+}
+
+function inferUseCase(text: string, activeParameterLabel: string | null): ModelNameGuess['use_case'] {
+  return {
+    thinking: /\b(thinking|reasoning|reasoner|qwq|r1)\b/i.test(text),
+    coding: /\b(code|coder|coding|devstral)\b/i.test(text),
+    instruct: /\b(instruct|chat)\b/i.test(text),
+    mixture_of_experts: Boolean(activeParameterLabel) || /\b(moe|mixture[-_ ]?of[-_ ]?experts|mixtral)\b/i.test(text)
+  };
 }
 
 export function guessModelCharacteristics(modelName: string): ModelNameGuess {
@@ -129,16 +168,23 @@ export function guessModelCharacteristics(modelName: string): ModelNameGuess {
     matchFirst(normalized, precisionHints.map((entry) => ({ value: entry.precision, patterns: entry.patterns }))) ??
     null;
   const parameter = parseParameterCount(normalized);
+  const activeParameterLabel = parseActiveParameterLabel(normalized);
+  const format = parseModelFormat(normalized);
   const quantBits = parseQuantisationBits(normalized);
+  const effectiveQuantMethod = quantMethod ?? quantMethodForFormat(format);
 
   return {
     provider,
     parameter_count: parameter?.count ?? null,
     parameter_count_label: parameter?.label ?? null,
+    active_parameter_label: activeParameterLabel,
+    quantized_provider: parseQuantizedProvider(normalized, Boolean(format || quantBits != null || effectiveQuantMethod)),
+    format,
     quantisation: {
-      method: quantMethod,
+      method: effectiveQuantMethod,
       bits: quantBits
     },
-    precision
+    precision,
+    use_case: inferUseCase(normalized, activeParameterLabel)
   };
 }

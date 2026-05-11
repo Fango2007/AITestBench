@@ -41,7 +41,7 @@ describe('evaluation queue score helpers', () => {
       json: async () => {
         throw new Error('204 responses do not have JSON bodies');
       }
-    } as Response);
+    } as unknown as Response);
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(skipEvaluationQueueItem('queue-result-1')).resolves.toBeUndefined();

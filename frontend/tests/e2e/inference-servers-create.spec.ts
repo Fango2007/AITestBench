@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
+import crypto from 'node:crypto';
 
 import { archiveInferenceServer, findInferenceServerByName } from './helpers.js';
 
 test('creates a new inference server from the dashboard', async ({ page, request }) => {
-  const displayName = `E2E Server ${Date.now()}`;
+  const displayName = `E2E Server ${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const baseUrl = 'http://localhost:8080';
 
   await page.goto('/');

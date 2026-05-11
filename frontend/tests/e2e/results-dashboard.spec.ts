@@ -145,6 +145,10 @@ function resultsViewPayload(empty = false) {
 }
 
 test('merged Results dashboard filter and render flow', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const longRawValue = `raw-payload-${'x'.repeat(3000)}`;
+
   await page.route('**/results-view/query', async (route) => {
     const payload = route.request().postDataJSON() as { date_from?: string };
     const isFutureRange = payload.date_from
@@ -170,10 +174,11 @@ test('merged Results dashboard filter and render flow', async ({ page }) => {
             test_id: 'latency-benchmark',
             template_label: 'latency-benchmark',
             verdict: 'pass',
-            metrics: { latency_ms: 80 }
+            metrics: { latency_ms: 80 },
+            raw_payload: longRawValue
           }
         ],
-        documents: [{ summary: { passed_steps: 1, failed_steps: 0 } }]
+        documents: [{ summary: { passed_steps: 1, failed_steps: 0 }, raw_payload: longRawValue }]
       })
     });
   });
@@ -274,6 +279,34 @@ test('merged Results dashboard filter and render flow', async ({ page }) => {
   await recentRun.click();
   await expect(page.getByText('Run detail')).toBeVisible();
   await expect(page.getByText('run-dashboard-1')).toBeVisible();
+  const drawerSizing = await page.evaluate(() => {
+    const drawer = document.querySelector<HTMLElement>('.results-drawer');
+    const detailBlock = document.querySelector<HTMLElement>('.results-detail-block');
+    const rawPre = detailBlock?.querySelector<HTMLElement>('pre');
+    const scrollingElement = document.scrollingElement;
+    if (!drawer || !detailBlock || !rawPre || !scrollingElement) {
+      return null;
+    }
+    return {
+      viewportWidth: window.innerWidth,
+      drawerWidth: drawer.getBoundingClientRect().width,
+      drawerClientWidth: drawer.clientWidth,
+      drawerScrollWidth: drawer.scrollWidth,
+      detailClientWidth: detailBlock.clientWidth,
+      detailScrollWidth: detailBlock.scrollWidth,
+      preClientWidth: rawPre.clientWidth,
+      preScrollWidth: rawPre.scrollWidth,
+      pageClientWidth: scrollingElement.clientWidth,
+      pageScrollWidth: scrollingElement.scrollWidth
+    };
+  });
+  expect(drawerSizing).not.toBeNull();
+  expect(drawerSizing!.drawerWidth).toBeGreaterThan(640);
+  expect(drawerSizing!.drawerWidth).toBeLessThanOrEqual(drawerSizing!.viewportWidth);
+  expect(drawerSizing!.drawerScrollWidth).toBeLessThanOrEqual(drawerSizing!.drawerClientWidth + 1);
+  expect(drawerSizing!.detailScrollWidth).toBeLessThanOrEqual(drawerSizing!.detailClientWidth + 1);
+  expect(drawerSizing!.preScrollWidth).toBeLessThanOrEqual(drawerSizing!.preClientWidth + 1);
+  expect(drawerSizing!.pageScrollWidth).toBeLessThanOrEqual(drawerSizing!.pageClientWidth + 1);
 
   await page.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('button', { name: 'Reset filters' }).click();

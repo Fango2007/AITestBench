@@ -10,6 +10,11 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 - Results dashboard now compares raw cold-start performance across servers and models with sample-backed summary rows and box plots for cold penalty, cold total, and hot total metrics.
 - Results run detail drawers now support guarded hard deletion of completed runs, removing result documents, metric samples, queue skips, and run-group item links while preserving linked evaluations.
+- Server discovery now upserts discovered models with persisted parser-derived metadata, including clean base names, quantized providers, parameter labels, active MoE labels, formats, quantization bits, and use-case tags.
+
+### Changed
+
+- Catalog and Models metadata filters/details now use persisted `/models` records as their source of truth instead of inferring provider, format, quantized provider, or use cases from raw model IDs.
 
 
 ## [0.4.0] - 2026-05-10

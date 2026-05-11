@@ -6,6 +6,7 @@ import { updateInferenceServerRecord } from './inference-servers-repository.js';
 import { buildInferenceServerAuthHeaders } from './inference-server-auth.js';
 import { backendFetch } from './inference-proxy.js';
 import { extractQuantisationLabel, normaliseQuantisationFromLabel } from './quantisation-normalizer.js';
+import { upsertDiscoveredModelRecord } from './models-repository.js';
 
 export class InferenceServerRefreshError extends Error {
   details: {
@@ -211,6 +212,16 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
       attempted_url: server.endpoints.base_url,
       message: 'Unable to persist discovery response',
       timestamp: nowIso()
+    });
+  }
+  for (const model of normalised) {
+    upsertDiscoveredModelRecord({
+      server_id: server.inference_server.server_id,
+      model_id: model.model_id,
+      display_name: model.display_name,
+      context_window_tokens: model.context_window_tokens,
+      quantisation: model.quantisation,
+      raw: { discovery_model: model }
     });
   }
   return updated;

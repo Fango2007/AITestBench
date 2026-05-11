@@ -38,6 +38,7 @@ async function seedModel(
         server_id: serverId,
         model_id: opts.model_id,
         display_name: opts.display_name,
+        base_model_name: opts.display_name,
         active: true,
         archived: false
       },
@@ -75,7 +76,7 @@ test('models tab requires a selected server before showing model cards', async (
   await expect(page.getByRole('heading', { name: 'Select a server to see its models' })).toBeVisible();
 
   await page.locator('.server-filter-row').filter({ hasText: server.inference_server.display_name }).click();
-  await expect(page.locator('.catalog-model-card').filter({ hasText: 'Qwen3-Coder-30B-A3B-Instruct' })).toBeVisible();
+  await expect(page.locator('.catalog-model-card').filter({ hasText: 'Qwen3 Coder' })).toBeVisible();
 
   await archiveInferenceServer(request, server.inference_server.server_id);
 });
@@ -98,10 +99,33 @@ test('model filter rail narrows visible model cards', async ({ page, request }) 
   await page.waitForLoadState('networkidle');
 
   await page.getByLabel('MLX').check();
-  await expect(page.locator('.catalog-model-card').filter({ hasText: 'Qwen3-Coder' })).toBeVisible();
+  await expect(page.locator('.catalog-model-card').filter({ hasText: 'Qwen3 Coder' })).toBeVisible();
   await expect(page.locator('.catalog-model-card').filter({ hasText: 'Devstral' })).toHaveCount(0);
 
   await expect(page).toHaveURL(/format=MLX/);
+  await archiveInferenceServer(request, serverId);
+});
+
+test('model filter rail uses persisted metadata instead of inferring from model IDs', async ({ page, request }) => {
+  const server = await createInferenceServer(request);
+  const serverId = server.inference_server.server_id;
+  await seedModel(request, serverId, {
+    model_id: '/lmstudio-community/Raw-Name-MLX-6bit',
+    display_name: 'Raw MLX Suffix'
+  });
+  await seedModel(request, serverId, {
+    model_id: 'persisted-mlx',
+    display_name: 'Persisted MLX',
+    format: 'MLX'
+  });
+
+  await page.goto(`/catalog?tab=models&servers=${encodeURIComponent(serverId)}`);
+  await page.waitForLoadState('networkidle');
+
+  await page.getByLabel('MLX').check();
+  await expect(page.locator('.catalog-model-card').filter({ hasText: 'Persisted MLX' })).toBeVisible();
+  await expect(page.locator('.catalog-model-card').filter({ hasText: 'Raw MLX Suffix' })).toHaveCount(0);
+
   await archiveInferenceServer(request, serverId);
 });
 
@@ -116,7 +140,7 @@ test('Inspect opens the catalog model inspector for the selected server/model', 
 
   await page.goto(`/catalog?tab=models&servers=${encodeURIComponent(serverId)}`);
   await page.waitForLoadState('networkidle');
-  await page.locator('.catalog-model-card').filter({ hasText: 'Llama-3.1-8B' }).getByRole('button', { name: 'Inspect' }).click();
+  await page.locator('.catalog-model-card').filter({ hasText: 'Llama 3.1 8B' }).getByRole('button', { name: 'Inspect' }).click();
 
   await expect(page).toHaveURL(new RegExp(`serverId=${serverId}`));
   await expect(page).toHaveURL(/modelId=meta-llama/);

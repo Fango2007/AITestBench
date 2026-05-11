@@ -16,8 +16,7 @@ import {
   InspectorError,
 } from '../../adapters/architecture-inspector.js';
 import { validateWithSchema } from '../../services/schema-validator.js';
-import { guessModelCharacteristics } from '../../services/model-name-parser.js';
-import { InvalidModelError, upsertModelRecord } from '../../services/models-repository.js';
+import { InvalidModelError, upsertDiscoveredModelRecord } from '../../services/models-repository.js';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const SETTINGS_SCHEMA = path.resolve(moduleDir, '../../schemas/architecture-settings.schema.json');
@@ -98,34 +97,6 @@ function getArchitectureSettings(serverId: string, modelId: string): { trust_rem
   return { trust_remote_code: row ? row.trust_remote_code === 1 : false };
 }
 
-function inferFormat(modelId: string): 'MLX' | 'GGUF' | 'GPTQ' | 'AWQ' | 'SafeTensors' | null {
-  if (/\bmlx\b/i.test(modelId)) return 'MLX';
-  if (/\b(?:gguf|gcuf)\b/i.test(modelId)) return 'GGUF';
-  if (/\bgptq\b/i.test(modelId)) return 'GPTQ';
-  if (/\bawq\b/i.test(modelId)) return 'AWQ';
-  if (/\bsafetensors\b/i.test(modelId)) return 'SafeTensors';
-  return null;
-}
-
-function discoveryQuantisation(modelId: string, discovered: DiscoveryModel): ModelRecord['architecture']['quantisation'] {
-  if (discovered.quantisation && typeof discovered.quantisation === 'object') {
-    return {
-      method: discovered.quantisation.method as ModelRecord['architecture']['quantisation']['method'],
-      bits: discovered.quantisation.bits,
-      group_size: discovered.quantisation.group_size,
-      scheme: discovered.quantisation.scheme as ModelRecord['architecture']['quantisation']['scheme'],
-      variant: discovered.quantisation.variant as ModelRecord['architecture']['quantisation']['variant'],
-      weight_format: discovered.quantisation.weight_format,
-    };
-  }
-  const guessed = guessModelCharacteristics(modelId);
-  return {
-    method: guessed.quantisation.method ?? 'unknown',
-    bits: guessed.quantisation.bits,
-    group_size: null,
-  };
-}
-
 function getOrCreateModelForInspection(serverId: string, modelId: string): ModelRecord | null {
   const existing = getModelById(serverId, modelId);
   if (existing) {
@@ -141,22 +112,12 @@ function getOrCreateModelForInspection(serverId: string, modelId: string): Model
   }
 
   try {
-    return upsertModelRecord({
-      model: {
-        server_id: serverId,
-        model_id: modelId,
-        display_name: discovered.display_name ?? modelId,
-      },
-      identity: {
-        provider: guessModelCharacteristics(modelId).provider ?? 'unknown',
-      },
-      architecture: {
-        format: inferFormat(modelId),
-        quantisation: discoveryQuantisation(modelId, discovered),
-      },
-      limits: {
-        context_window_tokens: discovered.context_window_tokens,
-      },
+    return upsertDiscoveredModelRecord({
+      server_id: serverId,
+      model_id: modelId,
+      display_name: discovered.display_name ?? modelId,
+      context_window_tokens: discovered.context_window_tokens,
+      quantisation: typeof discovered.quantisation === 'object' ? discovered.quantisation : null,
       raw: { discovery_model: discovered },
     });
   } catch (error) {

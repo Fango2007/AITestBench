@@ -63,6 +63,19 @@ async function getOrCreateServer(request: APIRequestContext): Promise<string> {
   return server.inference_server.server_id;
 }
 
+async function clearResultsRailState(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem('results.funnelCollapsedStages');
+  });
+}
+
+function leaderboardUrl(filters?: { serverId?: string; modelName?: string }) {
+  const params = new URLSearchParams({ tab: 'leaderboard' });
+  if (filters?.serverId) params.set('server', filters.serverId);
+  if (filters?.modelName) params.set('model', filters.modelName);
+  return `/results?${params.toString()}`;
+}
+
 test.describe('Leaderboard page — empty state', () => {
   test('renders the merged Results leaderboard tab and shared filter rail when no evaluations match', async ({ page }) => {
     await page.goto('/results?tab=leaderboard');
@@ -118,11 +131,13 @@ test.describe('Leaderboard filters', () => {
     const modelName = `e2e-filter-rail-${Date.now()}`;
     await seedEvaluation(request, { serverId, modelName });
 
-    await page.goto('/results?tab=leaderboard');
+    await clearResultsRailState(page);
+    await page.goto(leaderboardUrl({ serverId, modelName }));
     await expect(page.locator('.results-leader-row').filter({ hasText: modelName })).toBeVisible();
 
-    await page.getByLabel('From').fill('2030-01-01T00:00');
-    await page.getByLabel('To').fill('2030-12-31T23:59');
+    const filterRail = page.locator('[aria-label="Results filters"]');
+    await filterRail.getByLabel('From').fill('2030-01-01T00:00');
+    await filterRail.getByLabel('To').fill('2030-12-31T23:59');
     await expect(page.getByText('No evaluations match the selected filters.')).toBeVisible({ timeout: 3000 });
   });
 
@@ -131,10 +146,12 @@ test.describe('Leaderboard filters', () => {
     const modelName = `e2e-filter-clear-${Date.now()}`;
     await seedEvaluation(request, { serverId, modelName });
 
-    await page.goto('/results?tab=leaderboard');
+    await clearResultsRailState(page);
+    await page.goto(leaderboardUrl({ serverId, modelName }));
 
-    await page.getByLabel('From').fill('2030-01-01T00:00');
-    await page.getByLabel('To').fill('2030-12-31T23:59');
+    const filterRail = page.locator('[aria-label="Results filters"]');
+    await filterRail.getByLabel('From').fill('2030-01-01T00:00');
+    await filterRail.getByLabel('To').fill('2030-12-31T23:59');
     await expect(page.getByText('No evaluations match the selected filters.')).toBeVisible();
 
     const t0 = Date.now();
