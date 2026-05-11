@@ -102,6 +102,15 @@ function make1000NodeTree(modelId: string) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function displayNameForModelId(modelId: string): string {
+  return modelId
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter(Boolean)
+    .pop()
+    ?.replace(/-/g, ' ') ?? modelId;
+}
+
 async function seedHfModel(
   request: import('@playwright/test').APIRequestContext,
   serverId: string,
@@ -125,10 +134,30 @@ async function seedHfModel(
   return response.json();
 }
 
-async function navigateToModelDetail(page: import('@playwright/test').Page, serverId: string, modelId: string) {
+async function catalogLabelForModel(
+  request: import('@playwright/test').APIRequestContext,
+  serverId: string,
+  modelId: string
+) {
+  const response = await request.get(`${API_BASE_URL}/models/${serverId}/${encodeURIComponent(modelId)}`, {
+    headers: authHeaders
+  });
+  if (!response.ok()) {
+    return displayNameForModelId(modelId);
+  }
+  const record = await response.json();
+  return record.model.base_model_name?.trim() || record.model.display_name?.trim() || displayNameForModelId(modelId);
+}
+
+async function navigateToModelDetail(
+  page: import('@playwright/test').Page,
+  request: import('@playwright/test').APIRequestContext,
+  serverId: string,
+  modelId: string
+) {
   await page.goto(`/catalog?tab=models&servers=${encodeURIComponent(serverId)}`);
   await page.waitForLoadState('networkidle');
-  const expectedModelText = modelId.replace(/^\/+/, '').split('/').filter(Boolean).pop() ?? modelId;
+  const expectedModelText = await catalogLabelForModel(request, serverId, modelId);
   const card = page.locator('.catalog-model-card').filter({ hasText: expectedModelText });
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Inspect' }).click();
@@ -157,7 +186,7 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
       }
     });
 
-    await navigateToModelDetail(page, serverId, MODEL_ID);
+    await navigateToModelDetail(page, request, serverId, MODEL_ID);
 
     // Inspect Architecture button should be visible for HF-style model
     await expect(page.getByRole('button', { name: 'Inspect Architecture' })).toBeVisible();
@@ -239,7 +268,7 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
       }
     });
 
-    await navigateToModelDetail(page, serverId, bigModelId);
+    await navigateToModelDetail(page, request, serverId, bigModelId);
     await page.getByRole('button', { name: 'Inspect Architecture' }).click();
     await expect(page.locator('.arch-node-row').first()).toBeVisible();
 
@@ -268,7 +297,7 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
       }
     });
 
-    await navigateToModelDetail(page, serverId, MODEL_ID);
+    await navigateToModelDetail(page, request, serverId, MODEL_ID);
     await page.getByRole('button', { name: 'Inspect Architecture' }).click();
     await expect(page.locator('.arch-node-row').first()).toBeVisible();
 
@@ -320,7 +349,7 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
       headers: authHeaders,
     });
 
-    await navigateToModelDetail(page, serverId, 'plain-local-model');
+    await navigateToModelDetail(page, request, serverId, 'plain-local-model');
 
     // Button should NOT be rendered at all
     await expect(page.getByRole('button', { name: 'Inspect Architecture' })).toHaveCount(0);
@@ -345,7 +374,7 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
       }
     });
 
-    await navigateToModelDetail(page, serverId, MODEL_ID);
+    await navigateToModelDetail(page, request, serverId, MODEL_ID);
     await page.getByRole('button', { name: 'Inspect Architecture' }).click();
 
     await expect(page.locator('.error')).toContainText('Hugging Face API token');

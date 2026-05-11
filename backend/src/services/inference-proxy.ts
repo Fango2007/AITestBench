@@ -14,6 +14,8 @@ export interface InferenceProxyConfig {
 }
 
 let backendFetchDispatcher: Dispatcher | null = null;
+type UndiciFetchInput = Parameters<typeof undiciFetch>[0];
+type UndiciFetchInit = Parameters<typeof undiciFetch>[1];
 
 export function resolveInferenceProxyConfig(
   env: NodeJS.ProcessEnv = process.env
@@ -40,18 +42,21 @@ export function configureInferenceProxyFromEnv(env: NodeJS.ProcessEnv = process.
     proxyTunnel: false
   });
   setGlobalDispatcher(backendFetchDispatcher);
-  globalThis.fetch = backendFetch;
+  globalThis.fetch = backendFetch as typeof globalThis.fetch;
 
   return true;
 }
 
-export function backendFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+export function backendFetch(input: UndiciFetchInput, init?: UndiciFetchInit): ReturnType<typeof undiciFetch> {
   if (!backendFetchDispatcher) {
-    return globalThis.fetch(input, init);
+    return globalThis.fetch(
+      input as Parameters<typeof globalThis.fetch>[0],
+      init as Parameters<typeof globalThis.fetch>[1]
+    ) as ReturnType<typeof undiciFetch>;
   }
 
   return undiciFetch(input, {
     ...(init ?? {}),
     dispatcher: backendFetchDispatcher
-  } as RequestInit & { dispatcher: Dispatcher }) as unknown as Promise<Response>;
+  });
 }

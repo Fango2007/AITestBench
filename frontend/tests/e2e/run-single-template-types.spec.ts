@@ -109,7 +109,7 @@ test('supports JSON and Python template types', async ({ page, request }) => {
     );
     await page.goto('/run');
     await serversResponse;
-    await expect(page.getByRole('heading', { name: 'Run', exact: true })).toBeVisible();
+    await expect(page.locator('.merged-page-header').getByRole('heading', { name: 'Run', exact: true })).toBeVisible();
 
     const inferenceServerSelect = page.getByRole('combobox', { name: 'Inference server', exact: true });
     await expect(inferenceServerSelect).toBeVisible();

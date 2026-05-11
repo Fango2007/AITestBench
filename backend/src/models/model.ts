@@ -1,7 +1,7 @@
 import { getDb } from './db.js';
 import { nowIso, parseJson, serializeJson } from './repositories.js';
 
-export const MODEL_SCHEMA_VERSION = '1.1.0';
+export const MODEL_SCHEMA_VERSION = '1.2.0';
 
 export type ModelProvider =
   | 'openai'
@@ -49,6 +49,8 @@ export interface ModelIdentity {
 export interface ModelArchitecture {
   type: ModelArchitectureType;
   parameter_count: number | null;
+  parameter_count_label: string | null;
+  active_parameter_label: string | null;
   precision: ModelPrecision;
   quantisation: {
     method: ModelQuantisationMethod;
@@ -158,6 +160,8 @@ function defaultArchitecture(): ModelArchitecture {
   return {
     type: 'unknown',
     parameter_count: null,
+    parameter_count_label: null,
+    active_parameter_label: null,
     precision: 'unknown',
     quantisation: {
       method: 'unknown',

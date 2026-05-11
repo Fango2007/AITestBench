@@ -82,8 +82,8 @@ export function Sidebar({ version, health, templateCount, runCount, onSettings }
           >
             <span className="sidebar-item__main">
               <span>{item.label}</span>
-              {item.badge === 'templates' && templateCount !== null ? <b>{templateCount}</b> : null}
-              {item.badge === 'runs' && runCount !== null ? <b>{runCount}</b> : null}
+              {'badge' in item && item.badge === 'templates' && templateCount !== null ? <b>{templateCount}</b> : null}
+              {'badge' in item && item.badge === 'runs' && runCount !== null ? <b>{runCount}</b> : null}
             </span>
             <span className="sidebar-item__sub">{item.sub}</span>
           </NavLink>

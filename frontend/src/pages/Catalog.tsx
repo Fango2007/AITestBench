@@ -20,7 +20,6 @@ import {
   updateInferenceServer
 } from '../services/inference-servers-api.js';
 import { ModelFormat, ModelRecord, listModels } from '../services/models-api.js';
-import { extractBaseModelName, inferModelMetadata } from '../services/model-metadata-inference.js';
 import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from '../services/inference-param-presets-api.js';
 import { ModelDetails } from './ModelDetails.js';
 
@@ -69,9 +68,7 @@ function formatProvider(provider: string): string {
 }
 
 function modelLabel(record: ModelRecord | undefined, modelId: string, displayName: string): string {
-  return record?.model.base_model_name?.trim()
-    ? extractBaseModelName(record.model.base_model_name) ?? record.model.base_model_name
-    : inferModelMetadata(modelId, displayName).baseModelName ?? extractBaseModelName(displayName) ?? displayName;
+  return record?.model.base_model_name?.trim() ?? record?.model.display_name?.trim() ?? (displayName || modelId);
 }
 
 function statusFor(server: InferenceServerRecord, health?: InferenceServerHealth): ServerStatus {
@@ -130,14 +127,12 @@ function buildCatalogModels(servers: InferenceServerRecord[], modelRecords: Mode
   const entries = new Map<string, CatalogModel>();
   const put = (server: InferenceServerRecord, modelId: string, displayName: string, context: number | null, quantLabel?: string | null) => {
     const record = recordMap.get(`${server.inference_server.server_id}:${modelId}`);
-    const inferred = inferModelMetadata(modelId, displayName);
     const label = modelLabel(record, modelId, displayName);
-    const format = record?.architecture.format ?? inferred.format ?? 'Unknown';
+    const format = record?.architecture.format ?? 'Unknown';
     const quantization =
       record?.architecture.quantisation.weight_format
-      ?? quantLabel
       ?? (record?.architecture.quantisation.bits ? `${record.architecture.quantisation.bits}-bit` : null)
-      ?? (inferred.quantisation.bits ? `${inferred.quantisation.bits}-bit` : null)
+      ?? (record ? quantLabel : null)
       ?? 'Unknown';
     const key = `${server.inference_server.server_id}:${modelId}`;
     entries.set(key, {
@@ -147,7 +142,7 @@ function buildCatalogModels(servers: InferenceServerRecord[], modelRecords: Mode
       serverUrl: server.endpoints.base_url,
       modelId,
       displayName: label,
-      family: formatProvider(record?.identity.provider ?? inferred.provider),
+      family: formatProvider(record?.identity.provider ?? 'unknown'),
       quantization,
       format,
       context: (record?.limits.context_window_tokens ?? context) ? `${record?.limits.context_window_tokens ?? context} ctx` : 'ctx unknown',

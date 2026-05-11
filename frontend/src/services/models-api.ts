@@ -41,6 +41,8 @@ export interface ModelRecord {
   architecture: {
     type: string;
     parameter_count: number | null;
+    parameter_count_label: string | null;
+    active_parameter_label: string | null;
     precision: string;
     quantisation: {
       method: ModelQuantisationMethod;

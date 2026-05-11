@@ -1,5 +1,5 @@
 {
-  "model_schema_version": "1.0.0",
+  "model_schema_version": "1.2.0",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Model Schema",
   "type": "object",
@@ -74,6 +74,8 @@
       "properties": {
         "type": { "type": "string", "enum": ["decoder-only", "encoder-decoder", "other", "unknown"] },
         "parameter_count": { "type": ["number", "null"] },
+        "parameter_count_label": { "type": ["string", "null"] },
+        "active_parameter_label": { "type": ["string", "null"] },
         "precision": {
           "type": "string",
           "enum": ["fp32", "fp16", "bf16", "int8", "int4", "mixed", "unknown"]

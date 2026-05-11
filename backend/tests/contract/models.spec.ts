@@ -80,6 +80,7 @@ describe('models contract', () => {
     });
     expect(createResponse.statusCode).toBe(201);
     const created = createResponse.json();
+    expect(created.model_schema_version).toBe('1.2.0');
     expect(created.model.model_id).toBe('gpt-test');
     expect(created.model.created_at).toBeTruthy();
     expect(created.model.updated_at).toBeTruthy();
@@ -212,7 +213,7 @@ describe('models contract', () => {
     });
     expect(createResponse.statusCode).toBe(201);
     const created = createResponse.json();
-    expect(created.model.base_model_name).toBe('Qwen3-Coder-30B-A3B-Instruct');
+    expect(created.model.base_model_name).toBe('Qwen3-Coder');
   });
 
   it('accepts valid format enum value on POST /models and returns it', async () => {
@@ -491,6 +492,8 @@ describe('models contract', () => {
     expect(listResponse.statusCode).toBe(200);
     const [record] = listResponse.json();
     expect(record.architecture).toHaveProperty('format');
+    expect(record.architecture).toHaveProperty('parameter_count_label');
+    expect(record.architecture).toHaveProperty('active_parameter_label');
     expect(record.architecture.format).toBe('MLX');
     expect(record.identity).toHaveProperty('quantized_provider');
     expect(record.identity.quantized_provider).toBe('lmstudio-community');

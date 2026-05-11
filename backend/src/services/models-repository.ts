@@ -22,19 +22,39 @@ import {
   updateModel
 } from '../models/model.js';
 import { nowIso } from '../models/repositories.js';
-import { extractBaseModelName } from './model-name-parser.js';
+import { extractBaseModelName, guessModelCharacteristics } from './model-name-parser.js';
 import { validateWithSchema } from './schema-validator.js';
 
 export interface ModelInput {
   model?: Partial<ModelInfo>;
   identity?: Partial<ModelIdentity>;
-  architecture?: Partial<ModelArchitecture>;
+  architecture?: Partial<Omit<ModelArchitecture, 'quantisation'>> & {
+    quantisation?: Partial<ModelArchitecture['quantisation']>;
+  };
   modalities?: Partial<ModelModalities>;
-  capabilities?: Partial<ModelCapabilities>;
+  capabilities?: Partial<Omit<ModelCapabilities, 'use_case'>> & {
+    use_case?: Partial<ModelCapabilities['use_case']>;
+  };
   limits?: Partial<ModelLimits>;
   performance?: Partial<ModelPerformance>;
   configuration?: Partial<ModelConfiguration>;
   discovery?: Partial<ModelDiscovery>;
+  raw?: Record<string, unknown>;
+}
+
+export interface DiscoveredModelInput {
+  server_id: string;
+  model_id: string;
+  display_name?: string | null;
+  context_window_tokens?: number | null;
+  quantisation?: {
+    method?: string | null;
+    bits?: number | null;
+    group_size?: number | null;
+    scheme?: string | null;
+    variant?: string | null;
+    weight_format?: string | null;
+  } | null;
   raw?: Record<string, unknown>;
 }
 
@@ -65,6 +85,8 @@ function defaultArchitecture(): ModelArchitecture {
   return {
     type: 'unknown',
     parameter_count: null,
+    parameter_count_label: null,
+    active_parameter_label: null,
     precision: 'unknown',
     quantisation: { method: 'unknown', bits: null, group_size: null },
     format: null
@@ -130,7 +152,7 @@ function mergeIdentity(existing: ModelIdentity | null, updates: Partial<ModelIde
 
 function mergeArchitecture(
   existing: ModelArchitecture | null,
-  updates: Partial<ModelArchitecture> | undefined
+  updates: ModelInput['architecture'] | undefined
 ): ModelArchitecture {
   const base = existing ?? defaultArchitecture();
   if (!updates) {
@@ -193,7 +215,7 @@ function mergeModalities(
 
 function mergeCapabilities(
   existing: ModelCapabilities | null,
-  updates: Partial<ModelCapabilities> | undefined
+  updates: ModelInput['capabilities'] | undefined
 ): ModelCapabilities {
   const base = existing ?? defaultCapabilities();
   if (!updates) {
@@ -261,6 +283,120 @@ function validateModelRecord(record: ModelRecord): void {
     .map((issue) => (issue.path ? `${issue.path}: ${issue.message}` : issue.message))
     .join('; ');
   throw new InvalidModelError(`Schema validation failed: ${detail}`);
+}
+
+function isBlankText(value: string | null | undefined): boolean {
+  return value == null || value.trim() === '' || value.trim().toLowerCase() === 'unknown';
+}
+
+function inferredModelInput(input: DiscoveredModelInput): ModelInput {
+  const guessed = guessModelCharacteristics(input.model_id);
+  const discoveredMethod = input.quantisation?.method;
+  const quantisationMethod =
+    discoveredMethod && discoveredMethod !== 'unknown'
+      ? discoveredMethod
+      : guessed.quantisation.method ?? 'unknown';
+  return {
+    model: {
+      model_id: input.model_id,
+      server_id: input.server_id,
+      display_name: input.display_name?.trim() || input.model_id,
+      base_model_name: extractBaseModelName(input.model_id)
+    },
+    identity: {
+      provider: guessed.provider ?? 'unknown',
+      quantized_provider: guessed.quantized_provider
+    },
+    architecture: {
+      parameter_count: guessed.parameter_count,
+      parameter_count_label: guessed.parameter_count_label,
+      active_parameter_label: guessed.active_parameter_label,
+      format: guessed.format,
+      quantisation: {
+        method: quantisationMethod as ModelArchitecture['quantisation']['method'],
+        bits: input.quantisation?.bits ?? guessed.quantisation.bits,
+        group_size: input.quantisation?.group_size ?? null,
+        scheme: (input.quantisation?.scheme ?? null) as ModelArchitecture['quantisation']['scheme'],
+        variant: (input.quantisation?.variant ?? null) as ModelArchitecture['quantisation']['variant'],
+        weight_format: input.quantisation?.weight_format ?? null
+      }
+    },
+    capabilities: {
+      use_case: guessed.use_case
+    },
+    limits: {
+      context_window_tokens: input.context_window_tokens ?? null
+    },
+    discovery: {
+      retrieved_at: nowIso(),
+      source: 'server'
+    },
+    raw: input.raw ?? {}
+  };
+}
+
+function fillMissingModelInput(existing: ModelRecord, inferred: ModelInput): ModelInput {
+  const updates: ModelInput = {};
+  if (isBlankText(existing.model.base_model_name) && inferred.model?.base_model_name) {
+    updates.model = { base_model_name: inferred.model.base_model_name };
+  }
+  if (isBlankText(existing.identity.provider) && inferred.identity?.provider) {
+    updates.identity = { ...(updates.identity ?? {}), provider: inferred.identity.provider };
+  }
+  if (isBlankText(existing.identity.quantized_provider) && inferred.identity?.quantized_provider) {
+    updates.identity = { ...(updates.identity ?? {}), quantized_provider: inferred.identity.quantized_provider };
+  }
+  if (existing.architecture.parameter_count == null && inferred.architecture?.parameter_count != null) {
+    updates.architecture = { ...(updates.architecture ?? {}), parameter_count: inferred.architecture.parameter_count };
+  }
+  if (isBlankText(existing.architecture.parameter_count_label) && inferred.architecture?.parameter_count_label) {
+    updates.architecture = { ...(updates.architecture ?? {}), parameter_count_label: inferred.architecture.parameter_count_label };
+  }
+  if (isBlankText(existing.architecture.active_parameter_label) && inferred.architecture?.active_parameter_label) {
+    updates.architecture = { ...(updates.architecture ?? {}), active_parameter_label: inferred.architecture.active_parameter_label };
+  }
+  if (existing.architecture.format == null && inferred.architecture?.format) {
+    updates.architecture = { ...(updates.architecture ?? {}), format: inferred.architecture.format };
+  }
+  if (inferred.architecture?.quantisation) {
+    const quantUpdates: Partial<ModelArchitecture['quantisation']> = {};
+    const current = existing.architecture.quantisation;
+    const inferredQuant = inferred.architecture.quantisation;
+    if ((current.method === 'unknown' || current.method == null) && inferredQuant.method && inferredQuant.method !== 'unknown') {
+      quantUpdates.method = inferredQuant.method;
+    }
+    if (current.bits == null && inferredQuant.bits != null) {
+      quantUpdates.bits = inferredQuant.bits;
+    }
+    if (current.group_size == null && inferredQuant.group_size != null) {
+      quantUpdates.group_size = inferredQuant.group_size;
+    }
+    if (current.scheme == null && inferredQuant.scheme != null) {
+      quantUpdates.scheme = inferredQuant.scheme;
+    }
+    if (current.variant == null && inferredQuant.variant != null) {
+      quantUpdates.variant = inferredQuant.variant;
+    }
+    if (isBlankText(current.weight_format) && inferredQuant.weight_format) {
+      quantUpdates.weight_format = inferredQuant.weight_format;
+    }
+    if (Object.keys(quantUpdates).length) {
+      updates.architecture = { ...(updates.architecture ?? {}), quantisation: quantUpdates };
+    }
+  }
+  if (existing.limits.context_window_tokens == null && inferred.limits?.context_window_tokens != null) {
+    updates.limits = { context_window_tokens: inferred.limits.context_window_tokens };
+  }
+  const useCaseUpdates: Partial<ModelCapabilities['use_case']> = {};
+  for (const key of ['thinking', 'coding', 'instruct', 'mixture_of_experts'] as const) {
+    if (!existing.capabilities.use_case[key] && inferred.capabilities?.use_case?.[key]) {
+      useCaseUpdates[key] = true;
+    }
+  }
+  if (Object.keys(useCaseUpdates).length) {
+    updates.capabilities = { use_case: useCaseUpdates };
+  }
+  return updates;
 }
 
 export function fetchModels(filters?: {
@@ -419,6 +555,24 @@ export function upsertModelRecord(input: ModelInput): ModelRecord {
     ...input,
     model: { ...modelInfo, model_id: modelId, server_id: serverId }
   });
+}
+
+export function upsertDiscoveredModelRecord(input: DiscoveredModelInput): ModelRecord {
+  const inferred = inferredModelInput(input);
+  const existing = getModelById(input.server_id, input.model_id);
+  if (!existing) {
+    return createModelRecord(inferred);
+  }
+  const updates = fillMissingModelInput(existing, inferred);
+  updates.discovery = inferred.discovery;
+  if (input.raw) {
+    updates.raw = { ...existing.raw, ...input.raw };
+  }
+  const updated = updateModelRecord(input.server_id, input.model_id, updates);
+  if (!updated) {
+    throw new InvalidModelError('Unable to update discovered model record');
+  }
+  return updated;
 }
 
 export function archiveModel(serverId: string, modelId: string): ModelRecord | null {

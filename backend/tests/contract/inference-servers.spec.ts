@@ -14,6 +14,11 @@ function resetDb() {
     // Table may not exist before schema bootstrap in first test.
   }
   try {
+    db.prepare('DELETE FROM models').run();
+  } catch {
+    // Table may not exist before schema bootstrap in first test.
+  }
+  try {
     db.prepare('DELETE FROM inference_servers').run();
   } catch {
     // Table may not exist before schema bootstrap in first test.
@@ -205,6 +210,98 @@ describe('inference servers contract', () => {
     const refreshed = refreshResponse.json();
     expect(refreshed.discovery.model_list.raw).toEqual(payload);
     expect(refreshed.discovery.model_list.normalised[0].model_id).toBe('gpt-test');
+
+    const modelsResponse = await app.inject({
+      method: 'GET',
+      url: '/models',
+      headers: AUTH_HEADERS
+    });
+    expect(modelsResponse.statusCode).toBe(200);
+    expect(modelsResponse.json().map((model: { model: { model_id: string } }) => model.model.model_id)).toEqual([
+      'gpt-test'
+    ]);
+  });
+
+  it('refresh-discovery persists parsed model metadata and preserves manual edits', async () => {
+    const app = createServer();
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/inference-servers',
+      headers: AUTH_HEADERS,
+      payload: buildCreatePayload()
+    });
+    if (createResponse.statusCode !== 201) {
+      throw new Error(`create inference server failed: ${createResponse.statusCode} ${createResponse.body}`);
+    }
+    const created = createResponse.json();
+    const modelId = 'inferencerlabs/Qwen3-Coder-30B-A3B-Instruct-MLX-6.5bit';
+    const payload = { data: [{ id: modelId }] };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          ({
+            ok: true,
+            headers: { get: () => 'application/json' },
+            json: async () => payload
+          }) as any
+      )
+    );
+
+    const refreshResponse = await app.inject({
+      method: 'POST',
+      url: `/inference-servers/${created.inference_server.server_id}/refresh-discovery`,
+      headers: AUTH_HEADERS
+    });
+    expect(refreshResponse.statusCode).toBe(200);
+
+    const modelsResponse = await app.inject({
+      method: 'GET',
+      url: '/models',
+      headers: AUTH_HEADERS
+    });
+    const [model] = modelsResponse.json();
+    expect(model.model.base_model_name).toBe('Qwen3-Coder');
+    expect(model.identity.quantized_provider).toBe('inferencerlabs');
+    expect(model.architecture.parameter_count).toBe(30_000_000_000);
+    expect(model.architecture.parameter_count_label).toBe('30B');
+    expect(model.architecture.active_parameter_label).toBe('A3B');
+    expect(model.architecture.format).toBe('MLX');
+    expect(model.architecture.quantisation.method).toBe('mlx');
+    expect(model.architecture.quantisation.bits).toBe(6.5);
+    expect(model.capabilities.use_case.instruct).toBe(true);
+    expect(model.capabilities.use_case.coding).toBe(true);
+    expect(model.capabilities.use_case.mixture_of_experts).toBe(true);
+
+    const patchResponse = await app.inject({
+      method: 'PATCH',
+      url: `/models/${created.inference_server.server_id}/${encodeURIComponent(modelId)}`,
+      headers: AUTH_HEADERS,
+      payload: {
+        model: { base_model_name: 'Manual Name' },
+        identity: { provider: 'custom', quantized_provider: 'manual-provider' },
+        architecture: { format: 'GGUF', parameter_count_label: 'Manual Params' }
+      }
+    });
+    expect(patchResponse.statusCode).toBe(200);
+
+    const refreshAgain = await app.inject({
+      method: 'POST',
+      url: `/inference-servers/${created.inference_server.server_id}/refresh-discovery`,
+      headers: AUTH_HEADERS
+    });
+    expect(refreshAgain.statusCode).toBe(200);
+    const preservedResponse = await app.inject({
+      method: 'GET',
+      url: `/models/${created.inference_server.server_id}/${encodeURIComponent(modelId)}`,
+      headers: AUTH_HEADERS
+    });
+    const preserved = preservedResponse.json();
+    expect(preserved.model.base_model_name).toBe('Manual Name');
+    expect(preserved.identity.provider).toBe('custom');
+    expect(preserved.identity.quantized_provider).toBe('manual-provider');
+    expect(preserved.architecture.format).toBe('GGUF');
+    expect(preserved.architecture.parameter_count_label).toBe('Manual Params');
   });
 
   it('filters malformed remote-prefixed OpenAI discovery model IDs', async () => {

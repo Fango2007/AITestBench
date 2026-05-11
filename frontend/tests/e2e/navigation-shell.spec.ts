@@ -41,6 +41,52 @@ function catalogServer(serverId: string, name: string, modelId: string) {
   };
 }
 
+function catalogModel(serverId: string, modelId: string, provider: string, format: string) {
+  return {
+    model: {
+      server_id: serverId,
+      model_id: modelId,
+      display_name: modelId,
+      active: true,
+      archived: false,
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+      archived_at: null,
+      base_model_name: modelId
+    },
+    identity: {
+      provider,
+      family: null,
+      version: null,
+      revision: null,
+      checksum: null,
+      quantized_provider: null
+    },
+    architecture: {
+      type: 'unknown',
+      parameter_count: null,
+      parameter_count_label: null,
+      active_parameter_label: null,
+      precision: 'unknown',
+      quantisation: { method: 'mlx', bits: null, group_size: null, weight_format: 'MLX' },
+      format
+    },
+    capabilities: {
+      generation: { text: true, json_schema_output: false, tools: false, embeddings: false },
+      multimodal: { vision: false, audio: false },
+      reasoning: { supported: false, explicit_tokens: false },
+      use_case: { thinking: false, coding: false, instruct: false, mixture_of_experts: false }
+    },
+    limits: {
+      context_window_tokens: 4096,
+      max_output_tokens: null,
+      max_images: null,
+      max_batch_size: null
+    },
+    raw: {}
+  };
+}
+
 test('sidebar exposes five top-level destinations and follows active routes', async ({ page }) => {
   await page.goto('/catalog?tab=servers');
 
@@ -112,6 +158,10 @@ test('catalog models funnel aligns staged rail controls', async ({ page }) => {
     catalogServer('srv-a', 'Inferencer', 'mistral:latest'),
     catalogServer('srv-b', 'InferencerPro', 'qwen:latest')
   ];
+  const models = [
+    catalogModel('srv-a', 'mistral:latest', 'mistral', 'MLX'),
+    catalogModel('srv-b', 'qwen:latest', 'qwen', 'MLX')
+  ];
   await page.addInitScript(() => {
     window.localStorage.removeItem('catalog.serverStageCollapsed');
     window.localStorage.removeItem('catalog.modelFilterStageCollapsed');
@@ -133,7 +183,7 @@ test('catalog models funnel aligns staged rail controls', async ({ page }) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(servers) });
   });
   await page.route('**/models', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(models) });
   });
 
   await page.goto('/catalog?tab=models');
