@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 function catalogServer(serverId: string, name: string, modelId: string) {
   return {
@@ -87,6 +87,31 @@ function catalogModel(serverId: string, modelId: string, provider: string, forma
   };
 }
 
+type CatalogServerFixture = ReturnType<typeof catalogServer>;
+type CatalogModelFixture = ReturnType<typeof catalogModel>;
+
+async function mockCatalogRoutes(page: Page, servers: CatalogServerFixture[], models: CatalogModelFixture[]) {
+  await page.route('**/system/connectivity-config', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ poll_interval_ms: 60000 }) });
+  });
+  await page.route('**/inference-servers/health', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ results: servers.map((server) => ({ server_id: server.inference_server.server_id, ok: true, status_code: 200, response_time_ms: 12, checked_at: '2026-01-01T00:00:00.000Z' })) })
+    });
+  });
+  await page.route('**/inference-servers?*', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(servers) });
+  });
+  await page.route('**/inference-servers', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(servers) });
+  });
+  await page.route('**/models', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(models) });
+  });
+}
+
 test('sidebar exposes five top-level destinations and follows active routes', async ({ page }) => {
   await page.goto('/catalog?tab=servers');
 
@@ -125,15 +150,45 @@ test('merged page sub-tabs preserve route state', async ({ page }) => {
   await expect(page).toHaveURL(/\/results\?tab=history/);
 });
 
-test('catalog header keeps server actions in the tab row', async ({ page }) => {
+test('catalog servers header owns actions and conditional filter rail', async ({ page }) => {
+  const activeServer = catalogServer('srv-a', 'Inferencer', 'mistral:latest');
+  const archivedServer = catalogServer('srv-archived', 'LegacyProd', 'legacy:latest');
+  archivedServer.inference_server.active = false;
+  archivedServer.inference_server.archived = true;
+  archivedServer.inference_server.archived_at = '2026-01-02T00:00:00.000Z';
+  const servers = [activeServer, archivedServer];
+  const models = [
+    catalogModel('srv-a', 'mistral:latest', 'mistral', 'MLX'),
+    catalogModel('srv-archived', 'legacy:latest', 'mistral', 'GGUF')
+  ];
+  await mockCatalogRoutes(page, servers, models);
+
   await page.goto('/catalog?tab=servers');
   const catalogHeader = page.locator('.merged-page-header');
+  const sectionHeader = page.locator('.catalog-section-title').filter({ hasText: 'Inference servers' });
 
-  await expect(catalogHeader.getByRole('button', { name: '+ Add server' })).toBeVisible();
+  await expect(catalogHeader.getByRole('button', { name: '+ Add server' })).toHaveCount(0);
+  await expect(sectionHeader.getByRole('button', { name: 'Filter' })).toBeVisible();
+  await expect(sectionHeader.getByRole('button', { name: 'Archived' })).toBeVisible();
+  await expect(sectionHeader.getByRole('button', { name: '+ Add server' })).toBeVisible();
   await expect(catalogHeader.getByRole('button', { name: 'Health' })).toHaveCount(0);
   await expect(catalogHeader.getByRole('button', { name: 'Grid' })).toHaveCount(0);
+  await expect(page.locator('.catalog-rail')).toHaveCount(0);
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'Inferencer' })).toBeVisible();
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'LegacyProd' })).toHaveCount(0);
 
-  await catalogHeader.getByRole('button', { name: '+ Add server' }).click();
+  await sectionHeader.getByRole('button', { name: 'Filter' }).click();
+  await expect(page.locator('.catalog-rail')).toBeVisible();
+  await expect(sectionHeader.getByRole('button', { name: 'Filter' })).toHaveClass(/is-active/);
+  await sectionHeader.getByRole('button', { name: 'Filter' }).click();
+  await expect(page.locator('.catalog-rail')).toHaveCount(0);
+
+  await sectionHeader.getByRole('button', { name: 'Archived' }).click();
+  await expect(sectionHeader.getByRole('button', { name: 'Archived' })).toHaveClass(/is-active/);
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'Inferencer' })).toHaveCount(0);
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'LegacyProd' })).toBeVisible();
+
+  await sectionHeader.getByRole('button', { name: '+ Add server' }).click();
   const createDrawer = page
     .getByRole('dialog')
     .filter({ has: page.getByRole('heading', { name: 'Add inference server' }) });
@@ -142,6 +197,48 @@ test('catalog header keeps server actions in the tab row', async ({ page }) => {
 
   await page.goto('/catalog?tab=models');
   await expect(page.locator('.merged-page-header').getByRole('button', { name: '+ Add server' })).toHaveCount(0);
+});
+
+test('catalog server cards toggle the detail rail', async ({ page }) => {
+  const servers = [
+    catalogServer('srv-a', 'Inferencer', 'mistral:latest'),
+    catalogServer('srv-b', 'InferencerPro', 'qwen:latest')
+  ];
+  const models = [
+    catalogModel('srv-a', 'mistral:latest', 'mistral', 'MLX'),
+    catalogModel('srv-b', 'qwen:latest', 'qwen', 'MLX')
+  ];
+  await mockCatalogRoutes(page, servers, models);
+
+  await page.goto('/catalog?tab=servers');
+  const serverCard = page.locator('.catalog-server-card').filter({ hasText: 'Inferencer' }).first();
+  const sectionHeader = page.locator('.catalog-section-title').filter({ hasText: 'Inference servers' });
+
+  await expect(page.locator('.catalog-server-card.is-selected')).toHaveCount(0);
+  await expect(page.locator('.catalog-detail-rail')).toHaveCount(0);
+  const initialBox = await serverCard.boundingBox();
+  expect(initialBox).not.toBeNull();
+
+  await serverCard.click();
+  await expect(serverCard).toHaveClass(/is-selected/);
+  await expect(page.locator('.catalog-detail-rail').filter({ hasText: 'Inferencer' })).toBeVisible();
+  const selectedBox = await serverCard.boundingBox();
+  expect(selectedBox).not.toBeNull();
+
+  await serverCard.click();
+  await expect(page.locator('.catalog-server-card.is-selected')).toHaveCount(0);
+  await expect(page.locator('.catalog-detail-rail')).toHaveCount(0);
+  const unselectedBox = await serverCard.boundingBox();
+  expect(unselectedBox).not.toBeNull();
+
+  expect(selectedBox!.width).toBeCloseTo(initialBox!.width, 1);
+  expect(unselectedBox!.width).toBeCloseTo(initialBox!.width, 1);
+
+  await sectionHeader.getByRole('button', { name: 'Filter' }).click();
+  await expect(page.locator('.catalog-rail')).toBeVisible();
+  const filteredBox = await serverCard.boundingBox();
+  expect(filteredBox).not.toBeNull();
+  expect(filteredBox!.width).toBeCloseTo(initialBox!.width, 1);
 });
 
 test('legacy routes redirect to the new IA contract', async ({ page }) => {
@@ -185,25 +282,7 @@ test('catalog models funnel aligns staged rail controls', async ({ page }) => {
     window.localStorage.removeItem('catalog.serverStageCollapsed');
     window.localStorage.removeItem('catalog.modelFilterStageCollapsed');
   });
-  await page.route('**/system/connectivity-config', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ poll_interval_ms: 60000 }) });
-  });
-  await page.route('**/inference-servers/health', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ results: servers.map((server) => ({ server_id: server.inference_server.server_id, ok: true, status_code: 200, response_time_ms: 12, checked_at: '2026-01-01T00:00:00.000Z' })) })
-    });
-  });
-  await page.route('**/inference-servers?*', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(servers) });
-  });
-  await page.route('**/inference-servers', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(servers) });
-  });
-  await page.route('**/models', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(models) });
-  });
+  await mockCatalogRoutes(page, servers, models);
 
   await page.goto('/catalog?tab=models');
   const catalogPage = page.locator('.catalog-models');
