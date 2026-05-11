@@ -9,7 +9,7 @@ test('creates a new inference server from the dashboard', async ({ page, request
 
   await page.goto('/catalog?tab=servers');
 
-  await page.locator('.merged-page-header').getByRole('button', { name: '+ Add server' }).click();
+  await page.locator('.catalog-section-title').filter({ hasText: 'Inference servers' }).getByRole('button', { name: '+ Add server' }).click();
 
   const createDrawer = page
     .getByRole('dialog')

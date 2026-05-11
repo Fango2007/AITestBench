@@ -17,6 +17,7 @@ import {
   deleteInferenceServer,
   listInferenceServers,
   refreshInferenceServerDiscovery,
+  unarchiveInferenceServer,
   updateInferenceServer
 } from '../services/inference-servers-api.js';
 import { ModelFormat, ModelRecord, listModels } from '../services/models-api.js';
@@ -201,6 +202,8 @@ export function Catalog({
   const [error, setError] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<DrawerMode | null>(null);
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+  const [serverFiltersOpen, setServerFiltersOpen] = useState(false);
+  const [showArchivedOnly, setShowArchivedOnly] = useState(false);
   const [serverStageCollapsed, setServerStageCollapsed] = useState(() => localStorage.getItem(SERVER_STAGE_STORAGE_KEY) === 'true');
   const [serverFilters, setServerFilters] = useState({ status: new Set<string>(), runtime: new Set<string>(), gpu: new Set<string>() });
   const [inferenceParams, setInferenceParams] = useState<InferenceParams>(DEFAULT_INFERENCE_PARAMS);
@@ -228,7 +231,7 @@ export function Catalog({
       setConnectivity(nextHealth);
       setSelectedDetailId((current) => current && serverRows.some((server) => server.inference_server.server_id === current)
         ? current
-        : serverRows[0]?.inference_server.server_id ?? null);
+        : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load catalog');
     } finally {
@@ -272,7 +275,6 @@ export function Catalog({
   const catalogModels = useMemo(() => buildCatalogModels(servers, models), [servers, models]);
   const reachable = servers.filter((server) => connectivity[server.inference_server.server_id]?.ok).length;
   const selectedServerRows = servers.filter((server) => selectedServers.has(server.inference_server.server_id));
-  const selectedDetail = servers.find((server) => server.inference_server.server_id === selectedDetailId) ?? null;
 
   const runtimeOptions = useMemo(() => Array.from(new Set(servers.map(runtimeLabel))).sort(), [servers]);
   const gpuOptions = useMemo(() => Array.from(new Set(servers.map(gpuLabel))).sort(), [servers]);
@@ -282,13 +284,21 @@ export function Catalog({
 
   const filteredServers = useMemo(() => {
     return servers.filter((server) => {
+      if (server.inference_server.archived !== showArchivedOnly) return false;
       const status = statusFor(server, connectivity[server.inference_server.server_id]);
       if (serverFilters.status.size && !serverFilters.status.has(status)) return false;
       if (serverFilters.runtime.size && !serverFilters.runtime.has(runtimeLabel(server))) return false;
       if (serverFilters.gpu.size && !serverFilters.gpu.has(gpuLabel(server))) return false;
       return true;
     });
-  }, [connectivity, serverFilters, servers]);
+  }, [connectivity, serverFilters, servers, showArchivedOnly]);
+  const selectedDetail = filteredServers.find((server) => server.inference_server.server_id === selectedDetailId) ?? null;
+
+  useEffect(() => {
+    if (!selectedDetailId || activeTab !== 'servers') return;
+    if (filteredServers.some((server) => server.inference_server.server_id === selectedDetailId)) return;
+    setSelectedDetailId(null);
+  }, [activeTab, filteredServers, selectedDetailId]);
 
   const visibleModels = useMemo(() => {
     if (selectedServers.size === 0) return [];
@@ -342,12 +352,6 @@ export function Catalog({
     await refreshData();
   }
 
-  const headerTabAction = activeTab === 'servers' ? (
-    <div className="catalog-header-actions">
-      <button type="button" onClick={() => setDrawer({ kind: 'create' })}>+ Add server</button>
-    </div>
-  ) : null;
-
   if (activeTab === 'models' && inspectorServerId && inspectorModelId) {
     return (
       <>
@@ -382,7 +386,6 @@ export function Catalog({
         ]}
         activeTab={activeTab}
         onTabChange={changeTab}
-        tabAction={headerTabAction}
       />
       <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
       {error ? <div className="catalog-error error">{error}</div> : null}
@@ -400,11 +403,19 @@ export function Catalog({
             runtimeOptions={runtimeOptions}
             gpuOptions={gpuOptions}
             serverFilters={serverFilters}
+            serverFiltersOpen={serverFiltersOpen}
+            showArchivedOnly={showArchivedOnly}
             setServerFilters={setServerFilters}
+            onToggleServerFilters={() => setServerFiltersOpen((current) => !current)}
+            onToggleArchivedOnly={() => setShowArchivedOnly((current) => !current)}
             onSelectDetail={setSelectedDetailId}
             onEdit={(server) => setDrawer({ kind: 'edit', server })}
             onArchive={async (server) => {
-              await archiveInferenceServer(server.inference_server.server_id);
+              if (server.inference_server.archived) {
+                await unarchiveInferenceServer(server.inference_server.server_id);
+              } else {
+                await archiveInferenceServer(server.inference_server.server_id);
+              }
               notifyServersUpdated();
               await refreshData();
             }}
@@ -492,8 +503,12 @@ function ServersCatalog(props: {
   runtimeOptions: string[];
   gpuOptions: string[];
   serverFilters: { status: Set<string>; runtime: Set<string>; gpu: Set<string> };
+  serverFiltersOpen: boolean;
+  showArchivedOnly: boolean;
   setServerFilters: (filters: { status: Set<string>; runtime: Set<string>; gpu: Set<string> }) => void;
-  onSelectDetail: (serverId: string) => void;
+  onToggleServerFilters: () => void;
+  onToggleArchivedOnly: () => void;
+  onSelectDetail: (serverId: string | null) => void;
   onEdit: (server: InferenceServerRecord) => void;
   onArchive: (server: InferenceServerRecord) => void;
   onAdd: () => void;
@@ -502,69 +517,86 @@ function ServersCatalog(props: {
     return <NoServersState onAdd={props.onAdd} />;
   }
   return (
-    <section className={`catalog-page catalog-servers ${props.selectedDetail ? 'has-detail' : ''}`}>
-      <aside className="catalog-rail">
-        <FilterGroup
-          title="Status"
-          options={['healthy', 'degraded', 'down', 'unknown']}
-          selected={props.serverFilters.status}
-          onToggle={(value) => props.setServerFilters({ ...props.serverFilters, status: toggleSetValue(props.serverFilters.status, value) })}
-        />
-        <FilterGroup
-          title="Runtime"
-          options={props.runtimeOptions}
-          selected={props.serverFilters.runtime}
-          onToggle={(value) => props.setServerFilters({ ...props.serverFilters, runtime: toggleSetValue(props.serverFilters.runtime, value) })}
-        />
-        <FilterGroup
-          title="GPU"
-          options={props.gpuOptions}
-          selected={props.serverFilters.gpu}
-          onToggle={(value) => props.setServerFilters({ ...props.serverFilters, gpu: toggleSetValue(props.serverFilters.gpu, value) })}
-        />
-      </aside>
+    <section className={`catalog-page catalog-servers ${props.serverFiltersOpen ? 'has-filters' : ''} ${props.selectedDetail ? 'has-detail' : ''}`}>
+      {props.serverFiltersOpen ? (
+        <aside className="catalog-rail">
+          <FilterGroup
+            title="Status"
+            options={['healthy', 'degraded', 'down', 'unknown']}
+            selected={props.serverFilters.status}
+            onToggle={(value) => props.setServerFilters({ ...props.serverFilters, status: toggleSetValue(props.serverFilters.status, value) })}
+          />
+          <FilterGroup
+            title="Runtime"
+            options={props.runtimeOptions}
+            selected={props.serverFilters.runtime}
+            onToggle={(value) => props.setServerFilters({ ...props.serverFilters, runtime: toggleSetValue(props.serverFilters.runtime, value) })}
+          />
+          <FilterGroup
+            title="GPU"
+            options={props.gpuOptions}
+            selected={props.serverFilters.gpu}
+            onToggle={(value) => props.setServerFilters({ ...props.serverFilters, gpu: toggleSetValue(props.serverFilters.gpu, value) })}
+          />
+        </aside>
+      ) : null}
       <main className="catalog-main">
         <div className="catalog-section-title">
           <div>
             <h2>Inference servers</h2>
-            <p>{props.servers.length} shown · {props.allServers.filter((server) => server.inference_server.archived).length} archived</p>
+            <p>{props.servers.length} shown · {props.allServers.filter((server) => !server.inference_server.archived).length} active · {props.allServers.filter((server) => server.inference_server.archived).length} archived</p>
+          </div>
+          <div className="catalog-section-actions">
+            <button type="button" className={`btn btn--ghost btn--sm ${props.serverFiltersOpen ? 'is-active' : ''}`} onClick={props.onToggleServerFilters}>Filter</button>
+            <button type="button" className={`btn btn--ghost btn--sm ${props.showArchivedOnly ? 'is-active' : ''}`} onClick={props.onToggleArchivedOnly}>Archived</button>
+            <button type="button" className="btn btn--sm" onClick={props.onAdd}>+ Add server</button>
           </div>
         </div>
-        <div className="catalog-server-grid">
-          {props.servers.map((server) => {
-            const status = statusFor(server, props.connectivity[server.inference_server.server_id]);
-            return (
-              <button
-                type="button"
-                key={server.inference_server.server_id}
-                className={`catalog-server-card ${props.selectedDetailId === server.inference_server.server_id ? 'is-selected' : ''}`}
-                onClick={() => props.onSelectDetail(server.inference_server.server_id)}
-              >
-                <span className="catalog-card-top">
-                  <strong>{server.inference_server.display_name}</strong>
-                  <RegLight
-                    state={statusToRegLight(status)}
-                    label={statusLabel(status)}
-                    latencyMs={props.connectivity[server.inference_server.server_id]?.response_time_ms}
-                    lastProbe={props.connectivity[server.inference_server.server_id]?.checked_at ?? server.discovery.retrieved_at}
-                    statusCode={props.connectivity[server.inference_server.server_id]?.status_code}
-                    error={props.connectivity[server.inference_server.server_id]?.error}
-                  />
-                </span>
-                <span className="catalog-url">{server.endpoints.base_url}</span>
-                <span className="catalog-card-meta">
-                  <span>{runtimeLabel(server)}</span>
-                  <span className="catalog-pill">{gpuLabel(server)}</span>
-                </span>
-                <span className="catalog-card-footer">
-                  <span>{server.discovery.model_list.normalised.length} models</span>
-                  <span>{relativeTime(server.discovery.retrieved_at)}</span>
-                  <span aria-hidden="true">...</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {props.servers.length === 0 ? (
+          <div className="catalog-empty">
+            <EmptyState
+              title={props.showArchivedOnly ? 'No archived servers' : 'No matching servers'}
+              body={props.showArchivedOnly ? 'Archived servers appear here when they are available.' : 'Adjust the server filters to show more entries.'}
+            />
+          </div>
+        ) : (
+          <div className="catalog-server-grid">
+            {props.servers.map((server) => {
+              const status = statusFor(server, props.connectivity[server.inference_server.server_id]);
+              return (
+                <button
+                  type="button"
+                  key={server.inference_server.server_id}
+                  className={`catalog-server-card ${props.selectedDetailId === server.inference_server.server_id ? 'is-selected' : ''}`}
+                  aria-pressed={props.selectedDetailId === server.inference_server.server_id}
+                  onClick={() => props.onSelectDetail(props.selectedDetailId === server.inference_server.server_id ? null : server.inference_server.server_id)}
+                >
+                  <span className="catalog-card-top">
+                    <strong>{server.inference_server.display_name}</strong>
+                    <RegLight
+                      state={statusToRegLight(status)}
+                      label={statusLabel(status)}
+                      latencyMs={props.connectivity[server.inference_server.server_id]?.response_time_ms}
+                      lastProbe={props.connectivity[server.inference_server.server_id]?.checked_at ?? server.discovery.retrieved_at}
+                      statusCode={props.connectivity[server.inference_server.server_id]?.status_code}
+                      error={props.connectivity[server.inference_server.server_id]?.error}
+                    />
+                  </span>
+                  <span className="catalog-url">{server.endpoints.base_url}</span>
+                  <span className="catalog-card-meta">
+                    <span>{runtimeLabel(server)}</span>
+                    <span className="catalog-pill">{gpuLabel(server)}</span>
+                  </span>
+                  <span className="catalog-card-footer">
+                    <span>{server.discovery.model_list.normalised.length} models</span>
+                    <span>{relativeTime(server.discovery.retrieved_at)}</span>
+                    <span aria-hidden="true">...</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </main>
       {props.selectedDetail ? (
         <aside className="catalog-detail-rail">
@@ -832,8 +864,7 @@ function ServersHealthPanel({ servers, connectivity }: { servers: InferenceServe
 
 function NoServersState({ onAdd }: { onAdd?: () => void }) {
   return (
-    <section className="catalog-page">
-      <aside className="catalog-rail catalog-placeholder">Status<br />Runtime<br />GPU</aside>
+    <section className="catalog-page catalog-servers">
       <main className="catalog-main catalog-empty catalog-empty-large">
         <EmptyState
           title="No servers yet"
