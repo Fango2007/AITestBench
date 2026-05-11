@@ -51,15 +51,15 @@ Data flow: browser → Vite dev server (or static build) → Fastify API → SQL
 ## Screenshots
 
 <p align="center">
-  <img src="/.github/assets/1-Catalog-servers-page.png" width="49%" alt="Catalog — Servers" />
-  <img src="/.github/assets/2-Catalog-models-page.png" width="49%" alt="Catalog — Models" />
+  <img src=".github/assets/1-Catalog-servers-page.png" width="49%" alt="Catalog — Servers" />
+  <img src=".github/assets/2-Catalog-models-page.png" width="49%" alt="Catalog — Models" />
 </p>
 <p align="center">
-  <img src="/.github/assets/3-Templates-page.png" width="49%" alt="Templates" />
-  <img src="/.github/assets/4-Run-page.png" width="49%" alt="Run" />
+  <img src=".github/assets/3-Templates-page.png" width="49%" alt="Templates" />
+  <img src=".github/assets/4-Run-page.png" width="49%" alt="Run" />
 </p>
 <p align="center">
-  <img src="/.github/assets/5-Results-page.png" width="49%" alt="Results" />
+  <img src=".github/assets/5-Results-page.png" width="49%" alt="Results" />
 </p>
 
 ---

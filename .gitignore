@@ -1,3 +1,7 @@
+# .github overrides
+  !.github/
+  !.github/assets/
+
 # Node.js / TypeScript
 node_modules/
 dist/
