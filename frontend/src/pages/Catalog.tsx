@@ -411,6 +411,7 @@ export function Catalog({
             onSelectDetail={setSelectedDetailId}
             onEdit={(server) => setDrawer({ kind: 'edit', server })}
             onArchive={async (server) => {
+              const nextArchivedState = !server.inference_server.archived;
               if (server.inference_server.archived) {
                 await unarchiveInferenceServer(server.inference_server.server_id);
               } else {
@@ -418,6 +419,8 @@ export function Catalog({
               }
               notifyServersUpdated();
               await refreshData();
+              setShowArchivedOnly(nextArchivedState);
+              setSelectedDetailId(server.inference_server.server_id);
             }}
             onAdd={() => setDrawer({ kind: 'create' })}
           />
