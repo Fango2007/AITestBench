@@ -50,7 +50,17 @@ Data flow: browser → Vite dev server (or static build) → Fastify API → SQL
 
 ## Screenshots
 
-<!-- screenshots -->
+<p align="center">
+  <img src="/.github/assets/1-Catalog-servers-page.png" width="49%" alt="Catalog — Servers" />
+  <img src="/.github/assets/2-Catalog-models-page.png" width="49%" alt="Catalog — Models" />
+</p>
+<p align="center">
+  <img src="/.github/assets/3-Templates-page.png" width="49%" alt="Templates" />
+  <img src="/.github/assets/4-Run-page.png" width="49%" alt="Run" />
+</p>
+<p align="center">
+  <img src="/.github/assets/5-Results-page.png" width="49%" alt="Results" />
+</p>
 
 ---
 
@@ -64,6 +74,7 @@ InferHarness works with any server that exposes an OpenAI-compatible or Ollama H
 | [LM Studio](https://lmstudio.ai) | OpenAI-compatible | Serves local GGUF and MLX models |
 | [llama-server (llama.cpp)](https://github.com/ggml-org/llama.cpp) | OpenAI-compatible | Single-model, low-level inference |
 | [vLLM](https://github.com/vllm-project/vllm) | OpenAI-compatible | High-throughput GPU inference |
+| [Inferencer](https://github.com/inferencerlabs/inferencer-feedback) | OpenAI-compatible + Ollama | High-end MLX inference server |
 | Any OpenAI-compatible server | OpenAI-compatible | Custom auth header and token supported |
 
 Model formats supported in the catalog: `GGUF`, `MLX`, `GPTQ`, `AWQ`, `SafeTensors`.
