@@ -15,6 +15,7 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 ### Changed
 
 - Catalog and Models metadata filters/details now use persisted `/models` records as their source of truth instead of inferring provider, format, quantized provider, or use cases from raw model IDs.
+- Catalog now places `+ Add server` in the Servers/Models sub-tab row and removes the visible Health/Grid header toggle while keeping the health view URL-compatible.
 
 
 ## [0.4.0] - 2026-05-10

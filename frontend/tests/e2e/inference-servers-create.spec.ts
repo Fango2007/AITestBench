@@ -7,9 +7,9 @@ test('creates a new inference server from the dashboard', async ({ page, request
   const displayName = `E2E Server ${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const baseUrl = 'http://localhost:8080';
 
-  await page.goto('/');
+  await page.goto('/catalog?tab=servers');
 
-  await page.locator('.catalog-header-actions').getByRole('button', { name: '+ Add server' }).click();
+  await page.locator('.merged-page-header').getByRole('button', { name: '+ Add server' }).click();
 
   const createDrawer = page
     .getByRole('dialog')
