@@ -214,6 +214,9 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
     // Expand All
     await page.getByRole('button', { name: 'Expand All' }).click();
     await expect(page.locator('.arch-node-row', { hasText: 'q_proj' })).toBeVisible();
+    await page.locator('.arch-node-row', { hasText: 'q_proj' }).first().click();
+    await expect(page).toHaveURL(/focus=.*q_proj/);
+    await expect(page.locator('.model-inspector-detail').getByRole('heading', { name: 'q_proj' })).toBeVisible();
 
     // Collapse All
     await page.getByRole('button', { name: 'Collapse All' }).click();
@@ -282,7 +285,7 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
     await request.post(`${API_BASE_URL}/inference-servers/${serverId}/archive`, { headers: authHeaders }).catch(() => undefined);
   });
 
-  test('T027: summary panel shows parameter counts and hover highlighting works', async ({ page, request }) => {
+  test('T027: inspector header stats and focused-node detail are populated', async ({ page, request }) => {
     const server = await createInferenceServer(request);
     const serverId = server.inference_server.server_id;
     await seedHfModel(request, serverId, MODEL_ID);
@@ -301,30 +304,13 @@ test.describe('Architecture Inspection — US1 + US2 + US3', () => {
     await page.getByRole('button', { name: 'Inspect Architecture' }).click();
     await expect(page.locator('.arch-node-row').first()).toBeVisible();
 
-    // Summary panel is visible
-    await expect(page.locator('.arch-summary')).toBeVisible();
+    await expect(page.locator('.model-inspector-stats')).toContainText('8.0B');
+    await expect(page.locator('.model-inspector-side').getByRole('button', { name: 'Config JSON' })).toBeVisible();
 
-    // SC-005: total_parameters matches pinned fixture value (8030261248 = 8.0B)
-    const totalParamSpan = page.locator('.arch-summary-totals').locator('span[title]').first();
-    await expect(totalParamSpan).toHaveAttribute('title', '8,030,261,248');
-
-    // Formatted param strings match /^\d+(\.\d+)?[KMB]$/
-    const formattedParams = await page.locator('.arch-summary span[title]').allTextContents();
-    for (const text of formattedParams) {
-      expect(text).toMatch(/^\d+(\.\d+)?[KMB]?$/);
-    }
-
-    // Hover highlighting: hover over 'Linear' type row in by_type list
-    const linearTypeRow = page.locator('.arch-type-row', { hasText: 'Linear' }).first();
-    await expect(linearTypeRow).toBeVisible();
-    await linearTypeRow.hover();
-
-    // At least one tree node row should have the 'highlighted' class
-    await expect(page.locator('.arch-node-row.highlighted').first()).toBeVisible();
-
-    // Mouse leave clears highlight
-    await page.mouse.move(0, 0);
-    await expect(page.locator('.arch-node-row.highlighted')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Expand All' }).click();
+    await page.locator('.arch-node-row', { hasText: 'q_proj' }).first().click();
+    await expect(page.locator('.model-inspector-detail')).toContainText('16.8M');
+    await expect(page.locator('.model-inspector-detail')).toContainText('model.layers.0.self_attn.q_proj');
 
     await request.post(`${API_BASE_URL}/inference-servers/${serverId}/archive`, { headers: authHeaders }).catch(() => undefined);
   });
