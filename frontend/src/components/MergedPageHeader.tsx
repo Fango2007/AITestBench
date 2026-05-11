@@ -9,6 +9,7 @@ interface MergedPageHeaderProps {
   activeTab?: string;
   onTabChange?: (id: string) => void;
   action?: ReactNode;
+  tabAction?: ReactNode;
 }
 
 export function MergedPageHeader({
@@ -17,7 +18,8 @@ export function MergedPageHeader({
   tabs,
   activeTab,
   onTabChange,
-  action
+  action,
+  tabAction
 }: MergedPageHeaderProps) {
   return (
     <header className="merged-page-header">
@@ -29,7 +31,10 @@ export function MergedPageHeader({
         {action ? <div className="merged-page-header__action">{action}</div> : null}
       </div>
       {tabs && activeTab && onTabChange ? (
-        <SubTabBar tabs={tabs} active={activeTab} onChange={onTabChange} />
+        <div className="merged-page-header__tabs-row">
+          <SubTabBar tabs={tabs} active={activeTab} onChange={onTabChange} />
+          {tabAction ? <div className="merged-page-header__tab-action">{tabAction}</div> : null}
+        </div>
       ) : null}
     </header>
   );

@@ -361,6 +361,19 @@ h2 {
   flex: 0 0 auto;
 }
 
+.merged-page-header__tabs-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.merged-page-header__tab-action {
+  flex: 0 0 auto;
+  margin-bottom: 6px;
+}
+
 .sub-tab-bar {
   display: inline-flex;
   gap: 0;

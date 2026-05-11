@@ -125,6 +125,25 @@ test('merged page sub-tabs preserve route state', async ({ page }) => {
   await expect(page).toHaveURL(/\/results\?tab=history/);
 });
 
+test('catalog header keeps server actions in the tab row', async ({ page }) => {
+  await page.goto('/catalog?tab=servers');
+  const catalogHeader = page.locator('.merged-page-header');
+
+  await expect(catalogHeader.getByRole('button', { name: '+ Add server' })).toBeVisible();
+  await expect(catalogHeader.getByRole('button', { name: 'Health' })).toHaveCount(0);
+  await expect(catalogHeader.getByRole('button', { name: 'Grid' })).toHaveCount(0);
+
+  await catalogHeader.getByRole('button', { name: '+ Add server' }).click();
+  const createDrawer = page
+    .getByRole('dialog')
+    .filter({ has: page.getByRole('heading', { name: 'Add inference server' }) });
+  await expect(createDrawer).toBeVisible();
+  await createDrawer.getByRole('button', { name: 'Close' }).click();
+
+  await page.goto('/catalog?tab=models');
+  await expect(page.locator('.merged-page-header').getByRole('button', { name: '+ Add server' })).toHaveCount(0);
+});
+
 test('legacy routes redirect to the new IA contract', async ({ page }) => {
   for (const [legacyPath, expected] of [
     ['/servers', /\/catalog\?tab=servers/],

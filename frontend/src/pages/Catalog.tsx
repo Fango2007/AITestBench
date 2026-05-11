@@ -342,16 +342,8 @@ export function Catalog({
     await refreshData();
   }
 
-  const headerAction = activeTab === 'servers' ? (
+  const headerTabAction = activeTab === 'servers' ? (
     <div className="catalog-header-actions">
-      <button type="button" className="btn btn--ghost" onClick={() => updateQuery((params) => {
-        params.set('tab', 'servers');
-        params.set('view', healthView ? 'grid' : 'health');
-        if (!healthView) return;
-        params.delete('view');
-      })}>
-        {healthView ? 'Grid' : 'Health'}
-      </button>
       <button type="button" onClick={() => setDrawer({ kind: 'create' })}>+ Add server</button>
     </div>
   ) : null;
@@ -390,7 +382,7 @@ export function Catalog({
         ]}
         activeTab={activeTab}
         onTabChange={changeTab}
-        action={headerAction}
+        tabAction={headerTabAction}
       />
       <InferenceContextBar params={inferenceParams} onChange={setInferenceParams} />
       {error ? <div className="catalog-error error">{error}</div> : null}
@@ -945,7 +937,7 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
             <span className="label--uppercase">{editing ? 'Edit' : 'Add'}</span>
             <h2>{editing ? `Edit · ${editing.inference_server.display_name}` : 'Add inference server'}</h2>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose}>x</button>
+          <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>x</button>
         </div>
         <form onSubmit={handleSubmit} className="drawer-body">
           <label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
