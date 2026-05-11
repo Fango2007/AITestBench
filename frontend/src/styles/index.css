@@ -2431,6 +2431,22 @@ pre.code-block {
   margin: 0;
 }
 
+.catalog-param-slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.catalog-filter-group input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-info);
+}
+
+.catalog-param-slider-label {
+  font-size: 12px;
+  color: var(--ink-6);
+}
+
 .catalog-server-grid,
 .catalog-model-grid {
   display: grid;

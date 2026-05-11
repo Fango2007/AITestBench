@@ -36,6 +36,9 @@ type CatalogModel = {
   context: string;
   tools: boolean;
   streaming: boolean;
+  parameterCount: number | null;
+  parameterCountLabel: string | null;
+  capabilities: string[];
 };
 
 type ServerStatus = 'healthy' | 'degraded' | 'down' | 'unknown';
@@ -56,6 +59,13 @@ function writeCsv(params: URLSearchParams, key: string, values: Iterable<string>
   } else {
     params.delete(key);
   }
+}
+
+function formatParamCount(n: number): string {
+  if (n >= 1e12) return `${(n / 1e12).toFixed(1)}T`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  return `${(n / 1e3).toFixed(1)}K`;
 }
 
 function formatProvider(provider: string): string {
@@ -147,7 +157,14 @@ function buildCatalogModels(servers: InferenceServerRecord[], modelRecords: Mode
       format,
       context: (record?.limits.context_window_tokens ?? context) ? `${record?.limits.context_window_tokens ?? context} ctx` : 'ctx unknown',
       tools: server.capabilities.generation.tools,
-      streaming: server.capabilities.server.streaming
+      streaming: server.capabilities.server.streaming,
+      parameterCount: record?.architecture.parameter_count ?? null,
+      parameterCountLabel: record?.architecture.parameter_count_label ?? null,
+      capabilities: record
+        ? Object.entries(record.capabilities.use_case)
+            .filter(([, v]) => v)
+            .map(([k]) => k.replace(/_/g, ' '))
+        : []
     });
   };
 
@@ -211,6 +228,11 @@ export function Catalog({
   const selectedFamilies = useMemo(() => new Set(parseCsv(searchParams.get('family'))), [searchParams]);
   const selectedQuantizations = useMemo(() => new Set(parseCsv(searchParams.get('quantization'))), [searchParams]);
   const selectedFormats = useMemo(() => new Set(parseCsv(searchParams.get('format'))), [searchParams]);
+  const selectedCapabilities = useMemo(() => new Set(parseCsv(searchParams.get('capabilities'))), [searchParams]);
+  const maxParamCount = useMemo(() => {
+    const v = searchParams.get('maxParams');
+    return v !== null ? Number(v) : null;
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab !== 'models' || !inspectorServerId || !inspectorModelId) return;
@@ -288,6 +310,13 @@ export function Catalog({
   const familyOptions = useMemo(() => Array.from(new Set(catalogModels.filter((model) => selectedServers.has(model.serverId)).map((model) => model.family))).sort(), [catalogModels, selectedServers]);
   const quantizationOptions = useMemo(() => Array.from(new Set(catalogModels.filter((model) => selectedServers.has(model.serverId)).map((model) => model.quantization))).sort(), [catalogModels, selectedServers]);
   const formatOptions = useMemo(() => Array.from(new Set(catalogModels.filter((model) => selectedServers.has(model.serverId)).map((model) => model.format))).sort(), [catalogModels, selectedServers]);
+  const capabilityOptions = ['thinking', 'coding', 'instruct', 'mixture of experts'];
+  const paramCountSteps = useMemo(() => {
+    const counts = catalogModels
+      .filter((m) => selectedServers.has(m.serverId) && m.parameterCount !== null)
+      .map((m) => m.parameterCount as number);
+    return Array.from(new Set(counts)).sort((a, b) => a - b);
+  }, [catalogModels, selectedServers]);
 
   const filteredServers = useMemo(() => {
     return servers.filter((server) => {
@@ -314,6 +343,8 @@ export function Catalog({
       if (selectedFamilies.size && !selectedFamilies.has(model.family)) return false;
       if (selectedQuantizations.size && !selectedQuantizations.has(model.quantization)) return false;
       if (selectedFormats.size && !selectedFormats.has(model.format)) return false;
+      if (selectedCapabilities.size && !model.capabilities.some((c) => selectedCapabilities.has(c))) return false;
+      if (maxParamCount !== null && model.parameterCount !== null && model.parameterCount > maxParamCount) return false;
       return true;
     });
   }, [catalogModels, selectedFamilies, selectedFormats, selectedQuantizations, selectedServers]);
@@ -332,10 +363,20 @@ export function Catalog({
     });
   }
 
-  function toggleModelFilter(key: 'family' | 'quantization' | 'format', value: string) {
-    const current = key === 'family' ? selectedFamilies : key === 'quantization' ? selectedQuantizations : selectedFormats;
+  function toggleModelFilter(key: 'family' | 'quantization' | 'format' | 'capabilities', value: string) {
+    const current = key === 'family' ? selectedFamilies
+      : key === 'quantization' ? selectedQuantizations
+      : key === 'format' ? selectedFormats
+      : selectedCapabilities;
     const nextSet = toggleSetValue(current, value);
     updateQuery((params) => writeCsv(params, key, nextSet));
+  }
+
+  function setMaxParamFilter(value: number | null) {
+    updateQuery((params) => {
+      if (value === null) params.delete('maxParams');
+      else params.set('maxParams', String(value));
+    });
   }
 
   function changeTab(tab: string) {
@@ -430,13 +471,23 @@ export function Catalog({
             params.delete('family');
             params.delete('quantization');
             params.delete('format');
+            params.delete('capabilities');
+            params.delete('maxParams');
           })}
           onToggleFilter={toggleModelFilter}
           onClearModelFilters={() => updateQuery((params) => {
             params.delete('family');
             params.delete('quantization');
             params.delete('format');
+            params.delete('capabilities');
+            params.delete('maxParams');
           })}
+          selectedCapabilities={selectedCapabilities}
+          maxParamCount={maxParamCount}
+          paramCountSteps={paramCountSteps}
+          capabilityOptions={capabilityOptions}
+          onToggleCapability={(v) => toggleModelFilter('capabilities', v)}
+          onSetMaxParam={setMaxParamFilter}
           onInspect={(serverId, modelId) => navigate({ pathname: `/catalog/models/${encodeURIComponent(modelId)}`, search: `?serverId=${encodeURIComponent(serverId)}` })}
           onReprobe={async (serverId) => {
             await refreshInferenceServerDiscovery(serverId);
@@ -477,6 +528,37 @@ function FilterGroup({ title, options, selected, onToggle }: { title: string; op
           <span>{option}</span>
         </label>
       ))}
+    </div>
+  );
+}
+
+function ParameterSlider({ steps, value, onChange }: { steps: number[]; value: number | null; onChange: (v: number | null) => void }) {
+  if (steps.length === 0) return null;
+  const max = steps.length - 1;
+  let currentIdx = max;
+  if (value !== null) {
+    for (let i = 0; i <= max; i++) {
+      if (steps[i] <= value) currentIdx = i;
+    }
+  }
+  const label = currentIdx === max ? 'All' : `≤ ${formatParamCount(steps[currentIdx])}`;
+  return (
+    <div className="catalog-filter-group">
+      <div className="catalog-param-slider-header">
+        <div className="label--uppercase">Parameters</div>
+        <span className="catalog-param-slider-label">{label}</span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={max}
+        step={1}
+        value={currentIdx}
+        onChange={(e) => {
+          const idx = Number(e.target.value);
+          onChange(idx === max ? null : steps[idx]);
+        }}
+      />
     </div>
   );
 }
@@ -625,20 +707,26 @@ function ModelsCatalog(props: {
   familyOptions: string[];
   quantizationOptions: string[];
   formatOptions: string[];
+  capabilityOptions: string[];
   selectedFamilies: Set<string>;
   selectedQuantizations: Set<string>;
   selectedFormats: Set<string>;
+  selectedCapabilities: Set<string>;
+  maxParamCount: number | null;
+  paramCountSteps: number[];
   serverStageCollapsed: boolean;
   setServerStageCollapsed: (value: boolean) => void;
   onToggleServer: (serverId: string) => void;
   onClearServers: () => void;
-  onToggleFilter: (key: 'family' | 'quantization' | 'format', value: string) => void;
+  onToggleFilter: (key: 'family' | 'quantization' | 'format' | 'capabilities', value: string) => void;
   onClearModelFilters: () => void;
+  onToggleCapability: (value: string) => void;
+  onSetMaxParam: (value: number | null) => void;
   onInspect: (serverId: string, modelId: string) => void;
   onReprobe: (serverId: string) => void;
 }) {
   const [modelFilterStageCollapsed, setModelFilterStageCollapsed] = useState(() => localStorage.getItem(MODEL_FILTER_STAGE_STORAGE_KEY) === 'true');
-  const selectedModelFilterCount = props.selectedFamilies.size + props.selectedQuantizations.size + props.selectedFormats.size;
+  const selectedModelFilterCount = props.selectedFamilies.size + props.selectedQuantizations.size + props.selectedFormats.size + props.selectedCapabilities.size + (props.maxParamCount !== null ? 1 : 0);
 
   useEffect(() => {
     localStorage.setItem(MODEL_FILTER_STAGE_STORAGE_KEY, String(modelFilterStageCollapsed));
@@ -700,7 +788,9 @@ function ModelsCatalog(props: {
                   [
                     props.selectedFamilies.size ? 'FA' : null,
                     props.selectedQuantizations.size ? 'QU' : null,
-                    props.selectedFormats.size ? 'FO' : null
+                    props.selectedFormats.size ? 'FO' : null,
+                    props.selectedCapabilities.size ? 'CA' : null,
+                    props.maxParamCount !== null ? 'PA' : null
                   ].filter(Boolean).map((label) => (
                     <button key={label} type="button" title={label ?? ''} onClick={() => setModelFilterStageCollapsed(false)}>{label}</button>
                   ))
@@ -723,6 +813,8 @@ function ModelsCatalog(props: {
               <FilterGroup title="Family" options={props.familyOptions} selected={props.selectedFamilies} onToggle={(value) => props.onToggleFilter('family', value)} />
               <FilterGroup title="Quantization" options={props.quantizationOptions} selected={props.selectedQuantizations} onToggle={(value) => props.onToggleFilter('quantization', value)} />
               <FilterGroup title="Format" options={props.formatOptions} selected={props.selectedFormats} onToggle={(value) => props.onToggleFilter('format', value)} />
+              <FilterGroup title="Capabilities" options={props.capabilityOptions} selected={props.selectedCapabilities} onToggle={props.onToggleCapability} />
+              <ParameterSlider steps={props.paramCountSteps} value={props.maxParamCount} onChange={props.onSetMaxParam} />
             </>
           )}
         </aside>
@@ -764,6 +856,7 @@ function ModelsCatalog(props: {
                   <span>{model.quantization}</span>
                   <span>{model.format}</span>
                   <span>{model.context}</span>
+                  {model.parameterCountLabel ? <span>{model.parameterCountLabel}</span> : null}
                 </div>
                 <p>{[model.tools ? 'tools' : null, model.streaming ? 'streaming' : null].filter(Boolean).join(' · ') || 'standard generation'}</p>
                 <div className="catalog-card-footer">
