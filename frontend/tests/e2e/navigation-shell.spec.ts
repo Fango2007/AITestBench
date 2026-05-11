@@ -174,9 +174,8 @@ test('catalog servers header owns actions and conditional filter rail', async ({
   await expect(catalogHeader.getByRole('button', { name: 'Health' })).toHaveCount(0);
   await expect(catalogHeader.getByRole('button', { name: 'Grid' })).toHaveCount(0);
   await expect(page.locator('.catalog-rail')).toHaveCount(0);
-  const serverCardTitles = page.locator('.catalog-server-card .catalog-card-top strong');
-  await expect(serverCardTitles.filter({ hasText: /^Inferencer$/ })).toBeVisible();
-  await expect(serverCardTitles.filter({ hasText: /^LegacyProd$/ })).toHaveCount(0);
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'Inferencer' })).toBeVisible();
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'LegacyProd' })).toHaveCount(0);
 
   await sectionHeader.getByRole('button', { name: 'Filter' }).click();
   await expect(page.locator('.catalog-rail')).toBeVisible();
@@ -186,8 +185,8 @@ test('catalog servers header owns actions and conditional filter rail', async ({
 
   await sectionHeader.getByRole('button', { name: 'Archived' }).click();
   await expect(sectionHeader.getByRole('button', { name: 'Archived' })).toHaveClass(/is-active/);
-  await expect(serverCardTitles.filter({ hasText: /^Inferencer$/ })).toHaveCount(0);
-  await expect(serverCardTitles.filter({ hasText: /^LegacyProd$/ })).toBeVisible();
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'Inferencer' })).toHaveCount(0);
+  await expect(page.locator('.catalog-server-card').filter({ hasText: 'LegacyProd' })).toBeVisible();
 
   await sectionHeader.getByRole('button', { name: '+ Add server' }).click();
   const createDrawer = page
