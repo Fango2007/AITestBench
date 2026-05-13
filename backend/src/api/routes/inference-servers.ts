@@ -14,6 +14,8 @@ import {
 import { InferenceServerRecord, deleteInferenceServer } from '../../models/inference-server.js';
 import { InferenceServerRefreshError, refreshDiscovery, refreshRuntime } from '../../services/inference-server-refresh.js';
 import { checkInferenceServerHealth } from '../../services/inference-server-connectivity.js';
+import { probeServer } from '../../services/inference-server-probe.js';
+import { buildProbeAuthHeaders } from '../../services/inference-server-auth.js';
 import { inferenceServerCreateSchema, inferenceServerUpdateSchema } from '../inference-servers-schemas.js';
 
 function sanitizeServer(server: InferenceServerRecord): InferenceServerRecord {
@@ -59,6 +61,28 @@ export function registerInferenceServersRoutes(app: FastifyInstance): void {
       }
       throw error;
     }
+  });
+
+  app.post('/inference-servers/probe', async (request, reply) => {
+    const body = request.body as {
+      base_url: string;
+      schema_family: string[];
+      auth: { type: string; header_name: string; token?: string | null; token_env?: string | null };
+      timeout_ms?: number;
+    };
+    const result = await probeServer({
+      base_url: body.base_url,
+      schema_families: body.schema_family,
+      auth_headers: buildProbeAuthHeaders(body.auth),
+      timeout_ms: body.timeout_ms
+    });
+    reply.send({
+      ok: result.ok,
+      status_code: result.status_code,
+      response_time_ms: result.response_time_ms,
+      models: result.models.map((m) => m.model_id),
+      error: result.error ?? null
+    });
   });
 
   app.get('/inference-servers/:serverId', async (request, reply) => {

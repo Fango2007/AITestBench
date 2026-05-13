@@ -14,6 +14,6 @@ export async function getInferenceServerHealth(): Promise<InferenceServerHealth[
   return response.results;
 }
 
-export async function getConnectivityConfig(): Promise<{ poll_interval_ms: number }> {
-  return apiGet<{ poll_interval_ms: number }>('/system/connectivity-config');
+export async function getConnectivityConfig(): Promise<{ poll_interval_ms: number; discovery_ttl_ms: number }> {
+  return apiGet<{ poll_interval_ms: number; discovery_ttl_ms: number }>('/system/connectivity-config');
 }

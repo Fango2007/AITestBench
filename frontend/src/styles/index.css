@@ -2490,6 +2490,30 @@ pre.code-block {
   background: var(--bg-selected);
 }
 
+.catalog-model-card.is-absent {
+  opacity: 0.55;
+  border-style: dashed;
+  pointer-events: auto;
+}
+
+.catalog-model-card.is-absent:hover {
+  background: var(--paper-1);
+}
+
+.catalog-absent-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid var(--paper-7);
+  border-radius: 999px;
+  padding: 2px 7px;
+  background: var(--paper-2);
+  color: var(--ink-4);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .catalog-card-top,
 .catalog-card-meta,
 .catalog-card-footer {

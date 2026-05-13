@@ -1,4 +1,5 @@
 import { InferenceServerRecord } from '../services/inference-servers-api.js';
+import { relativeTime } from '../utils.js';
 
 interface InferenceServerDetailsProps {
   servers: InferenceServerRecord[];
@@ -157,12 +158,8 @@ export function InferenceServerDetails({
             <strong>{runtime.hardware.ram_mb ? `${runtime.hardware.ram_mb} MB` : 'Unknown'}</strong>
           </div>
           <div className="detail-row">
-            <span>Discovery retrieved</span>
-            <strong>{discovery.retrieved_at}</strong>
-          </div>
-          <div className="detail-row">
-            <span>Discovery TTL</span>
-            <strong>{`${discovery.ttl_seconds}s`}</strong>
+            <span>Last probe</span>
+            <strong>{relativeTime(discovery.retrieved_at)}</strong>
           </div>
           <div className="detail-row">
             <span>Models served</span>

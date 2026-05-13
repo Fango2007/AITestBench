@@ -137,7 +137,7 @@ function defaultCapabilities(): CapabilitiesInfo {
 function defaultDiscovery(): DiscoveryInfo {
   return {
     retrieved_at: nowIso(),
-    ttl_seconds: 300,
+    ttl_seconds: Math.round(Number(process.env.INFERHARNESS_CONTEXT_PROBE_TIMEOUT_MS || 300000) / 1000),
     model_list: { raw: {}, normalised: [] }
   };
 }
@@ -308,6 +308,25 @@ export function updateInferenceServer(
 
 export function deleteInferenceServer(id: string): boolean {
   const db = getDb();
-  const result = db.prepare('DELETE FROM inference_servers WHERE server_id = ?').run(id);
-  return result.changes > 0;
+  const deleted = db.transaction(() => {
+    db.prepare(`
+      DELETE FROM metric_samples WHERE test_result_id IN (
+        SELECT id FROM test_results WHERE run_id IN (
+          SELECT id FROM runs WHERE inference_server_id = ?
+        )
+      )
+    `).run(id);
+    db.prepare(`
+      DELETE FROM test_results WHERE run_id IN (
+        SELECT id FROM runs WHERE inference_server_id = ?
+      )
+    `).run(id);
+    db.prepare('DELETE FROM run_group_items WHERE inference_server_id = ?').run(id);
+    db.prepare('DELETE FROM runs WHERE inference_server_id = ?').run(id);
+    db.prepare('DELETE FROM evaluations WHERE server_id = ?').run(id);
+    db.prepare('DELETE FROM models WHERE server_id = ?').run(id);
+    const result = db.prepare('DELETE FROM inference_servers WHERE server_id = ?').run(id);
+    return result.changes > 0;
+  })();
+  return deleted;
 }

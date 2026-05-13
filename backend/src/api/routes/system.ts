@@ -7,8 +7,9 @@ export function registerSystemRoutes(app: FastifyInstance): void {
   app.get('/system/metrics', async () => getSystemMetrics());
 
   app.get('/system/connectivity-config', async () => {
-    const pollIntervalMs = Number(process.env.CONNECTIVITY_POLL_INTERVAL_MS || 30000);
-    return { poll_interval_ms: pollIntervalMs };
+    const pollIntervalMs = Number(process.env.INFERHARNESS_HEALTH_POLL_INTERVAL || 30) * 1000;
+    const discoveryTtlMs = Number(process.env.INFERHARNESS_CONTEXT_PROBE_TIMEOUT_MS || 300000);
+    return { poll_interval_ms: pollIntervalMs, discovery_ttl_ms: discoveryTtlMs };
   });
 
   app.post('/system/clear-db', async (_request, reply) => {

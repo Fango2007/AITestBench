@@ -6,6 +6,26 @@ The format is based on Keep a Changelog and this project follows Semantic Versio
 
 ## [Unreleased]
 
+### Added
+
+- `POST /inference-servers/probe` endpoint tests connection and lists models without writing to DB, used by the server creation drawer before saving.
+- Per-server refresh icon button on server cards triggers `refreshInferenceServerDiscovery` for that server on demand.
+- Refresh-all icon button in the servers section header re-probes all active servers in parallel.
+- `probeServer()` now accepts `parseModels: false` for lightweight health checks that confirm reachability without parsing the model list.
+
+### Changed
+
+- Server creation drawer now uses a test-first workflow: "Test connection" probes the endpoint and shows discovered models before any DB write; "Save to Catalog" then creates the record and runs discovery.
+- Health checks (`GET /inference-servers/health`) pass `parseModels: false` to avoid redundant model parsing during periodic polling.
+- Automatic TTL-based discovery refresh removed from Catalog — model lists are refreshed only on explicit user action (per-card icon, refresh-all, or server save).
+- `CONNECTIVITY_POLL_INTERVAL_MS` renamed to `INFERHARNESS_HEALTH_POLL_INTERVAL` and now accepts seconds instead of milliseconds (default: 30).
+- `probeServer()` extracted into a dedicated `inference-server-probe.ts` service, eliminating duplicated HTTP probe logic across `refreshDiscovery` and `checkInferenceServerHealth`.
+- "Last probe" timestamp removed from server cards and the server detail rail.
+
+### Fixed
+
+- Deleting an inference server no longer throws a FOREIGN KEY constraint error; child records (metric samples, test results, runs, evaluations, models) are now deleted in dependency order within a transaction.
+
 ## [0.4.1] - 2026-05-11
 
 ### Added

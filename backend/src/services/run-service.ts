@@ -226,7 +226,7 @@ function buildResultDocument(
       cache_key: server ? `${server.inference_server.server_id}:${server.endpoints.base_url}` : 'unknown',
       base_url: server?.endpoints.base_url ?? '',
       retrieved_at: server?.runtime.retrieved_at ?? now,
-      ttl_ms: server?.discovery.ttl_seconds != null ? server.discovery.ttl_seconds * 1000 : 300000,
+      ttl_ms: server?.discovery.ttl_seconds != null ? server.discovery.ttl_seconds * 1000 : Number(process.env.INFERHARNESS_CONTEXT_PROBE_TIMEOUT_MS || 300000),
       capabilities_snapshot: server?.capabilities ?? null,
       runtime_snapshot: server?.runtime ?? null,
       models_snapshot: server?.discovery.model_list.normalised ?? null,

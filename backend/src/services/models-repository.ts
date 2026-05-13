@@ -329,7 +329,8 @@ function inferredModelInput(input: DiscoveredModelInput): ModelInput {
     },
     discovery: {
       retrieved_at: nowIso(),
-      source: 'server'
+      source: 'server',
+      discovery_status: 'present'
     },
     raw: input.raw ?? {}
   };
@@ -573,6 +574,16 @@ export function upsertDiscoveredModelRecord(input: DiscoveredModelInput): ModelR
     throw new InvalidModelError('Unable to update discovered model record');
   }
   return updated;
+}
+
+export function markAbsentServerModels(serverId: string, presentModelIds: Set<string>): void {
+  const serverModels = fetchModels({ server_id: serverId });
+  for (const model of serverModels) {
+    if (model.discovery.source !== 'server') continue;
+    if (presentModelIds.has(model.model.model_id)) continue;
+    if (model.discovery.discovery_status === 'absent') continue;
+    updateModelRecord(serverId, model.model.model_id, { discovery: { discovery_status: 'absent' } });
+  }
 }
 
 export function archiveModel(serverId: string, modelId: string): ModelRecord | null {

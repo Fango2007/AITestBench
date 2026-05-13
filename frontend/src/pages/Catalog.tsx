@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { MergedPageHeader } from '../components/MergedPageHeader.js';
@@ -6,7 +6,7 @@ import { EmptyState } from '../components/EmptyState.js';
 import { InferenceContextBar } from '../components/InferenceContextBar.js';
 import { RegLight } from '../components/RegLight.js';
 import { catalogSearch, normalizeCatalogTab } from '../navigation.js';
-import { InferenceServerHealth, getConnectivityConfig, getInferenceServerHealth } from '../services/connectivity-api.js';
+import { InferenceServerHealth } from '../services/connectivity-api.js';
 import {
   ApiSchemaFamily,
   AuthType,
@@ -17,11 +17,13 @@ import {
   deleteInferenceServer,
   listInferenceServers,
   refreshInferenceServerDiscovery,
+  testServerConnection,
   unarchiveInferenceServer,
   updateInferenceServer
 } from '../services/inference-servers-api.js';
 import { ModelFormat, ModelRecord, listModels } from '../services/models-api.js';
 import { DEFAULT_INFERENCE_PARAMS, type InferenceParams } from '../services/inference-param-presets-api.js';
+import { relativeTime } from '../utils.js';
 
 type CatalogModel = {
   key: string;
@@ -39,6 +41,7 @@ type CatalogModel = {
   parameterCount: number | null;
   parameterCountLabel: string | null;
   capabilities: string[];
+  discoveryStatus: 'present' | 'absent' | null;
 };
 
 type ServerStatus = 'healthy' | 'degraded' | 'down' | 'unknown';
@@ -105,19 +108,6 @@ function statusToRegLight(status: ServerStatus): 'healthy' | 'degraded' | 'down'
   return status;
 }
 
-function relativeTime(value: string | null | undefined): string {
-  if (!value) return 'never';
-  const time = Date.parse(value);
-  if (Number.isNaN(time)) return 'unknown';
-  const delta = Math.max(0, Date.now() - time);
-  const seconds = Math.round(delta / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 48) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
 
 function gpuLabel(server: InferenceServerRecord): string {
   const labels = server.runtime.hardware.gpu
@@ -164,7 +154,8 @@ function buildCatalogModels(servers: InferenceServerRecord[], modelRecords: Mode
         ? Object.entries(record.capabilities.use_case)
             .filter(([, v]) => v)
             .map(([k]) => k.replace(/_/g, ' '))
-        : []
+        : [],
+      discoveryStatus: record?.discovery?.discovery_status ?? null
     });
   };
 
@@ -224,7 +215,7 @@ export function Catalog({
   const [serverFilters, setServerFilters] = useState({ status: new Set<string>(), runtime: new Set<string>(), gpu: new Set<string>() });
   const [inferenceParams, setInferenceParams] = useState<InferenceParams>(DEFAULT_INFERENCE_PARAMS);
 
-  const selectedServers = useMemo(() => new Set(parseCsv(searchParams.get('servers'))), [searchParams]);
+const selectedServers = useMemo(() => new Set(parseCsv(searchParams.get('servers'))), [searchParams]);
   const selectedFamilies = useMemo(() => new Set(parseCsv(searchParams.get('family'))), [searchParams]);
   const selectedQuantizations = useMemo(() => new Set(parseCsv(searchParams.get('quantization'))), [searchParams]);
   const selectedFormats = useMemo(() => new Set(parseCsv(searchParams.get('format'))), [searchParams]);
@@ -246,18 +237,12 @@ export function Catalog({
     if (showLoading) setLoading(true);
     setError(null);
     try {
-      const [serverRows, modelRows, healthRows] = await Promise.all([
+      const [serverRows, modelRows] = await Promise.all([
         listInferenceServers(),
-        listModels(),
-        getInferenceServerHealth().catch(() => [])
+        listModels()
       ]);
-      const nextHealth: Record<string, InferenceServerHealth> = {};
-      for (const health of healthRows) {
-        nextHealth[health.server_id] = health;
-      }
       setServers(serverRows);
       setModels(modelRows);
-      setConnectivity(nextHealth);
       setSelectedDetailId((current) => current && serverRows.some((server) => server.inference_server.server_id === current)
         ? current
         : null);
@@ -270,21 +255,8 @@ export function Catalog({
 
   useEffect(() => {
     refreshData(true);
-    let isActive = true;
-    let intervalId: number | null = null;
-    getConnectivityConfig()
-      .then((config) => {
-        if (!isActive) return;
-        intervalId = window.setInterval(() => refreshData(false), Math.max(1000, config.poll_interval_ms));
-      })
-      .catch(() => {
-        if (!isActive) return;
-        intervalId = window.setInterval(() => refreshData(false), 30000);
-      });
-    return () => {
-      isActive = false;
-      if (intervalId) window.clearInterval(intervalId);
-    };
+    const intervalId = window.setInterval(() => refreshData(false), 30000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   useEffect(() => setServers(serversSnapshot), [serversSnapshot]);
@@ -448,6 +420,18 @@ export function Catalog({
               setSelectedDetailId(server.inference_server.server_id);
             }}
             onAdd={() => setDrawer({ kind: 'create' })}
+            onReprobe={async (serverId) => {
+              await refreshInferenceServerDiscovery(serverId);
+              await refreshData();
+            }}
+            onRefreshAll={async () => {
+              await Promise.allSettled(
+                servers
+                  .filter((s) => !s.inference_server.archived && s.inference_server.active)
+                  .map((s) => refreshInferenceServerDiscovery(s.inference_server.server_id))
+              );
+              await refreshData();
+            }}
           />
         )
       ) : (
@@ -489,11 +473,6 @@ export function Catalog({
           onToggleCapability={(v) => toggleModelFilter('capabilities', v)}
           onSetMaxParam={setMaxParamFilter}
           onInspect={(serverId, modelId) => navigate({ pathname: `/catalog/models/${encodeURIComponent(modelId)}`, search: `?serverId=${encodeURIComponent(serverId)}` })}
-          onReprobe={async (serverId) => {
-            await refreshInferenceServerDiscovery(serverId);
-            notifyServersUpdated();
-            await refreshData();
-          }}
         />
       )}
       {drawer ? (
@@ -581,7 +560,11 @@ function ServersCatalog(props: {
   onEdit: (server: InferenceServerRecord) => void;
   onArchive: (server: InferenceServerRecord) => void;
   onAdd: () => void;
+  onReprobe: (serverId: string) => Promise<void>;
+  onRefreshAll: () => Promise<void>;
 }) {
+  const [reprobingIds, setReprobingIds] = useState<Set<string>>(new Set());
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false);
   if (props.allServers.length === 0) {
     return <NoServersState onAdd={props.onAdd} />;
   }
@@ -619,6 +602,24 @@ function ServersCatalog(props: {
             <button type="button" className={`btn btn--ghost btn--sm ${props.serverFiltersOpen ? 'is-active' : ''}`} onClick={props.onToggleServerFilters}>Filter</button>
             <button type="button" className={`btn btn--ghost btn--sm ${props.showArchivedOnly ? 'is-active' : ''}`} onClick={props.onToggleArchivedOnly}>Archived</button>
             <button type="button" className="btn btn--sm" onClick={props.onAdd}>+ Add server</button>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Refresh all servers"
+              title="Refresh all servers"
+              disabled={isRefreshingAll}
+              onClick={async () => {
+                setIsRefreshingAll(true);
+                try { await props.onRefreshAll(); }
+                finally { setIsRefreshingAll(false); }
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <polyline points="1 20 1 14 7 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
           </div>
         </div>
         {props.servers.length === 0 ? (
@@ -633,12 +634,14 @@ function ServersCatalog(props: {
             {props.servers.map((server) => {
               const status = statusFor(server, props.connectivity[server.inference_server.server_id]);
               return (
-                <button
-                  type="button"
+                <div
                   key={server.inference_server.server_id}
+                  role="button"
+                  tabIndex={0}
                   className={`catalog-server-card ${props.selectedDetailId === server.inference_server.server_id ? 'is-selected' : ''}`}
                   aria-pressed={props.selectedDetailId === server.inference_server.server_id}
                   onClick={() => props.onSelectDetail(props.selectedDetailId === server.inference_server.server_id ? null : server.inference_server.server_id)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onSelectDetail(props.selectedDetailId === server.inference_server.server_id ? null : server.inference_server.server_id); } }}
                 >
                   <span className="catalog-card-top">
                     <strong>{server.inference_server.display_name}</strong>
@@ -658,10 +661,28 @@ function ServersCatalog(props: {
                   </span>
                   <span className="catalog-card-footer">
                     <span>{server.discovery.model_list.normalised.length} models</span>
-                    <span>{relativeTime(server.discovery.retrieved_at)}</span>
-                    <span aria-hidden="true">...</span>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      aria-label="Refresh models"
+                      title="Refresh models"
+                      disabled={reprobingIds.has(server.inference_server.server_id)}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const id = server.inference_server.server_id;
+                        setReprobingIds((prev) => new Set(prev).add(id));
+                        try { await props.onReprobe(id); }
+                        finally { setReprobingIds((prev) => { const next = new Set(prev); next.delete(id); return next; }); }
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <polyline points="1 20 1 14 7 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                   </span>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -685,7 +706,6 @@ function ServersCatalog(props: {
           <div className="kv"><span>Runtime</span><strong>{runtimeLabel(props.selectedDetail)}</strong></div>
           <div className="kv"><span>GPU</span><strong>{gpuLabel(props.selectedDetail)}</strong></div>
           <div className="kv"><span>Models</span><strong>{props.selectedDetail.discovery.model_list.normalised.length}</strong></div>
-          <div className="kv"><span>Last probe</span><strong>{relativeTime(props.selectedDetail.discovery.retrieved_at)}</strong></div>
           <div className="actions">
             <button type="button" className="btn btn--ghost" onClick={() => props.onEdit(props.selectedDetail!)}>Edit</button>
             <button type="button" className="btn btn--ghost" onClick={() => props.onArchive(props.selectedDetail!)}>
@@ -723,7 +743,6 @@ function ModelsCatalog(props: {
   onToggleCapability: (value: string) => void;
   onSetMaxParam: (value: number | null) => void;
   onInspect: (serverId: string, modelId: string) => void;
-  onReprobe: (serverId: string) => void;
 }) {
   const [modelFilterStageCollapsed, setModelFilterStageCollapsed] = useState(() => localStorage.getItem(MODEL_FILTER_STAGE_STORAGE_KEY) === 'true');
   const selectedModelFilterCount = props.selectedFamilies.size + props.selectedQuantizations.size + props.selectedFormats.size + props.selectedCapabilities.size + (props.maxParamCount !== null ? 1 : 0);
@@ -840,31 +859,36 @@ function ModelsCatalog(props: {
             <EmptyState
               title="No models discovered"
               body={`${props.selectedServerRows.map((server) => server.inference_server.display_name).join(', ')} returned 0 matching models.`}
-              actions={props.selectedServerRows[0] ? <button type="button" onClick={() => props.onReprobe(props.selectedServerRows[0].inference_server.server_id)}>Re-probe</button> : null}
+              actions={null}
             />
           </div>
         ) : (
           <div className="catalog-model-grid">
-            {props.visibleModels.map((model) => (
-              <article key={model.key} className="catalog-model-card">
-                <div className="catalog-card-top">
-                  <strong>{model.displayName}</strong>
-                  <span className="catalog-select-dot">✓</span>
-                </div>
-                <div className="catalog-model-pills">
-                  <span>{model.family}</span>
-                  <span>{model.quantization}</span>
-                  <span>{model.format}</span>
-                  <span>{model.context}</span>
-                  {model.parameterCountLabel ? <span>{model.parameterCountLabel}</span> : null}
-                </div>
-                <p>{[model.tools ? 'tools' : null, model.streaming ? 'streaming' : null].filter(Boolean).join(' · ') || 'standard generation'}</p>
-                <div className="catalog-card-footer">
-                  <span className="server-chip">{model.serverName}</span>
-                  <button type="button" className="btn btn--ghost btn--sm" onClick={() => props.onInspect(model.serverId, model.modelId)}>Inspect</button>
-                </div>
-              </article>
-            ))}
+            {props.visibleModels.map((model) => {
+              const absent = model.discoveryStatus === 'absent';
+              return (
+                <article key={model.key} className={`catalog-model-card${absent ? ' is-absent' : ''}`}>
+                  <div className="catalog-card-top">
+                    <strong>{model.displayName}</strong>
+                    {absent
+                      ? <span className="catalog-absent-badge">unavailable</span>
+                      : <span className="catalog-select-dot">✓</span>}
+                  </div>
+                  <div className="catalog-model-pills">
+                    <span>{model.family}</span>
+                    <span>{model.quantization}</span>
+                    <span>{model.format}</span>
+                    <span>{model.context}</span>
+                    {model.parameterCountLabel ? <span>{model.parameterCountLabel}</span> : null}
+                  </div>
+                  <p>{[model.tools ? 'tools' : null, model.streaming ? 'streaming' : null].filter(Boolean).join(' · ') || 'standard generation'}</p>
+                  <div className="catalog-card-footer">
+                    <span className="server-chip">{model.serverName}</span>
+                    <button type="button" className="btn btn--ghost btn--sm" onClick={() => props.onInspect(model.serverId, model.modelId)} disabled={absent}>Inspect</button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </main>
@@ -973,9 +997,8 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
   const [authToken, setAuthToken] = useState('');
   const [gpu, setGpu] = useState(editing ? gpuLabel(editing) : '');
   const [busy, setBusy] = useState(false);
-  const [probeState, setProbeState] = useState<'idle' | 'probing' | 'ok' | 'failed'>('idle');
+  const [probeState, setProbeState] = useState<'idle' | 'probing' | 'probe-ok' | 'probe-failed'>('idle');
   const [probeError, setProbeError] = useState<string | null>(null);
-  const [savedServer, setSavedServer] = useState<InferenceServerRecord | null>(null);
   const [discovered, setDiscovered] = useState<string[]>([]);
 
   function toggleFamily(value: ApiSchemaFamily) {
@@ -1012,32 +1035,47 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
     event.preventDefault();
     setBusy(true);
     setProbeError(null);
+    setProbeState('probing');
     try {
       const input = buildInput();
-      const server = editing
-        ? await updateInferenceServer(editing.inference_server.server_id, input)
-        : await createInferenceServer(input);
-      setSavedServer(server);
-      setProbeState('probing');
-      try {
-        const refreshed = await refreshInferenceServerDiscovery(server.inference_server.server_id);
-        setDiscovered(refreshed.discovery.model_list.normalised.map((model) => model.model_id));
-        setProbeState('ok');
-        await onSaved(refreshed, false);
-      } catch (err) {
-        setProbeState('failed');
-        setProbeError(err instanceof Error ? err.message : 'Probe failed');
-        await onSaved(server, false);
+      const result = await testServerConnection({
+        base_url: input.endpoints?.base_url ?? baseUrl,
+        schema_family: (input.runtime?.api?.schema_family as string[]) ?? ['openai-compatible'],
+        auth: {
+          type: input.auth?.type ?? 'none',
+          header_name: input.auth?.header_name ?? 'Authorization',
+          token: input.auth?.token,
+          token_env: input.auth?.token_env
+        }
+      });
+      setDiscovered(result.models);
+      if (result.ok) {
+        setProbeState('probe-ok');
+      } else {
+        setProbeState('probe-failed');
+        setProbeError(result.error ?? 'Connection failed');
       }
     } finally {
       setBusy(false);
     }
   }
 
-  async function openInCatalog() {
-    if (!savedServer) return;
-    await onSaved(savedServer, !editing);
-    onClose();
+  async function handleSave() {
+    setBusy(true);
+    try {
+      const input = buildInput();
+      let server = editing
+        ? await updateInferenceServer(editing.inference_server.server_id, input)
+        : await createInferenceServer(input);
+      try {
+        server = await refreshInferenceServerDiscovery(server.inference_server.server_id);
+      } catch {
+        // discovery failure doesn't block save
+      }
+      await onSaved(server, false);
+    } finally {
+      onClose();
+    }
   }
 
   return (
@@ -1085,8 +1123,8 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
           ) : null}
           <label>GPU<input value={gpu} onChange={(event) => setGpu(event.target.value)} placeholder="A100 80GB" /></label>
           {probeState !== 'idle' ? (
-            <div className={`probe-panel probe-panel--${probeState}`}>
-              <strong>{probeState === 'probing' ? 'Probing /v1/models...' : probeState === 'ok' ? 'Probe complete' : 'Probe failed'}</strong>
+            <div className={`probe-panel probe-panel--${probeState === 'probe-ok' ? 'ok' : probeState === 'probe-failed' ? 'failed' : probeState}`}>
+              <strong>{probeState === 'probing' ? 'Testing connection...' : probeState === 'probe-ok' ? 'Connection OK' : 'Connection failed'}</strong>
               {probeError ? <p>{probeError}</p> : null}
               {discovered.length ? <ul>{discovered.slice(0, 8).map((model) => <li key={model}>{model}</li>)}</ul> : null}
             </div>
@@ -1095,8 +1133,14 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
             {onDelete ? <button type="button" className="btn btn--danger" onClick={onDelete}>Delete server</button> : <span />}
             <div className="actions">
               <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
-              {probeState === 'failed' && savedServer ? <button type="button" className="btn btn--ghost" onClick={openInCatalog}>Save anyway</button> : null}
-              {probeState === 'ok' && savedServer ? <button type="button" onClick={openInCatalog}>Save & open in Catalog</button> : <button type="submit" disabled={busy || !displayName || !baseUrl}>{busy ? 'Saving...' : editing ? 'Save & re-probe' : 'Create & test connection'}</button>}
+              {probeState === 'probe-ok' || probeState === 'probe-failed' ? (
+                <button type="button" className={probeState === 'probe-failed' ? 'btn btn--ghost' : undefined} onClick={handleSave} disabled={busy}>
+                  {busy ? 'Saving...' : probeState === 'probe-ok' ? (editing ? 'Save changes' : 'Save to Catalog') : 'Save anyway'}
+                </button>
+              ) : null}
+              <button type="submit" disabled={busy || !displayName || !baseUrl}>
+                {busy && probeState === 'probing' ? 'Testing...' : 'Test connection'}
+              </button>
             </div>
           </div>
         </form>
