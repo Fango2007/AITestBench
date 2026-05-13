@@ -238,7 +238,8 @@
       "required": ["retrieved_at", "source"],
       "properties": {
         "retrieved_at": { "type": "string" },
-        "source": { "type": "string", "enum": ["server", "manual", "test"] }
+        "source": { "type": "string", "enum": ["server", "manual", "test"] },
+        "discovery_status": { "type": "string", "enum": ["present", "absent"] }
       }
     },
     "raw": { "type": "object" }

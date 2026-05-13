@@ -188,6 +188,7 @@ export function App() {
     };
   }, []);
 
+
   useEffect(() => {
     let isActive = true;
     let intervalId: number | null = null;
@@ -195,18 +196,14 @@ export function App() {
     const fetchHealth = async () => {
       try {
         const results = await getInferenceServerHealth();
-        if (!isActive) {
-          return;
-        }
+        if (!isActive) return;
         const nextMap: Record<string, InferenceServerHealth> = {};
         for (const entry of results) {
           nextMap[entry.server_id] = entry;
         }
         setConnectivity(nextMap);
       } catch {
-        if (isActive) {
-          setConnectivity({});
-        }
+        if (isActive) setConnectivity({});
       }
     };
 
@@ -225,9 +222,7 @@ export function App() {
     setup();
     return () => {
       isActive = false;
-      if (intervalId) {
-        window.clearInterval(intervalId);
-      }
+      if (intervalId) window.clearInterval(intervalId);
     };
   }, []);
 

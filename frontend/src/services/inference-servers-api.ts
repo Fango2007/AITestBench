@@ -145,3 +145,22 @@ export async function refreshInferenceServerRuntime(id: string): Promise<Inferen
 export async function refreshInferenceServerDiscovery(id: string): Promise<InferenceServerRecord> {
   return apiPost<InferenceServerRecord>(`/inference-servers/${id}/refresh-discovery`, {});
 }
+
+export interface ProbeConnectionInput {
+  base_url: string;
+  schema_family: string[];
+  auth: { type: string; header_name: string; token?: string | null; token_env?: string | null };
+  timeout_ms?: number;
+}
+
+export interface ProbeConnectionResult {
+  ok: boolean;
+  status_code: number | null;
+  response_time_ms: number | null;
+  models: string[];
+  error: string | null;
+}
+
+export async function testServerConnection(input: ProbeConnectionInput): Promise<ProbeConnectionResult> {
+  return apiPost<ProbeConnectionResult>('/inference-servers/probe', input);
+}

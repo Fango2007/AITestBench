@@ -4,9 +4,8 @@ import { InferenceServerRecord } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
 import { updateInferenceServerRecord } from './inference-servers-repository.js';
 import { buildInferenceServerAuthHeaders } from './inference-server-auth.js';
-import { backendFetch } from './inference-proxy.js';
-import { extractQuantisationLabel, normaliseQuantisationFromLabel } from './quantisation-normalizer.js';
-import { upsertDiscoveredModelRecord } from './models-repository.js';
+import { probeServer } from './inference-server-probe.js';
+import { upsertDiscoveredModelRecord, markAbsentServerModels } from './models-repository.js';
 
 export class InferenceServerRefreshError extends Error {
   details: {
@@ -76,44 +75,6 @@ export function refreshRuntime(server: InferenceServerRecord): InferenceServerRe
   return updated;
 }
 
-function normalizeOpenAiModels(payload: Record<string, unknown>) {
-  const entries = Array.isArray(payload.data) ? payload.data : [];
-  return entries
-    .map((entry) => {
-      const modelId = typeof entry.id === 'string' ? entry.id : '';
-      const label = modelId ? extractQuantisationLabel(modelId) : null;
-      return {
-        model_id: modelId,
-        display_name: modelId || null,
-        context_window_tokens: null,
-        quantisation: label ? normaliseQuantisationFromLabel(label) : null
-      };
-    })
-    .filter((entry) => entry.model_id && !entry.model_id.startsWith('<remote>/'));
-}
-
-function normalizeOllamaModels(payload: Record<string, unknown>) {
-  const entries = Array.isArray(payload.models) ? payload.models : [];
-  return entries
-    .map((entry) => {
-      const name = typeof entry.name === 'string' ? entry.name : '';
-      const details = (entry.details as Record<string, unknown>) ?? {};
-      const label =
-        typeof details.quantization === 'string'
-          ? details.quantization
-          : name
-            ? extractQuantisationLabel(name)
-            : null;
-      return {
-        model_id: name,
-        display_name: name || null,
-        context_window_tokens:
-          typeof details.context_length === 'number' ? details.context_length : null,
-        quantisation: label ? normaliseQuantisationFromLabel(label) : null
-      };
-    })
-    .filter((entry) => entry.model_id);
-}
 
 export async function refreshDiscovery(server: InferenceServerRecord): Promise<InferenceServerRecord> {
   const schemaFamilies = Array.isArray(server.runtime.api.schema_family)
@@ -129,73 +90,24 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
     });
   }
 
-  const authHeaders = buildInferenceServerAuthHeaders(server);
-  const rawPayloads: Record<string, unknown> = {};
-  const modelMap = new Map<
-    string,
-    {
-      model_id: string;
-      display_name: string | null;
-      context_window_tokens: number | null;
-      quantisation: {
-        method: string;
-        bits: number | null;
-        group_size: number | null;
-        scheme?: string | null;
-        variant?: string | null;
-        weight_format?: string | null;
-      } | null;
-    }
-  >();
-  const errors: string[] = [];
+  const probeResult = await probeServer({
+    base_url: server.endpoints.base_url,
+    schema_families: supportedFamilies,
+    auth_headers: buildInferenceServerAuthHeaders(server)
+  });
 
-  for (const schemaFamily of supportedFamilies) {
-    const path = schemaFamily === 'openai-compatible' ? '/v1/models' : '/api/tags';
-    const url = new URL(path, server.endpoints.base_url).toString();
-    let response: Response;
-    try {
-      response = await backendFetch(url, { headers: authHeaders });
-    } catch (error) {
-      errors.push(`${schemaFamily}: ${error instanceof Error ? error.message : 'Network error'}`);
-      continue;
-    }
-
-    if (!response.ok) {
-      errors.push(`${schemaFamily}: status ${response.status}`);
-      continue;
-    }
-
-    const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.includes('application/json')) {
-      const body = await response.text();
-      errors.push(`${schemaFamily}: expected JSON but received ${contentType || 'unknown'} (${body.slice(0, 200)})`);
-      continue;
-    }
-
-    const payload = (await response.json()) as Record<string, unknown>;
-    rawPayloads[schemaFamily] = payload;
-    const normalised = schemaFamily === 'openai-compatible'
-      ? normalizeOpenAiModels(payload)
-      : normalizeOllamaModels(payload);
-    for (const entry of normalised) {
-      if (!modelMap.has(entry.model_id)) {
-        modelMap.set(entry.model_id, entry);
-      }
-    }
-  }
-
-  if (modelMap.size === 0) {
+  if (!probeResult.ok || probeResult.models.length === 0) {
     throw new InferenceServerRefreshError({
       server_id: server.inference_server.server_id,
-      attempted_url: server.endpoints.base_url,
-      message: `Discovery request failed for ${supportedFamilies.join(', ')}${errors.length ? ` (${errors.join('; ')})` : ''}`,
+      attempted_url: probeResult.attempted_url ?? server.endpoints.base_url,
+      status_code: probeResult.status_code ?? undefined,
+      message: probeResult.error ?? `Discovery request failed for ${supportedFamilies.join(', ')}`,
       timestamp: nowIso()
     });
   }
 
-  const normalised = Array.from(modelMap.values());
-  const payload =
-    supportedFamilies.length === 1 ? (rawPayloads[supportedFamilies[0]] as Record<string, unknown>) : rawPayloads;
+  const normalised = probeResult.models;
+  const payload = probeResult.raw ?? {};
   const updated = updateInferenceServerRecord(server.inference_server.server_id, {
     discovery: {
       retrieved_at: nowIso(),
@@ -224,5 +136,9 @@ export async function refreshDiscovery(server: InferenceServerRecord): Promise<I
       raw: { discovery_model: model }
     });
   }
+  markAbsentServerModels(
+    server.inference_server.server_id,
+    new Set(normalised.map((m) => m.model_id))
+  );
   return updated;
 }

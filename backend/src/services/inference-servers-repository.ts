@@ -154,7 +154,7 @@ function defaultAuth(): AuthInfo {
 function defaultDiscovery(): DiscoveryInfo {
   return {
     retrieved_at: nowIso(),
-    ttl_seconds: 300,
+    ttl_seconds: Math.round(Number(process.env.INFERHARNESS_CONTEXT_PROBE_TIMEOUT_MS || 300000) / 1000),
     model_list: { raw: {}, normalised: [] }
   };
 }

@@ -66,6 +66,11 @@ export interface ModelRecord {
     max_images: number | null;
     max_batch_size: number | null;
   };
+  discovery?: {
+    retrieved_at: string;
+    source: 'server' | 'manual' | 'test';
+    discovery_status?: 'present' | 'absent';
+  };
   raw?: Record<string, unknown>;
 }
 

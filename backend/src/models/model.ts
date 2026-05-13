@@ -129,6 +129,7 @@ export interface ModelConfiguration {
 export interface ModelDiscovery {
   retrieved_at: string;
   source: DiscoverySource;
+  discovery_status?: 'present' | 'absent';
 }
 
 export interface ModelRecord {

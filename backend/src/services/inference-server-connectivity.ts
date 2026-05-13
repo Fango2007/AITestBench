@@ -1,7 +1,7 @@
 import { listInferenceServers } from '../models/inference-server.js';
 import { nowIso } from '../models/repositories.js';
 import { buildInferenceServerAuthHeaders } from './inference-server-auth.js';
-import { backendFetch } from './inference-proxy.js';
+import { probeServer } from './inference-server-probe.js';
 
 export type InferenceServerHealth = {
   server_id: string;
@@ -9,42 +9,10 @@ export type InferenceServerHealth = {
   status_code: number | null;
   response_time_ms: number | null;
   checked_at: string;
+  error?: string | null;
 };
 
 const DEFAULT_TIMEOUT_MS = 5000;
-
-async function checkServer(
-  baseUrl: string,
-  paths: string[],
-  timeoutMs: number,
-  headers: Record<string, string>
-): Promise<{ ok: boolean; status_code: number | null; response_time_ms: number | null }> {
-  const startedAt = Date.now();
-  let lastStatus: number | null = null;
-  for (const path of paths) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const url = new URL(path, baseUrl).toString();
-      const response = await backendFetch(url, { method: 'GET', headers, signal: controller.signal });
-      const duration = Date.now() - startedAt;
-      lastStatus = response.status;
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') ?? '';
-        const ok = contentType.includes('application/json');
-        if (ok) {
-          return { ok: true, status_code: response.status, response_time_ms: duration };
-        }
-      }
-    } catch {
-      // fall through to next path
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-  const duration = Date.now() - startedAt;
-  return { ok: false, status_code: lastStatus, response_time_ms: duration };
-}
 
 export async function checkInferenceServerHealth(): Promise<InferenceServerHealth[]> {
   const timeoutMs = Number(process.env.CONNECTIVITY_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
@@ -55,22 +23,20 @@ export async function checkInferenceServerHealth(): Promise<InferenceServerHealt
       const schemaFamilies = Array.isArray(server.runtime.api.schema_family)
         ? server.runtime.api.schema_family
         : [server.runtime.api.schema_family];
-      const paths = schemaFamilies
-        .filter((family) => family !== 'custom')
-        .map((family) => (family === 'ollama' ? '/api/tags' : '/v1/models'));
-      const probePaths = paths.length > 0 ? paths : ['/v1/models'];
-      const { ok, status_code, response_time_ms } = await checkServer(
-        server.endpoints.base_url,
-        probePaths,
-        timeoutMs,
-        buildInferenceServerAuthHeaders(server)
-      );
+      const result = await probeServer({
+        base_url: server.endpoints.base_url,
+        schema_families: schemaFamilies.length > 0 ? schemaFamilies : ['openai-compatible'],
+        auth_headers: buildInferenceServerAuthHeaders(server),
+        timeout_ms: timeoutMs,
+        parseModels: false
+      });
       return {
         server_id: server.inference_server.server_id,
-        ok,
-        status_code,
-        response_time_ms,
-        checked_at: checkedAt
+        ok: result.ok,
+        status_code: result.status_code,
+        response_time_ms: result.response_time_ms,
+        checked_at: checkedAt,
+        error: result.error ?? null
       };
     })
   );
