@@ -10,8 +10,12 @@ import { InferenceServerHealth } from '../services/connectivity-api.js';
 import {
   ApiSchemaFamily,
   AuthType,
+  ContainerType,
+  GpuVendor,
   InferenceServerInput,
   InferenceServerRecord,
+  OsArch,
+  OsName,
   archiveInferenceServer,
   createInferenceServer,
   deleteInferenceServer,
@@ -980,6 +984,82 @@ function NoServersState({ onAdd }: { onAdd?: () => void }) {
   );
 }
 
+const SOFTWARE_OPTIONS = [
+  'vLLM', 'Ollama', 'LM Studio', 'llama.cpp', 'Inferencer',
+  'oLLM', 'Nemotron', 'PowerInfer',
+  'TGI', 'LocalAI', 'TabbyAPI', 'KoboldCpp', 'MLC-LLM', 'TensorRT-LLM',
+  'Aphrodite Engine', 'ExLlamaV2', 'Jan', 'GPT4All', 'Llamafile',
+];
+
+const GPU_MODELS: Record<GpuVendor, string[]> = {
+  nvidia: [
+    'H200 SXM', 'H100 SXM5 80GB', 'H100 PCIe 80GB',
+    'A100 SXM4 80GB', 'A100 PCIe 40GB', 'L40S', 'A40', 'A10G',
+    'RTX 5090 32GB', 'RTX 5080 16GB', 'RTX 5070 Ti 16GB', 'RTX 5070 12GB', 'RTX 5060 Ti 16GB', 'RTX 5060 8GB',
+    'RTX 4090', 'RTX 4080 Super', 'RTX 4080', 'RTX 4070 Ti Super', 'RTX 4070 Super', 'RTX 4070',
+    'RTX 6000 Ada 48GB', 'RTX 5000 Ada 32GB', 'RTX 4500 Ada 24GB', 'RTX 4000 Ada 20GB', 'RTX 4000 SFF Ada 20GB',
+    'RTX 3090 Ti', 'RTX 3090',
+    'T4', 'V100 32GB', 'V100 16GB',
+  ],
+  amd: [
+    'MI300X', 'MI250X', 'MI210',
+    'RX 7900 XTX', 'RX 7900 XT', 'RX 6900 XT', 'Radeon Pro W7900',
+  ],
+  apple: [
+    'M4 Ultra', 'M4 Max', 'M4 Pro', 'M4',
+    'M3 Ultra', 'M3 Max', 'M3 Pro', 'M3',
+    'M2 Ultra', 'M2 Max', 'M2 Pro', 'M2',
+    'M1 Ultra', 'M1 Max', 'M1 Pro', 'M1',
+  ],
+  intel: ['Arc A770 16GB', 'Arc A750 8GB', 'Arc A380 6GB', 'Iris Xe Max'],
+  google: ['TPU v5p', 'TPU v5e', 'TPU v4', 'TPU v3'],
+  unknown: [],
+};
+
+const CPU_MODELS: Record<string, string[]> = {
+  apple: [
+    'M5 Ultra', 'M5 Max', 'M5 Pro', 'M5',
+    'M4 Ultra', 'M4 Max', 'M4 Pro', 'M4',
+    'M3 Ultra', 'M3 Max', 'M3 Pro', 'M3',
+    'M2 Ultra', 'M2 Max', 'M2 Pro', 'M2',
+    'M1 Ultra', 'M1 Max', 'M1 Pro', 'M1',
+  ],
+  intel: [
+    'Core i9-14900K', 'Core i9-13900K', 'Core i7-14700K', 'Core i7-13700K',
+    'Core i5-14600K', 'Core i5-13600K',
+    'Xeon W9-3595X', 'Xeon W7-3465X', 'Xeon Platinum 8592+', 'Xeon Gold 6438Y+',
+  ],
+  amd: [
+    'Ryzen 9 9950X', 'Ryzen 9 7950X3D', 'Ryzen 9 7950X', 'Ryzen 9 7900X',
+    'Ryzen 7 9700X', 'Ryzen 7 7800X3D', 'Ryzen 5 7600X',
+    'EPYC 9654', 'EPYC 9554', 'EPYC 7763', 'EPYC 7742',
+  ],
+  arm: [
+    'Ampere Altra Q80-30', 'Ampere Altra Max M128-30',
+    'AWS Graviton4', 'AWS Graviton3', 'AWS Graviton2',
+  ],
+  other: [],
+};
+
+const OS_VERSIONS: Record<OsName, string[]> = {
+  linux: [
+    'Ubuntu 24.04 LTS', 'Ubuntu 22.04 LTS', 'Ubuntu 20.04 LTS',
+    'Debian 12 (Bookworm)', 'Debian 11 (Bullseye)',
+    'Fedora 41', 'RHEL 9.4', 'Rocky Linux 9.4', 'AlmaLinux 9.4',
+    'Arch Linux', 'Alpine 3.21',
+  ],
+  macos: [
+    '15.4 (Sequoia)', '15.3 (Sequoia)', '15.2 (Sequoia)',
+    '14.7 (Sonoma)', '14.6 (Sonoma)',
+    '13.7 (Ventura)',
+  ],
+  windows: [
+    'Windows 11 24H2', 'Windows 11 23H2',
+    'Windows Server 2025', 'Windows Server 2022', 'Windows Server 2019',
+  ],
+  unknown: [],
+};
+
 function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
   mode: DrawerMode;
   onClose: () => void;
@@ -987,6 +1067,8 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
   onDelete?: () => void;
 }) {
   const editing = mode.kind === 'edit' ? mode.server : null;
+
+  // ── Inference server fields ──
   const [displayName, setDisplayName] = useState(editing?.inference_server.display_name ?? '');
   const [baseUrl, setBaseUrl] = useState(editing?.endpoints.base_url ?? '');
   const [software, setSoftware] = useState(editing?.runtime.server_software.name ?? '');
@@ -995,8 +1077,54 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
   const [authType, setAuthType] = useState<'none' | 'bearer' | 'header'>(editing?.auth.type === 'custom' ? 'header' : editing?.auth.type === 'bearer' ? 'bearer' : 'none');
   const [authHeader, setAuthHeader] = useState(editing?.auth.header_name ?? 'Authorization');
   const [authToken, setAuthToken] = useState('');
-  const [gpu, setGpu] = useState(editing ? gpuLabel(editing) : '');
-  const [busy, setBusy] = useState(false);
+
+  // ── Capabilities ──
+  const caps = editing?.capabilities;
+  const [capStreaming,        setCapStreaming]        = useState(caps?.server?.streaming ?? false);
+  const [capTools,            setCapTools]            = useState(caps?.generation?.tools ?? false);
+  const [capEmbeddings,       setCapEmbeddings]       = useState(caps?.generation?.embeddings ?? false);
+  const [capJsonSchema,       setCapJsonSchema]       = useState(caps?.generation?.json_schema_output ?? false);
+  const [capVisionInput,      setCapVisionInput]      = useState(caps?.multimodal?.vision?.input_images ?? false);
+  const [capAudioInput,       setCapAudioInput]       = useState(caps?.multimodal?.audio?.input_audio ?? false);
+  const [capReasoning,        setCapReasoning]        = useState(caps?.reasoning?.exposed ?? false);
+  const [capTokenBudget,      setCapTokenBudget]      = useState(caps?.reasoning?.token_budget_configurable ?? false);
+  const [capParallelRequests, setCapParallelRequests] = useState(caps?.concurrency?.parallel_requests ?? false);
+
+  // ── GPU ──
+  const [gpuVendor, setGpuVendor] = useState<GpuVendor>(editing?.runtime.hardware.gpu[0]?.vendor ?? 'unknown');
+  const [gpuModel,  setGpuModel]  = useState(editing?.runtime.hardware.gpu[0]?.model ?? '');
+  const [gpuVramGb, setGpuVramGb] = useState(
+    editing?.runtime.hardware.gpu[0]?.vram_mb != null
+      ? String(editing.runtime.hardware.gpu[0].vram_mb / 1024) : ''
+  );
+  const [gpuCores,         setGpuCores]         = useState(
+    editing?.runtime.hardware.gpu[0]?.gpu_cores != null
+      ? String(editing.runtime.hardware.gpu[0].gpu_cores) : ''
+  );
+  const [neuralEngineTops, setNeuralEngineTops] = useState(
+    editing?.runtime.hardware.gpu[0]?.neural_engine_tops != null
+      ? String(editing.runtime.hardware.gpu[0].neural_engine_tops) : ''
+  );
+
+  // ── CPU & RAM ──
+  const [cpuVendorHint, setCpuVendorHint] = useState(editing?.runtime.hardware.gpu[0]?.vendor === 'apple' ? 'apple' : 'other');
+  const [cpuModel,  setCpuModel]  = useState(editing?.runtime.hardware.cpu.model ?? '');
+  const [cpuCores,  setCpuCores]  = useState(
+    editing?.runtime.hardware.cpu.cores != null ? String(editing.runtime.hardware.cpu.cores) : ''
+  );
+  const [ramGb, setRamGb] = useState(
+    editing?.runtime.hardware.ram_mb != null ? String(editing.runtime.hardware.ram_mb / 1024) : ''
+  );
+
+  // ── Platform ──
+  const [osName,         setOsName]         = useState<OsName>(editing?.runtime.platform?.os.name ?? 'unknown');
+  const [osVersion,      setOsVersion]      = useState(editing?.runtime.platform?.os.version ?? '');
+  const [osArch,         setOsArch]         = useState<OsArch>(editing?.runtime.platform?.os.arch ?? 'unknown');
+  const [containerType,  setContainerType]  = useState<ContainerType>(editing?.runtime.platform?.container.type ?? 'none');
+  const [containerImage, setContainerImage] = useState(editing?.runtime.platform?.container.image ?? '');
+
+  // ── Probe state ──
+  const [busy,       setBusy]       = useState(false);
   const [probeState, setProbeState] = useState<'idle' | 'probing' | 'probe-ok' | 'probe-failed'>('idle');
   const [probeError, setProbeError] = useState<string | null>(null);
   const [discovered, setDiscovered] = useState<string[]>([]);
@@ -1023,11 +1151,33 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
       runtime: {
         server_software: { name: software.trim() || 'unknown', version: version.trim() || null, build: null },
         api: { schema_family: schemaFamilies.length ? schemaFamilies : ['custom'], api_version: null },
-        hardware: gpu.trim()
-          ? { cpu: { model: null, cores: null }, gpu: [{ vendor: 'unknown', model: gpu.trim(), vram_mb: null }], ram_mb: null }
-          : undefined
+        hardware: {
+          cpu: { model: cpuModel.trim() || null, cores: cpuCores ? parseInt(cpuCores, 10) : null },
+          gpu: gpuModel.trim()
+            ? [{ vendor: gpuVendor, model: gpuModel.trim(), vram_mb: gpuVramGb ? Math.round(parseFloat(gpuVramGb) * 1024) : null, gpu_cores: gpuCores ? parseInt(gpuCores, 10) : null, neural_engine_tops: neuralEngineTops ? parseFloat(neuralEngineTops) : null }]
+            : [],
+          ram_mb: ramGb ? Math.round(parseFloat(ramGb) * 1024) : null,
+        },
+        platform: {
+          os: { name: osName, version: osVersion.trim() || null, arch: osArch },
+          container: {
+            type: containerType,
+            image: containerType !== 'none' && containerType !== 'unknown' ? containerImage.trim() || null : null,
+          },
+        },
       },
-      auth: authPayload
+      auth: authPayload,
+      capabilities: {
+        server:     { streaming: capStreaming, models_endpoint: false },
+        generation: { text: true, json_schema_output: capJsonSchema, tools: capTools, embeddings: capEmbeddings },
+        multimodal: {
+          vision: { input_images: capVisionInput, output_images: false },
+          audio:  { input_audio: capAudioInput,   output_audio: false },
+        },
+        reasoning:   { exposed: capReasoning, token_budget_configurable: capTokenBudget },
+        concurrency: { parallel_requests: capParallelRequests, parallel_tool_calls: false, max_concurrent_requests: null },
+        enforcement: 'server',
+      },
     };
   }
 
@@ -1089,46 +1239,180 @@ function ServerDrawer({ mode, onClose, onSaved, onDelete }: {
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>x</button>
         </div>
         <form onSubmit={handleSubmit} className="drawer-body">
-          <label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
-          <label>Base URL<input className="input--mono" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" required /></label>
-          <div className="drawer-two-col">
-            <label>Software<input value={software} onChange={(event) => setSoftware(event.target.value)} placeholder="vLLM" /></label>
-            <label>Version<input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="0.6.3" /></label>
-          </div>
-          <div>
-            <div className="form-field-label">API families</div>
-            <div className="chip-field">
-              {([
-                ['openai-compatible', 'OpenAI'],
-                ['ollama', 'Ollama'],
-                ['custom', 'Custom']
-              ] as Array<[ApiSchemaFamily, string]>).map(([value, label]) => (
-                <label key={value} className="catalog-checkbox">
-                  <input type="checkbox" checked={schemaFamilies.includes(value)} onChange={() => toggleFamily(value)} />
-                  <span>{label}</span>
+          <div className="drawer-columns">
+
+            {/* ── LEFT: Inference Server ── */}
+            <div className="drawer-col">
+              <div className="form-field-label">Connection</div>
+              <label>Display name<input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required /></label>
+              <label>Base URL<input className="input--mono" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} placeholder="https://api.example.com" required /></label>
+              <div className="drawer-two-col">
+                <label>Software
+                  <input list="software-list" value={software} onChange={(event) => setSoftware(event.target.value)} placeholder="vLLM" />
+                  <datalist id="software-list">
+                    {SOFTWARE_OPTIONS.map((s) => <option key={s} value={s} />)}
+                  </datalist>
                 </label>
-              ))}
+                <label>Version<input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="0.6.3" /></label>
+              </div>
+
+              <div className="form-field-label">API</div>
+              <div>
+                <div className="form-field-label">Families</div>
+                <div className="chip-field">
+                  {([
+                    ['openai-compatible', 'OpenAI'],
+                    ['ollama', 'Ollama'],
+                    ['custom', 'Custom']
+                  ] as Array<[ApiSchemaFamily, string]>).map(([value, label]) => (
+                    <label key={value} className="catalog-checkbox">
+                      <input type="checkbox" checked={schemaFamilies.includes(value)} onChange={() => toggleFamily(value)} />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <label>Auth type<select value={authType} onChange={(event) => setAuthType(event.target.value as 'none' | 'bearer' | 'header')}>
+                <option value="none">None</option>
+                <option value="bearer">Bearer</option>
+                <option value="header">Header</option>
+              </select></label>
+              {authType !== 'none' ? (
+                <>
+                  <label>Auth header name<input value={authHeader} onChange={(event) => setAuthHeader(event.target.value)} /></label>
+                  <label>Auth token<input type="password" value={authToken} onChange={(event) => setAuthToken(event.target.value)} placeholder={editing?.auth.token_present ? 'Stored token unchanged' : ''} /></label>
+                </>
+              ) : null}
+
+              <div className="form-field-label">Capabilities</div>
+              <div className="chip-field">
+                {([
+                  ['Streaming',         capStreaming,        setCapStreaming],
+                  ['Tool calls',        capTools,            setCapTools],
+                  ['Embeddings',        capEmbeddings,       setCapEmbeddings],
+                  ['JSON schema',       capJsonSchema,       setCapJsonSchema],
+                  ['Vision input',      capVisionInput,      setCapVisionInput],
+                  ['Audio input',       capAudioInput,       setCapAudioInput],
+                  ['Reasoning',         capReasoning,        setCapReasoning],
+                  ['Token budget',      capTokenBudget,      setCapTokenBudget],
+                  ['Parallel requests', capParallelRequests, setCapParallelRequests],
+                ] as Array<[string, boolean, (v: boolean) => void]>).map(([label, value, setter]) => (
+                  <label key={label} className="catalog-checkbox">
+                    <input type="checkbox" checked={value} onChange={(event) => setter(event.target.checked)} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {probeState !== 'idle' ? (
+                <div className={`probe-panel probe-panel--${probeState === 'probe-ok' ? 'ok' : probeState === 'probe-failed' ? 'failed' : probeState}`}>
+                  <strong>{probeState === 'probing' ? 'Testing connection...' : probeState === 'probe-ok' ? 'Connection OK' : 'Connection failed'}</strong>
+                  {probeError ? <p>{probeError}</p> : null}
+                  {discovered.length ? <ul>{discovered.slice(0, 8).map((model) => <li key={model}>{model}</li>)}</ul> : null}
+                </div>
+              ) : null}
             </div>
+
+            {/* ── RIGHT: Hosting Server ── */}
+            <div className="drawer-col">
+              <div className="form-field-label">GPU</div>
+              <label>GPU vendor
+                <select value={gpuVendor} onChange={(event) => {
+                  const v = event.target.value as GpuVendor;
+                  setGpuVendor(v);
+                  if (v === 'apple') {
+                    setCpuVendorHint('apple');
+                    setOsName('macos');
+                    setOsArch('arm64');
+                  }
+                }}>
+                  <option value="unknown">Unknown</option>
+                  <option value="nvidia">NVIDIA</option>
+                  <option value="amd">AMD</option>
+                  <option value="apple">Apple</option>
+                  <option value="intel">Intel</option>
+                  <option value="google">Google</option>
+                </select>
+              </label>
+              <label>GPU model
+                <input list="gpu-model-list" value={gpuModel} onChange={(event) => {
+                  setGpuModel(event.target.value);
+                  if (gpuVendor === 'apple') setCpuModel(event.target.value);
+                }} placeholder="RTX 4090" />
+                <datalist id="gpu-model-list">
+                  {GPU_MODELS[gpuVendor].map((m) => <option key={m} value={m} />)}
+                </datalist>
+              </label>
+              <label>VRAM (GB)<input type="number" min="0" step="0.5" value={gpuVramGb} onChange={(event) => setGpuVramGb(event.target.value)} placeholder="24" /></label>
+              {gpuVendor === 'apple' ? (
+                <div className="drawer-two-col">
+                  <label>GPU cores<input type="number" min="1" step="1" value={gpuCores} onChange={(event) => setGpuCores(event.target.value)} placeholder="40" /></label>
+                  <label>Neural Engine (TOPS)<input type="number" min="0" step="1" value={neuralEngineTops} onChange={(event) => setNeuralEngineTops(event.target.value)} placeholder="38" /></label>
+                </div>
+              ) : null}
+
+              <div className="form-field-label">CPU & Memory</div>
+              <label>CPU vendor
+                <select value={cpuVendorHint} onChange={(event) => setCpuVendorHint(event.target.value)}>
+                  <option value="other">Other / Unknown</option>
+                  <option value="apple">Apple</option>
+                  <option value="intel">Intel</option>
+                  <option value="amd">AMD</option>
+                  <option value="arm">ARM / Cloud</option>
+                </select>
+              </label>
+              <label>CPU model
+                <input list="cpu-model-list" value={cpuModel} onChange={(event) => setCpuModel(event.target.value)} placeholder="Core i9-14900K" />
+                <datalist id="cpu-model-list">
+                  {CPU_MODELS[cpuVendorHint].map((m) => <option key={m} value={m} />)}
+                </datalist>
+              </label>
+              <div className="drawer-two-col">
+                <label>Cores<input type="number" min="1" step="1" value={cpuCores} onChange={(event) => setCpuCores(event.target.value)} /></label>
+                <label>RAM (GB)<input type="number" min="0" step="0.5" value={ramGb} onChange={(event) => setRamGb(event.target.value)} /></label>
+              </div>
+
+              <div className="form-field-label">Platform</div>
+              <div className="drawer-two-col">
+                <label>OS
+                  <select data-testid="os-name-select" value={osName} onChange={(event) => { setOsName(event.target.value as OsName); setOsVersion(''); }}>
+                    <option value="unknown">Unknown</option>
+                    <option value="linux">Linux</option>
+                    <option value="macos">macOS</option>
+                    <option value="windows">Windows</option>
+                  </select>
+                </label>
+                <label>Arch
+                  <select data-testid="os-arch-select" value={osArch} onChange={(event) => setOsArch(event.target.value as OsArch)}>
+                    <option value="unknown">Unknown</option>
+                    <option value="arm64">arm64</option>
+                    <option value="x86_64">x86_64</option>
+                  </select>
+                </label>
+              </div>
+              <label>OS version
+                <input list="os-version-list" value={osVersion} onChange={(event) => setOsVersion(event.target.value)} placeholder="22.04 LTS" />
+                <datalist id="os-version-list">
+                  {OS_VERSIONS[osName].map((v) => <option key={v} value={v} />)}
+                </datalist>
+              </label>
+
+              <div className="form-field-label">Container</div>
+              <label>Type
+                <select value={containerType} onChange={(event) => setContainerType(event.target.value as ContainerType)}>
+                  <option value="none">None</option>
+                  <option value="docker">Docker</option>
+                  <option value="podman">Podman</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </label>
+              {containerType !== 'none' && containerType !== 'unknown' ? (
+                <label>Image<input className="input--mono" value={containerImage} onChange={(event) => setContainerImage(event.target.value)} placeholder="ghcr.io/org/image:latest" /></label>
+              ) : null}
+            </div>
+
           </div>
-          <label>Auth type<select value={authType} onChange={(event) => setAuthType(event.target.value as 'none' | 'bearer' | 'header')}>
-            <option value="none">None</option>
-            <option value="bearer">Bearer</option>
-            <option value="header">Header</option>
-          </select></label>
-          {authType !== 'none' ? (
-            <>
-              <label>Auth header name<input value={authHeader} onChange={(event) => setAuthHeader(event.target.value)} /></label>
-              <label>Auth token<input type="password" value={authToken} onChange={(event) => setAuthToken(event.target.value)} placeholder={editing?.auth.token_present ? 'Stored token unchanged' : ''} /></label>
-            </>
-          ) : null}
-          <label>GPU<input value={gpu} onChange={(event) => setGpu(event.target.value)} placeholder="A100 80GB" /></label>
-          {probeState !== 'idle' ? (
-            <div className={`probe-panel probe-panel--${probeState === 'probe-ok' ? 'ok' : probeState === 'probe-failed' ? 'failed' : probeState}`}>
-              <strong>{probeState === 'probing' ? 'Testing connection...' : probeState === 'probe-ok' ? 'Connection OK' : 'Connection failed'}</strong>
-              {probeError ? <p>{probeError}</p> : null}
-              {discovered.length ? <ul>{discovered.slice(0, 8).map((model) => <li key={model}>{model}</li>)}</ul> : null}
-            </div>
-          ) : null}
+
           <div className="drawer-footer">
             {onDelete ? <button type="button" className="btn btn--danger" onClick={onDelete}>Delete server</button> : <span />}
             <div className="actions">

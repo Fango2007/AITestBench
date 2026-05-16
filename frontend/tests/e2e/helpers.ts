@@ -25,6 +25,25 @@ export interface InferenceServerRecord {
     api: {
       schema_family: string[];
     };
+    hardware: {
+      cpu: { model: string | null; cores: number | null };
+      gpu: Array<{ vendor: string; model: string | null; vram_mb: number | null }>;
+      ram_mb: number | null;
+    };
+    platform: {
+      os: { name: string; version: string | null; arch: string };
+      container: { type: string; image: string | null };
+    };
+  };
+  capabilities: {
+    server: { streaming: boolean; models_endpoint: boolean };
+    generation: { text: boolean; json_schema_output: boolean; tools: boolean; embeddings: boolean };
+    multimodal: {
+      vision: { input_images: boolean; output_images: boolean };
+      audio: { input_audio: boolean; output_audio: boolean };
+    };
+    reasoning: { exposed: boolean; token_budget_configurable: boolean };
+    concurrency: { parallel_requests: boolean; parallel_tool_calls: boolean; max_concurrent_requests: number | null };
   };
 }
 
@@ -52,13 +71,23 @@ async function parseJsonResponse<T>(response: APIResponse, label: string): Promi
 
 export async function createInferenceServer(
   request: APIRequestContext,
-  overrides?: Partial<{ display_name: string; base_url: string; schema_family: string[] }>
+  overrides?: Partial<{
+    display_name: string;
+    base_url: string;
+    schema_family: string[];
+    hardware: { gpu: Array<{ vendor: string; model: string | null; vram_mb: number | null }>; cpu: { model: string | null; cores: number | null }; ram_mb: number | null };
+    platform: { os: { name: string; version: string | null; arch: string }; container: { type: string; image: string | null } };
+  }>
 ) {
   const uniqueName = `E2E Server ${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const payload = {
     inference_server: { display_name: overrides?.display_name ?? uniqueName },
     endpoints: { base_url: overrides?.base_url ?? 'http://localhost:11434' },
-    runtime: { api: { schema_family: overrides?.schema_family ?? ['openai-compatible'], api_version: null } }
+    runtime: {
+      api: { schema_family: overrides?.schema_family ?? ['openai-compatible'], api_version: null },
+      ...(overrides?.hardware ? { hardware: overrides.hardware } : {}),
+      ...(overrides?.platform ? { platform: overrides.platform } : {}),
+    }
   };
   const response = await request.post(`${API_BASE_URL}/inference-servers`, {
     data: payload,

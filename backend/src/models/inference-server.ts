@@ -6,7 +6,7 @@ export type ApiSchemaFamily = 'openai-compatible' | 'ollama' | 'custom';
 export type OsName = 'macos' | 'linux' | 'windows' | 'unknown';
 export type OsArch = 'arm64' | 'x86_64' | 'unknown';
 export type ContainerType = 'docker' | 'podman' | 'none' | 'unknown';
-export type GpuVendor = 'nvidia' | 'amd' | 'apple' | 'intel' | 'unknown';
+export type GpuVendor = 'nvidia' | 'amd' | 'apple' | 'intel' | 'google' | 'unknown';
 export type AuthType = 'none' | 'bearer' | 'basic' | 'oauth' | 'custom';
 export type CapabilityEnforcement = 'server';
 
@@ -31,7 +31,7 @@ export interface RuntimeInfo {
   };
   hardware: {
     cpu: { model: string | null; cores: number | null };
-    gpu: Array<{ vendor: GpuVendor; model: string | null; vram_mb: number | null }>;
+    gpu: Array<{ vendor: GpuVendor; model: string | null; vram_mb: number | null; gpu_cores: number | null; neural_engine_tops: number | null }>;
     ram_mb: number | null;
   };
 }

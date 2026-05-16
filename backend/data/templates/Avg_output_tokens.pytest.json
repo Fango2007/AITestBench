@@ -1,9 +1,9 @@
 {
   "kind": "python_test",
   "schema_version": "v1",
-  "id": "Cold_start_penalty",
-  "name": "Cold_start_penalty",
-  "description": "Estimates model cold-start penalty by comparing first request latency vs immediate follow-up latency.",
+  "id": "Avg_output_tokens",
+  "name": "Avg_output_tokens",
+  "description": "Estimates model average output tokens performance.",
   "version": "1.0.0",
   "tags": [
     "perf",
@@ -15,7 +15,7 @@
     "since": "2026-01-21"
   },
   "python": {
-    "module": "tests_python.cold_start_penalty",
+    "module": "tests_python.avg_output_tokens",
     "entrypoint": "entrypoint"
   },
   "contracts": {
@@ -23,7 +23,7 @@
       "http"
     ],
     "provides": [
-      "perf.cold_start_penalty"
+      "perf.avg_output_tokens"
     ]
   },
   "defaults": {

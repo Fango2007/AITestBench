@@ -2839,7 +2839,7 @@ pre.code-block {
 }
 
 .server-drawer {
-  width: min(520px, 100%);
+  width: min(960px, 100%);
   display: flex;
   flex-direction: column;
   background: var(--paper-1);
@@ -2872,9 +2872,27 @@ pre.code-block {
   flex: 1;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.drawer-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.drawer-col {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  overflow: auto;
+  overflow-y: auto;
   padding: 24px;
+}
+
+.drawer-col + .drawer-col {
+  border-left: 1px solid var(--paper-7);
 }
 
 .drawer-body label {
@@ -3270,6 +3288,16 @@ pre.code-block {
 
   .drawer-two-col {
     grid-template-columns: 1fr;
+  }
+
+  .drawer-columns {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .drawer-col + .drawer-col {
+    border-left: none;
+    border-top: 1px solid var(--paper-7);
   }
 
   .model-inspector-grid,

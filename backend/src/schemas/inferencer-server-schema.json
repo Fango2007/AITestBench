@@ -115,10 +115,12 @@
                 "properties": {
                   "vendor": {
                     "type": "string",
-                    "enum": ["nvidia", "amd", "apple", "intel", "unknown"]
+                    "enum": ["nvidia", "amd", "apple", "intel", "google", "unknown"]
                   },
                   "model": { "type": ["string", "null"] },
-                  "vram_mb": { "type": ["number", "null"] }
+                  "vram_mb": { "type": ["number", "null"] },
+                  "gpu_cores": { "type": ["number", "null"] },
+                  "neural_engine_tops": { "type": ["number", "null"] }
                 }
               }
             },
