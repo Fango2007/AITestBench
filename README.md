@@ -128,6 +128,12 @@ Edit `.env` and set at minimum `INFERHARNESS_API_TOKEN`.
 | `INFERHARNESS_DB_PATH` | | `./backend/data/db/inferharness.sqlite` | SQLite file path |
 | `INFERHARNESS_TEST_TEMPLATES_DIR` | | `./backend/data/templates` | Template storage directory |
 | `RETENTION_DAYS` | | `30` | Days to keep run results |
+| `INFERHARNESS_HEALTH_POLL_INTERVAL` | | `30` | Seconds between inference server health checks |
+| `INFERHARNESS_CONTEXT_PROBE_TIMEOUT_MS` | | `300000` | Context probe / discovery TTL in milliseconds |
+| `CONNECTIVITY_TIMEOUT_MS` | | `5000` | HTTP connectivity probe timeout in milliseconds |
+| `INFERHARNESS_INFERENCE_PROXY` | | — | HTTP proxy for outbound inference server requests |
+| `INFERHARNESS_INFERENCE_NO_PROXY` | | `localhost,127.0.0.1` | Comma-separated no-proxy exceptions |
+| `INFERHARNESS_PROXY_PERPLEXITY_DATASET` | | — | Path to dataset file used by the proxy perplexity test protocol |
 | `INFERHARNESS_PYTHON_BIN` | | `python3` | Python executable for subprocesses |
 | `HF_TOKEN` / `HUGGINGFACE_HUB_TOKEN` | | — | Hugging Face token for gated model inspection |
 | `VITE_INFERHARNESS_API_BASE_URL` | | `http://localhost:8080` | Backend URL seen by the browser |
